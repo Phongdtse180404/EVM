@@ -1,0 +1,188 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Business Process Management System Design Tokens */
+
+@layer base {
+  :root {
+    /* Base colors */
+    --background: 240 10% 4%;
+    --foreground: 210 40% 98%;
+
+    /* Card system */
+    --card: 240 8% 8%;
+    --card-foreground: 210 40% 98%;
+    --card-hover: 240 8% 12%;
+
+    /* Process flow colors */
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
+    --primary-glow: 217 91% 70%;
+
+    --secondary: 142 71% 45%;
+    --secondary-foreground: 210 40% 98%;
+    --secondary-glow: 142 71% 55%;
+
+    --accent: 47 96% 53%;
+    --accent-foreground: 240 10% 4%;
+    --accent-glow: 47 96% 63%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 240 10% 4%;
+    --warning-glow: 38 92% 60%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 210 40% 98%;
+
+    --muted: 240 5% 20%;
+    --muted-foreground: 240 5% 65%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 240 6% 15%;
+    --input: 240 6% 15%;
+    --ring: 217 91% 60%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 70%));
+    --gradient-secondary: linear-gradient(135deg, hsl(142 71% 45%), hsl(142 71% 55%));
+    --gradient-accent: linear-gradient(135deg, hsl(47 96% 53%), hsl(47 96% 63%));
+    --gradient-bg: linear-gradient(135deg, hsl(240 10% 4%), hsl(240 8% 8%));
+    --gradient-card: linear-gradient(135deg, hsl(240 8% 8%), hsl(240 8% 12%));
+
+    /* Shadows */
+    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.3);
+    --shadow-card: 0 10px 30px -10px hsl(0 0% 0% / 0.5);
+    --shadow-hover: 0 20px 40px -10px hsl(217 91% 60% / 0.2);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .light {
+    /* Light mode for business environment */
+    --background: 0 0% 98%;
+    --foreground: 240 10% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 15%;
+    --card-hover: 240 20% 96%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 142 71% 45%;
+    --secondary-foreground: 0 0% 98%;
+    --accent: 47 96% 53%;
+    --accent-foreground: 240 10% 15%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 5% 45%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 217 91% 60%;
+    --gradient-bg: linear-gradient(135deg, hsl(0 0% 98%), hsl(240 20% 96%));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(240 20% 98%));
+    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.2);
+    --shadow-card: 0 10px 30px -10px hsl(0 0% 0% / 0.1);
+    --shadow-hover: 0 20px 40px -10px hsl(217 91% 60% / 0.15);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    background: var(--gradient-bg);
+    min-height: 100vh;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary-glow));
+  }
+}
+
+@layer components {
+  /* Flow connector animations */
+  .flow-connector {
+    @apply relative overflow-hidden;
+  }
+
+  .flow-connector::before {
+    content: '';
+    @apply absolute inset-0 opacity-30;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
+    animation: flow 3s ease-in-out infinite;
+  }
+
+  @keyframes flow {
+    0%, 100% { transform: translateX(-100%); }
+    50% { transform: translateX(100%); }
+  }
+
+  /* Glow effects */
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glow-hover:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+  }
+
+  /* Process status indicators */
+  .status-active {
+    @apply relative;
+  }
+
+  .status-active::before {
+    content: '';
+    @apply absolute -top-1 -right-1 w-3 h-3 rounded-full;
+    background: hsl(var(--success));
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.1); }
+  }
+}
