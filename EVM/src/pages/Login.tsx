@@ -7,43 +7,81 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Eye, EyeOff, User, Mail, Lock, Sparkles, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import axios from "axios";
 
 const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
-  const [signupForm, setSignupForm] = useState({ 
-    name: "", 
-    email: "", 
-    password: "", 
-    confirmPassword: "" 
+  const [signupForm, setSignupForm] = useState({
+    name: "",
+    email: "",
+    phoneNumber: "",
+    address: "",
+    password: "",
+    confirmPassword: ""
   });
 
-  const handleLogin = (e: React.FormEvent) => {
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Chỉ UI demo - không có logic thực tế
-    toast.success("Đăng nhập thành công!", {
-      description: "Chào mừng bạn trở lại!",
-      duration: 3000,
-    });
-    navigate('/');
+    try {
+      const response = await await axios.post("/api/auth/login", {
+        email: loginForm.email,
+        password: loginForm.password,
+      });
+
+      // { token, user }
+      const { token, user } = response.data;
+
+      // Lưu token vào localStorage để các request khác dùng
+      localStorage.setItem("token", token);
+
+      toast.success("Đăng nhập thành công!", {
+        description: `Xin chào ${user?.name || "bạn"}!`,
+        duration: 3000,
+      });
+
+      navigate("/");
+    } catch (error: any) {
+      toast.error("Đăng nhập thất bại!", {
+        description: error.response?.data?.message || "Sai email hoặc mật khẩu",
+      });
+    }
   };
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (signupForm.password !== signupForm.confirmPassword) {
       toast.error("Mật khẩu không khớp!", {
         description: "Vui lòng kiểm tra lại mật khẩu",
       });
       return;
     }
-    // Chỉ UI demo - không có logic thực tế
-    toast.success("Đăng ký thành công!", {
-      description: "Tài khoản của bạn đã được tạo!",
-      duration: 3000,
-    });
-    navigate('/');
+
+    try {
+      await axios.post("/api/auth/register", {
+        name: signupForm.name,
+        email: signupForm.email,
+        password: signupForm.password,
+        phoneNumber: signupForm.phoneNumber,
+        address: signupForm.address,
+      });
+
+      toast.success("Đăng ký thành công!", {
+        description: "Tài khoản của bạn đã được tạo!",
+        duration: 3000,
+      });
+
+      // Sau khi đăng ký thành công có thể điều hướng sang login
+      navigate("/");
+    } catch (error: any) {
+      toast.error("Đăng ký thất bại!", {
+        description: error.response?.data?.message || "Có lỗi xảy ra",
+      });
+    }
   };
 
   return (
@@ -57,8 +95,8 @@ const Login = () => {
 
       <div className="w-full max-w-md space-y-6 relative z-10 animate-slide-in">
         {/* Back Button */}
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           onClick={() => navigate('/')}
           className="flex items-center gap-2 hover:bg-background/80 backdrop-blur-sm transition-all duration-200 hover:scale-105 border border-border/50"
         >
@@ -83,7 +121,7 @@ const Login = () => {
         <Card className="bg-background/80 backdrop-blur-xl border-border/50 shadow-2xl overflow-hidden relative">
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none"></div>
-          
+
           <CardHeader className="text-center relative z-10 pb-6">
             <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2">
               <Shield className="w-6 h-6 text-primary" />
@@ -93,24 +131,24 @@ const Login = () => {
               Đăng nhập hoặc tạo tài khoản mới để tiếp tục
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="relative z-10">
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/50 backdrop-blur-sm">
-                <TabsTrigger 
-                  value="login" 
+                <TabsTrigger
+                  value="login"
                   className="data-[state=active]:bg-background data-[state=active]:shadow-lg transition-all duration-200"
                 >
                   Đăng nhập
                 </TabsTrigger>
-                <TabsTrigger 
+                <TabsTrigger
                   value="signup"
                   className="data-[state=active]:bg-background data-[state=active]:shadow-lg transition-all duration-200"
                 >
                   Đăng ký
                 </TabsTrigger>
               </TabsList>
-              
+
               {/* Login Tab */}
               <TabsContent value="login" className="space-y-6">
                 <form onSubmit={handleLogin} className="space-y-6">
@@ -124,12 +162,12 @@ const Login = () => {
                       type="email"
                       placeholder="example@vinfast.vn"
                       value={loginForm.email}
-                      onChange={(e) => setLoginForm({...loginForm, email: e.target.value})}
+                      onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
                       required
                       className="h-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all duration-200"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="login-password" className="text-sm font-medium flex items-center gap-2">
                       <Lock className="w-4 h-4" />
@@ -141,7 +179,7 @@ const Login = () => {
                         type={showPassword ? "text" : "password"}
                         placeholder="••••••••••"
                         value={loginForm.password}
-                        onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                         required
                         className="h-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all duration-200 pr-12"
                       />
@@ -156,14 +194,14 @@ const Login = () => {
                       </Button>
                     </div>
                   </div>
-                  
-                  <Button 
-                    type="submit" 
+
+                  <Button
+                    type="submit"
                     className="w-full h-12 bg-gradient-primary hover:bg-gradient-primary/90 transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg text-white font-semibold"
                   >
                     Đăng nhập
                   </Button>
-                  
+
                   <div className="text-center">
                     <Button variant="link" className="text-sm text-primary hover:text-primary/80 transition-colors">
                       Quên mật khẩu?
@@ -171,7 +209,7 @@ const Login = () => {
                   </div>
                 </form>
               </TabsContent>
-              
+
               {/* Signup Tab */}
               <TabsContent value="signup" className="space-y-6">
                 <form onSubmit={handleSignup} className="space-y-4">
@@ -185,12 +223,12 @@ const Login = () => {
                       type="text"
                       placeholder="Nguyễn Văn A"
                       value={signupForm.name}
-                      onChange={(e) => setSignupForm({...signupForm, name: e.target.value})}
+                      onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
                       required
                       className="h-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all duration-200"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-email" className="text-sm font-medium flex items-center gap-2">
                       <Mail className="w-4 h-4" />
@@ -201,12 +239,12 @@ const Login = () => {
                       type="email"
                       placeholder="example@vinfast.vn"
                       value={signupForm.email}
-                      onChange={(e) => setSignupForm({...signupForm, email: e.target.value})}
+                      onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
                       required
                       className="h-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all duration-200"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-password" className="text-sm font-medium flex items-center gap-2">
                       <Lock className="w-4 h-4" />
@@ -218,7 +256,7 @@ const Login = () => {
                         type={showPassword ? "text" : "password"}
                         placeholder="••••••••••"
                         value={signupForm.password}
-                        onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
+                        onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
                         required
                         className="h-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all duration-200 pr-12"
                       />
@@ -233,7 +271,7 @@ const Login = () => {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="signup-confirm-password" className="text-sm font-medium flex items-center gap-2">
                       <Lock className="w-4 h-4" />
@@ -245,7 +283,7 @@ const Login = () => {
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="••••••••••"
                         value={signupForm.confirmPassword}
-                        onChange={(e) => setSignupForm({...signupForm, confirmPassword: e.target.value})}
+                        onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })}
                         required
                         className="h-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all duration-200 pr-12"
                       />
@@ -260,9 +298,40 @@ const Login = () => {
                       </Button>
                     </div>
                   </div>
-                  
-                  <Button 
-                    type="submit" 
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-phone" className="text-sm font-medium flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Số điện thoại
+                    </Label>
+                    <Input
+                      id="signup-phone"
+                      type="text"
+                      placeholder="0123456789"
+                      value={signupForm.phoneNumber}
+                      onChange={(e) => setSignupForm({ ...signupForm, phoneNumber: e.target.value })} // ✅ camelCase
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-address" className="text-sm font-medium flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Địa chỉ
+                    </Label>
+                    <Input
+                      id="signup-address"
+                      type="text"
+                      placeholder="Hà Nội, Việt Nam"
+                      value={signupForm.address}
+                      onChange={(e) => setSignupForm({ ...signupForm, address: e.target.value })}
+                      required
+                      className="h-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50 transition-all duration-200"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
                     className="w-full h-12 bg-gradient-primary hover:bg-gradient-primary/90 transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg text-white font-semibold mt-6"
                   >
                     Tạo tài khoản
@@ -272,7 +341,7 @@ const Login = () => {
             </Tabs>
           </CardContent>
         </Card>
-        
+
         {/* Demo Notice */}
         <Card className="bg-gradient-to-r from-warning/10 via-warning/5 to-warning/10 border-warning/20 backdrop-blur-sm">
           <CardContent className="pt-6">
