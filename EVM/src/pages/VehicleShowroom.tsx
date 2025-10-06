@@ -230,6 +230,16 @@ export default function VehicleShowroom() {
   const availableVehicles = vehicles.filter(v => v.status === "available").reduce((sum, v) => sum + v.stock, 0);
   const totalValue = vehicles.reduce((sum, v) => sum + (v.price * v.stock), 0);
 
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("token"));
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem("token");
+    toast.success("Đăng xuất thành công");
+    
+    navigate("/");
+  };
+
   return (
     <div className="min-h-screen">
       {/* Top Navigation Bar */}
@@ -310,12 +320,35 @@ export default function VehicleShowroom() {
                 <Phone className="w-4 h-4 mr-2" />
                 Liên hệ tư vấn
               </Button>
-              <Button 
+              {
+              isLoggedIn ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="p-0">
+                    <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-medium">
+                      --User icon here--
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44 z-50 bg-background border border-border shadow-lg">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="flex items-center space-x-2 cursor-pointer hover:bg-destructive/5"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Đăng xuất</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              ) : (
+              <Button
+                variant="outline"
                 onClick={() => navigate("/login")}
-                className="bg-gradient-primary hover:bg-gradient-primary/90 transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                className="transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
               >
                 Đăng nhập
               </Button>
+              )}
             </div>
           </div>
         </div>
