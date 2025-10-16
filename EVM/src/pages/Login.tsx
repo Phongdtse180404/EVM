@@ -32,18 +32,19 @@ const Login = () => {
         password: loginForm.password,
       });
 
-      // { token, user }
-      const { token, user } = response.data;
+  // { token, user }
+  const { token, user } = response.data;
 
-      // Lưu token vào localStorage để các request khác dùng
-      localStorage.setItem("token", token);
+  // Save token under both keys to support different parts of the app
+  localStorage.setItem("token", token);
+  localStorage.setItem("auth_token", token);
 
       toast.success("Đăng nhập thành công!", {
         description: `Xin chào ${user?.name || "bạn"}!`,
         duration: 3000,
       });
-
-      navigate("/");
+      
+      navigate("/admin/users");
     } catch (error: any) {
       toast.error("Đăng nhập thất bại!", {
         description: error.response?.data?.message || "Sai email hoặc mật khẩu",
