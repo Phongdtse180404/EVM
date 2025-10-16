@@ -12,6 +12,7 @@ import SalesManagement from "./pages/SalesManagement";
 import OrderDetails from "./pages/OrderDetails";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import DashboardLayout from "./components/DashboardLayout";
 import Orders from "./pages/admin/Orders";
 import AdminSales from "./pages/admin/Sales";
 import Users from "./pages/admin/Users";
@@ -35,10 +36,38 @@ const App = () => (
           <Route path="/service" element={<ServiceManagement />} />
           <Route path="/login" element={<Login />} />
           {/* Admin pages */}
-          <Route path="/admin/orders" element={<Orders />} />
-          <Route path="/admin/sales" element={<AdminSales />} />
-          <Route path="/admin/users" element={<Users />} />
-          <Route path="/admin/warehouses" element={<AdminWarehouses />} />
+          <Route
+            path="/admin/orders"
+            element={
+              <DashboardLayout>
+                <Orders />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/admin/sales"
+            element={
+              <DashboardLayout>
+                <AdminSales />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <DashboardLayout>
+                <Users />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/admin/warehouses"
+            element={
+              <DashboardLayout>
+                <AdminWarehouses />
+              </DashboardLayout>
+            }
+          />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,23 +1,29 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { LayoutDashboard, Package, Users, Warehouse, Menu } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui_admin/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui_admin/sheet";
+import { applyAdminTheme, removeAdminTheme, adminClasses } from "@/lib/admin-utils";
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
 const navigation = [
-  { name: "Doanh số", href: "/", icon: LayoutDashboard },
-  { name: "Đơn hàng", href: "/orders", icon: Package },
-  { name: "Người dùng", href: "/users", icon: Users },
-  { name: "Kho", href: "/warehouses", icon: Warehouse },
+  { name: "Doanh số", href: "/admin/sales", icon: LayoutDashboard },
+  { name: "Đơn hàng", href: "/admin/orders", icon: Package },
+  { name: "Người dùng", href: "/admin/users", icon: Users },
+  { name: "Kho", href: "/admin/warehouses", icon: Warehouse },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
+  useEffect(() => {
+    applyAdminTheme();
+    return () => removeAdminTheme();
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className={`${adminClasses.page} bg-background`}>
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="flex h-16 items-center gap-4 px-4">
@@ -39,12 +45,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       <div className="flex lg:pt-0 pt-16">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white border-r border-border">
+        <aside className={`hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 ${adminClasses.sidebar} border-r border-sidebar-border`}>
           <SidebarContent />
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 lg:pl-64 bg-white">
+        <main className="flex-1 lg:pl-64">
           <div className="p-6 lg:p-8">{children}</div>
         </main>
       </div>

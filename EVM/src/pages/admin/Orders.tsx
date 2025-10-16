@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui_admin/
 import { Input } from "@/components/ui_admin/input";
 import { Button } from "@/components/ui_admin/button";
 import { Badge } from "@/components/ui_admin/badge";
+import { adminClasses, getStatusBadgeClass } from "@/lib/admin-utils";
 import {
   Table,
   TableBody,
@@ -117,7 +118,7 @@ export default function Orders() {
       </div>
 
       {/* Filters */}
-      <Card className="shadow-soft">
+      <Card className={`${adminClasses.card} shadow-soft`}>
         <CardContent className="p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative flex-1 max-w-md">
@@ -143,7 +144,7 @@ export default function Orders() {
                   <SelectItem value="cancelled">Đã hủy</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline">
+              <Button variant="outline" className={adminClasses.primaryButton}>
                 <Download className="h-4 w-4 mr-2" />
                 Xuất
               </Button>
@@ -153,12 +154,12 @@ export default function Orders() {
       </Card>
 
       {/* Orders Table */}
-      <Card className="shadow-soft">
+      <Card className={`${adminClasses.card} shadow-soft`}>
         <CardHeader>
           <CardTitle>Danh sách đơn hàng</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className={`${adminClasses.table} rounded-md border`}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -188,7 +189,7 @@ export default function Orders() {
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className={statusConfig[order.status as keyof typeof statusConfig].className}
+                          className={getStatusBadgeClass(order.status)}
                         >
                           {statusConfig[order.status as keyof typeof statusConfig].label}
                         </Badge>

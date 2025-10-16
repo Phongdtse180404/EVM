@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui_admin/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui_admin/tooltip";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui_admin/pagination";
+import { adminClasses, getStatusBadgeClass } from "@/lib/admin-utils";
 
 export default function Users() {
   const [users, setUsers] = useState<UserResponse[]>([]);
@@ -35,10 +36,13 @@ export default function Users() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
+      console.log('Attempting to fetch users...');
       const fetchedUsers = await apiService.getUsers();
+      console.log('Fetched users:', fetchedUsers);
       
       setUsers(fetchedUsers);
     } catch (error) {
+      console.error('Error fetching users:', error);
       toast({
         title: "Lỗi",
         description: "Không thể tải danh sách người dùng",
