@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,27 +12,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Plus, Search, Edit, Phone, Mail, Calendar, Car, Users, TrendingUp, Star, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import axios from "axios";
 
 interface Customer {
   id: string;
   name: string;
   phone: string;
-  email: string;
-  address: string;
-  status: 'lead' | 'interested' | 'test_drive' | 'negotiating' | 'purchased' | 'follow_up';
-  source: 'website' | 'referral' | 'showroom' | 'social' | 'advertising';
   interestedVehicle: string;
   assignedSales: string;
-  createdAt: string;
-  lastContact: string;
-  notes: string;
-  testDriveScheduled?: string;
-  purchaseHistory?: string[];
+  status: string;
 }
 
 interface TestDrive {
   id: string;
-  customerId: string;
+  customerid: string;
   customerName: string;
   vehicleModel: string;
   scheduledDate: string;
@@ -53,100 +46,50 @@ const CustomerManagement = () => {
   const [isTestDriveDialogOpen, setIsTestDriveDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-  const [customers, setCustomers] = useState<Customer[]>([
-    {
-      id: '1',
-      name: 'Nguyễn Văn An',
-      phone: '0901234567',
-      email: 'nguyenvanan@email.com',
-      address: '123 Đường ABC, Quận 1, TP.HCM',
-      status: 'interested',
-      source: 'website',
-      interestedVehicle: 'Tesla Model 3',
-      assignedSales: 'Trần Thị B',
-      createdAt: '2024-01-15',
-      lastContact: '2024-01-20',
-      notes: 'Quan tâm đến xe điện, cần tư vấn về pin và bảo hành'
-    },
-    {
-      id: '2',
-      name: 'Lê Thị Cẩm',
-      phone: '0912345678',
-      email: 'lethicam@email.com',
-      address: '456 Đường DEF, Quận 7, TP.HCM',
-      status: 'test_drive',
-      source: 'referral',
-      interestedVehicle: 'VinFast VF8',
-      assignedSales: 'Nguyễn Văn C',
-      createdAt: '2024-01-10',
-      lastContact: '2024-01-18',
-      notes: 'Đã đặt lịch lái thử, quan tâm đến màu xanh',
-      testDriveScheduled: '2024-01-25'
-    },
-    {
-      id: '3',
-      name: 'Phạm Hoàng Dũng',
-      phone: '0923456789',
-      email: 'phamhoangdung@email.com',
-      address: '789 Đường GHI, Quận Bình Thạnh, TP.HCM',
-      status: 'purchased',
-      source: 'showroom',
-      interestedVehicle: 'BYD Atto 3',
-      assignedSales: 'Trần Thị B',
-      createdAt: '2024-01-05',
-      lastContact: '2024-01-22',
-      notes: 'Đã mua xe, cần chăm sóc hậu mãi',
-      purchaseHistory: ['BYD Atto 3 - 768.000.000 VNĐ']
-    },
-    {
-      id: '4',
-      name: 'Võ Thị Mai',
-      phone: '0934567890',
-      email: 'vothimai@email.com',
-      address: '321 Đường JKL, Quận 3, TP.HCM',
-      status: 'negotiating',
-      source: 'advertising',
-      interestedVehicle: 'Hyundai IONIQ 5',
-      assignedSales: 'Nguyễn Văn C',
-      createdAt: '2024-01-12',
-      lastContact: '2024-01-21',
-      notes: 'Đang thương lượng giá, có thể đóng cọc tuần tới'
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+
+  const fetchCustomers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get("/api/customers", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCustomers(response.data);
+      setFilteredCustomers(response.data);
+    } catch (error: any) {
+      console.error("Lỗi khi lấy danh sách khách hàng:", error);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  useEffect(() => {
+    const result = customers.filter((customer) => {
+      const matchesSearch =
+        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.phone.includes(searchTerm);
+      const matchesStatus =
+        filterStatus === "all" || customer.status === filterStatus;
+      const matchesSales =
+        filterSales === "all" || customer.assignedSales === filterSales;
+      return matchesSearch && matchesStatus && matchesSales;
+    });
+
+    setFilteredCustomers(result);
+  }, [customers, searchTerm, filterStatus, filterSales]);
 
   const [testDrives, setTestDrives] = useState<TestDrive[]>([
-    {
-      id: '1',
-      customerId: '2',
-      customerName: 'Lê Thị Cẩm',
-      vehicleModel: 'VinFast VF8',
-      scheduledDate: '2024-01-25T10:00',
-      duration: 60,
-      status: 'scheduled'
-    },
-    {
-      id: '2',
-      customerId: '1',
-      customerName: 'Nguyễn Văn An',
-      vehicleModel: 'Tesla Model 3',
-      scheduledDate: '2024-01-23T14:00',
-      duration: 45,
-      status: 'completed',
-      feedback: 'Khách hàng rất hài lòng với trải nghiệm lái',
-      rating: 5
-    }
   ]);
 
   const [newCustomer, setNewCustomer] = useState<Partial<Customer>>({
     name: '',
     phone: '',
-    email: '',
-    address: '',
-    status: 'lead',
-    source: 'website',
+    status: 'LEAD',
     interestedVehicle: '',
     assignedSales: '',
-    notes: ''
   });
 
   const [newTestDrive, setNewTestDrive] = useState({
@@ -158,14 +101,6 @@ const CustomerManagement = () => {
   const salesTeam = ['Trần Thị B', 'Nguyễn Văn C', 'Lê Hoàng D', 'Phạm Thị E'];
   const vehicleModels = ['Tesla Model 3', 'VinFast VF8', 'BYD Atto 3', 'Hyundai IONIQ 5'];
 
-  const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.phone.includes(searchTerm) ||
-                         customer.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || customer.status === filterStatus;
-    const matchesSales = filterSales === 'all' || customer.assignedSales === filterSales;
-    return matchesSearch && matchesStatus && matchesSales;
-  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -201,42 +136,36 @@ const CustomerManagement = () => {
     }
   };
 
-  const handleAddCustomer = () => {
-    if (!newCustomer.name || !newCustomer.phone) {
-      toast.error('Vui lòng nhập tên và số điện thoại');
-      return;
+  const handleAddCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await axios.post(
+        "/api/customers",
+        {
+          interest_vehicle: newCustomer.interestedVehicle,
+          name: newCustomer.name,
+          phone_number: newCustomer.phone,
+          status: newCustomer.status,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      toast.success("Thêm khách hàng thành công!");
+      console.log("Dữ liệu trả về:", response.data);
+      // load lại danh sách
+    } catch (error: any) {
+      toast.error("Thêm khách hàng thất bại!", {
+        description: error.response?.data?.message || "Vui lòng kiểm tra lại thông tin.",
+      });
     }
-
-    const customer: Customer = {
-      id: Date.now().toString(),
-      name: newCustomer.name!,
-      phone: newCustomer.phone!,
-      email: newCustomer.email || '',
-      address: newCustomer.address || '',
-      status: newCustomer.status as Customer['status'] || 'lead',
-      source: newCustomer.source as Customer['source'] || 'website',
-      interestedVehicle: newCustomer.interestedVehicle || '',
-      assignedSales: newCustomer.assignedSales || '',
-      createdAt: new Date().toISOString().split('T')[0],
-      lastContact: new Date().toISOString().split('T')[0],
-      notes: newCustomer.notes || ''
-    };
-
-    setCustomers([...customers, customer]);
-    setNewCustomer({
-      name: '',
-      phone: '',
-      email: '',
-      address: '',
-      status: 'lead',
-      source: 'website',
-      interestedVehicle: '',
-      assignedSales: '',
-      notes: ''
-    });
-    setIsAddDialogOpen(false);
-    toast.success('Đã thêm khách hàng mới');
   };
+
 
   const handleEditCustomer = () => {
     if (!editingCustomer) return;
@@ -255,7 +184,7 @@ const CustomerManagement = () => {
 
     const testDrive: TestDrive = {
       id: Date.now().toString(),
-      customerId: selectedCustomer.id,
+      customerid: selectedCustomer.id,
       customerName: selectedCustomer.name,
       vehicleModel: newTestDrive.vehicleModel,
       scheduledDate: newTestDrive.scheduledDate,
@@ -264,10 +193,10 @@ const CustomerManagement = () => {
     };
 
     setTestDrives([...testDrives, testDrive]);
-    
+
     // Update customer status
-    setCustomers(customers.map(c => 
-      c.id === selectedCustomer.id 
+    setCustomers(customers.map(c =>
+      c.id === selectedCustomer.id
         ? { ...c, status: 'test_drive', testDriveScheduled: newTestDrive.scheduledDate }
         : c
     ));
@@ -286,7 +215,7 @@ const CustomerManagement = () => {
     const totalLeads = customers.length;
     const converted = customers.filter(c => c.status === 'purchased').length;
     const conversionRate = totalLeads > 0 ? (converted / totalLeads * 100) : 0;
-    const testDrivesThisMonth = testDrives.filter(td => 
+    const testDrivesThisMonth = testDrives.filter(td =>
       new Date(td.scheduledDate).getMonth() === new Date().getMonth()
     ).length;
 
@@ -399,12 +328,10 @@ const CustomerManagement = () => {
 
         {/* Main Content */}
         <Tabs defaultValue="customers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="customers">Khách hàng</TabsTrigger>
             <TabsTrigger value="test-drives">Lái thử</TabsTrigger>
-            <TabsTrigger value="sales-kpi">KPI Sales</TabsTrigger>
           </TabsList>
-
           <TabsContent value="customers" className="space-y-6">
             {/* Search and Filters */}
             <Card className="bg-gradient-card border-border/50">
@@ -427,11 +354,8 @@ const CustomerManagement = () => {
                       <SelectContent>
                         <SelectItem value="all">Tất cả trạng thái</SelectItem>
                         <SelectItem value="lead">Lead mới</SelectItem>
-                        <SelectItem value="interested">Quan tâm</SelectItem>
-                        <SelectItem value="test_drive">Lái thử</SelectItem>
-                        <SelectItem value="negotiating">Thương lượng</SelectItem>
                         <SelectItem value="purchased">Đã mua</SelectItem>
-                        <SelectItem value="follow_up">Theo dõi</SelectItem>
+                        <SelectItem value="test_drive">Lái thử</SelectItem>
                       </SelectContent>
                     </Select>
                     <Select value={filterSales} onValueChange={setFilterSales}>
@@ -463,7 +387,7 @@ const CustomerManagement = () => {
                           <Input
                             id="name"
                             value={newCustomer.name}
-                            onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
                             placeholder="Nguyễn Văn A"
                           />
                         </div>
@@ -472,35 +396,23 @@ const CustomerManagement = () => {
                           <Input
                             id="phone"
                             value={newCustomer.phone}
-                            onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
                             placeholder="0901234567"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="email">Email</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={newCustomer.email}
-                            onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
-                            placeholder="example@email.com"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="source">Nguồn khách hàng</Label>
+                          <Label htmlFor="edit-status">Trạng thái</Label>
                           <Select
-                            value={newCustomer.source}
-                            onValueChange={(value) => setNewCustomer({...newCustomer, source: value as Customer['source']})}
+                            value={editingCustomer?.status ?? 'lead'}
+                            onValueChange={(value) => setEditingCustomer({ ...editingCustomer, status: value as Customer['status'] })}
                           >
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="website">Website</SelectItem>
-                              <SelectItem value="referral">Giới thiệu</SelectItem>
-                              <SelectItem value="showroom">Showroom</SelectItem>
-                              <SelectItem value="social">Mạng xã hội</SelectItem>
-                              <SelectItem value="advertising">Quảng cáo</SelectItem>
+                              <SelectItem value="lead">Lead mới</SelectItem>
+                              <SelectItem value="purchased">Đã mua</SelectItem>
+                              <SelectItem value="test_drive">Lái thử</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -508,7 +420,7 @@ const CustomerManagement = () => {
                           <Label htmlFor="vehicle">Xe quan tâm</Label>
                           <Select
                             value={newCustomer.interestedVehicle}
-                            onValueChange={(value) => setNewCustomer({...newCustomer, interestedVehicle: value})}
+                            onValueChange={(value) => setNewCustomer({ ...newCustomer, interestedVehicle: value })}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Chọn mẫu xe" />
@@ -524,7 +436,7 @@ const CustomerManagement = () => {
                           <Label htmlFor="sales">Sales phụ trách</Label>
                           <Select
                             value={newCustomer.assignedSales}
-                            onValueChange={(value) => setNewCustomer({...newCustomer, assignedSales: value})}
+                            onValueChange={(value) => setNewCustomer({ ...newCustomer, assignedSales: value })}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Chọn sales" />
@@ -535,24 +447,6 @@ const CustomerManagement = () => {
                               ))}
                             </SelectContent>
                           </Select>
-                        </div>
-                        <div className="col-span-2">
-                          <Label htmlFor="address">Địa chỉ</Label>
-                          <Input
-                            id="address"
-                            value={newCustomer.address}
-                            onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
-                            placeholder="123 Đường ABC, Quận X, TP.HCM"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Label htmlFor="notes">Ghi chú</Label>
-                          <Textarea
-                            id="notes"
-                            value={newCustomer.notes}
-                            onChange={(e) => setNewCustomer({...newCustomer, notes: e.target.value})}
-                            placeholder="Ghi chú về khách hàng..."
-                          />
                         </div>
                       </div>
                       <DialogFooter>
@@ -585,7 +479,6 @@ const CustomerManagement = () => {
                         <TableHead>Xe quan tâm</TableHead>
                         <TableHead>Sales</TableHead>
                         <TableHead>Trạng thái</TableHead>
-                        <TableHead>Liên hệ cuối</TableHead>
                         <TableHead>Thao tác</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -593,35 +486,17 @@ const CustomerManagement = () => {
                       {filteredCustomers.map((customer) => (
                         <TableRow key={customer.id}>
                           <TableCell>
-                            <div>
-                              <div className="font-medium">{customer.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {customer.source === 'website' && 'Website'}
-                                {customer.source === 'referral' && 'Giới thiệu'}
-                                {customer.source === 'showroom' && 'Showroom'}
-                                {customer.source === 'social' && 'Mạng xã hội'}
-                                {customer.source === 'advertising' && 'Quảng cáo'}
-                              </div>
-                            </div>
+                            <div className="font-medium">{customer.name}</div>
                           </TableCell>
                           <TableCell>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1 text-sm">
-                                <Phone className="w-3 h-3" />
-                                {customer.phone}
-                              </div>
-                              {customer.email && (
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                  <Mail className="w-3 h-3" />
-                                  {customer.email}
-                                </div>
-                              )}
+                            <div className="flex items-center gap-1 text-sm">
+                              <Phone className="w-3 h-3" />
+                              {customer.phone}
                             </div>
                           </TableCell>
                           <TableCell>{customer.interestedVehicle || 'Chưa xác định'}</TableCell>
                           <TableCell>{customer.assignedSales || 'Chưa phân'}</TableCell>
                           <TableCell>{getStatusBadge(customer.status)}</TableCell>
-                          <TableCell className="text-sm">{customer.lastContact}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Button
@@ -701,73 +576,6 @@ const CustomerManagement = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="sales-kpi" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="bg-gradient-card border-border/50">
-                <CardHeader>
-                  <CardTitle>KPI theo Sales</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {salesTeam.map((sales) => {
-                      const salesCustomers = customers.filter(c => c.assignedSales === sales);
-                      const purchased = salesCustomers.filter(c => c.status === 'purchased').length;
-                      const conversionRate = salesCustomers.length > 0 ? (purchased / salesCustomers.length * 100) : 0;
-                      
-                      return (
-                        <div key={sales} className="flex items-center justify-between p-4 rounded-lg border">
-                          <div>
-                            <div className="font-medium">{sales}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {salesCustomers.length} leads • {purchased} chuyển đổi
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold text-lg">{conversionRate.toFixed(1)}%</div>
-                            <div className="text-sm text-muted-foreground">Tỉ lệ chuyển đổi</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-card border-border/50">
-                <CardHeader>
-                  <CardTitle>Thống kê theo trạng thái</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { status: 'lead', label: 'Lead mới' },
-                      { status: 'interested', label: 'Quan tâm' },
-                      { status: 'test_drive', label: 'Lái thử' },
-                      { status: 'negotiating', label: 'Thương lượng' },
-                      { status: 'purchased', label: 'Đã mua' },
-                      { status: 'follow_up', label: 'Theo dõi' }
-                    ].map(({ status, label }) => {
-                      const count = customers.filter(c => c.status === status).length;
-                      const percentage = customers.length > 0 ? (count / customers.length * 100) : 0;
-                      
-                      return (
-                        <div key={status} className="flex items-center justify-between p-4 rounded-lg border">
-                          <div className="flex items-center gap-3">
-                            {getStatusBadge(status)}
-                            <span>{label}</span>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold text-lg">{count}</div>
-                            <div className="text-sm text-muted-foreground">{percentage.toFixed(1)}%</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
         </Tabs>
 
         {/* Edit Customer Dialog */}
@@ -783,7 +591,7 @@ const CustomerManagement = () => {
                   <Input
                     id="edit-name"
                     value={editingCustomer.name}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, name: e.target.value})}
+                    onChange={(e) => setEditingCustomer({ ...editingCustomer, name: e.target.value })}
                   />
                 </div>
                 <div>
@@ -791,33 +599,22 @@ const CustomerManagement = () => {
                   <Input
                     id="edit-phone"
                     value={editingCustomer.phone}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, phone: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-email">Email</Label>
-                  <Input
-                    id="edit-email"
-                    value={editingCustomer.email}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, email: e.target.value})}
+                    onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
                   />
                 </div>
                 <div>
                   <Label htmlFor="edit-status">Trạng thái</Label>
                   <Select
-                    value={editingCustomer.status}
-                    onValueChange={(value) => setEditingCustomer({...editingCustomer, status: value as Customer['status']})}
+                    value={editingCustomer?.status ?? 'lead'}
+                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, status: value as Customer['status'] })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="lead">Lead mới</SelectItem>
-                      <SelectItem value="interested">Quan tâm</SelectItem>
-                      <SelectItem value="test_drive">Lái thử</SelectItem>
-                      <SelectItem value="negotiating">Thương lượng</SelectItem>
                       <SelectItem value="purchased">Đã mua</SelectItem>
-                      <SelectItem value="follow_up">Theo dõi</SelectItem>
+                      <SelectItem value="test_drive">Lái thử</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -825,7 +622,7 @@ const CustomerManagement = () => {
                   <Label htmlFor="edit-vehicle">Xe quan tâm</Label>
                   <Select
                     value={editingCustomer.interestedVehicle}
-                    onValueChange={(value) => setEditingCustomer({...editingCustomer, interestedVehicle: value})}
+                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, interestedVehicle: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -841,7 +638,7 @@ const CustomerManagement = () => {
                   <Label htmlFor="edit-sales">Sales phụ trách</Label>
                   <Select
                     value={editingCustomer.assignedSales}
-                    onValueChange={(value) => setEditingCustomer({...editingCustomer, assignedSales: value})}
+                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, assignedSales: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -852,22 +649,6 @@ const CustomerManagement = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="col-span-2">
-                  <Label htmlFor="edit-address">Địa chỉ</Label>
-                  <Input
-                    id="edit-address"
-                    value={editingCustomer.address}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, address: e.target.value})}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Label htmlFor="edit-notes">Ghi chú</Label>
-                  <Textarea
-                    id="edit-notes"
-                    value={editingCustomer.notes}
-                    onChange={(e) => setEditingCustomer({...editingCustomer, notes: e.target.value})}
-                  />
                 </div>
               </div>
             )}
@@ -896,7 +677,7 @@ const CustomerManagement = () => {
                   <Label htmlFor="test-vehicle">Xe lái thử</Label>
                   <Select
                     value={newTestDrive.vehicleModel}
-                    onValueChange={(value) => setNewTestDrive({...newTestDrive, vehicleModel: value})}
+                    onValueChange={(value) => setNewTestDrive({ ...newTestDrive, vehicleModel: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn mẫu xe" />
@@ -914,14 +695,14 @@ const CustomerManagement = () => {
                     id="test-date"
                     type="datetime-local"
                     value={newTestDrive.scheduledDate}
-                    onChange={(e) => setNewTestDrive({...newTestDrive, scheduledDate: e.target.value})}
+                    onChange={(e) => setNewTestDrive({ ...newTestDrive, scheduledDate: e.target.value })}
                   />
                 </div>
                 <div>
                   <Label htmlFor="test-duration">Thời lượng (phút)</Label>
                   <Select
                     value={newTestDrive.duration.toString()}
-                    onValueChange={(value) => setNewTestDrive({...newTestDrive, duration: parseInt(value)})}
+                    onValueChange={(value) => setNewTestDrive({ ...newTestDrive, duration: parseInt(value) })}
                   >
                     <SelectTrigger>
                       <SelectValue />
