@@ -12,6 +12,11 @@ import SalesManagement from "./pages/SalesManagement";
 import OrderDetails from "./pages/OrderDetails";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import DashboardLayout from "./components/DashboardLayout";
+import Orders from "./pages/admin/Orders";
+import AdminSales from "./pages/admin/Sales";
+import Users from "./pages/admin/Users";
+import AdminWarehouses from "./pages/admin/Warehouses";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +35,39 @@ const App = () => (
           <Route path="/reports" element={<ReportsManagement />} />
           <Route path="/service" element={<ServiceManagement />} />
           <Route path="/login" element={<Login />} />
+          {/* Admin pages */}
+          <Route
+            path="/admin/orders"
+            element={
+              <DashboardLayout>
+                <Orders />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/admin/sales"
+            element={
+              <DashboardLayout>
+                <AdminSales />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <DashboardLayout>
+                <Users />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/admin/warehouses"
+            element={
+              <DashboardLayout>
+                <AdminWarehouses />
+              </DashboardLayout>
+            }
+          />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
