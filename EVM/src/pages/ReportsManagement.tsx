@@ -11,12 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { 
-  BarChart3, 
-  Download, 
-  Calendar, 
-  Clock, 
-  TrendingUp, 
+import {
+  BarChart3,
+  Download,
+  Calendar,
+  Clock,
+  TrendingUp,
   TrendingDown,
   FileText,
   Search,
@@ -35,14 +35,14 @@ const ReportsManagement = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
   const [isAutoRefresh, setIsAutoRefresh] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   // Form states for new report
   const [reportType, setReportType] = useState("sales");
   const [reportFormat, setReportFormat] = useState("excel");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [reportNote, setReportNote] = useState("");
-  
+
   // Schedule form states
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [scheduleName, setScheduleName] = useState("");
@@ -66,7 +66,7 @@ const ReportsManagement = () => {
       accuracy: "99.8%"
     },
     {
-      id: "RPT002", 
+      id: "RPT002",
       name: "Báo cáo doanh số tuần 38",
       period: "2024-W38",
       type: "Tuần",
@@ -103,12 +103,12 @@ const ReportsManagement = () => {
     }
 
     setIsGenerating(true);
-    
+
     // Simulate API call
     setTimeout(() => {
       const reportTypeNames = {
         sales: "Doanh số",
-        debt: "Công nợ", 
+        debt: "Công nợ",
         combined: "Tổng hợp"
       };
 
@@ -134,14 +134,14 @@ const ReportsManagement = () => {
       };
 
       setSalesReports(prev => [newReport, ...prev]);
-      
+
       // Reset form
       setFromDate("");
       setToDate("");
       setReportNote("");
-      
+
       setIsGenerating(false);
-      
+
       toast({
         title: "Tạo báo cáo thành công!",
         description: `Báo cáo ${newReport.name} đã được tạo trong ${Math.floor(Math.random() * 3 + 2)}.${Math.floor(Math.random() * 9)}s`,
@@ -161,7 +161,7 @@ const ReportsManagement = () => {
     {
       id: "SCH002",
       name: "Báo cáo KPI tuần",
-      frequency: "Hàng tuần", 
+      frequency: "Hàng tuần",
       nextRun: "2024-09-23 10:00",
       recipients: ["manager@company.com"],
       status: "active"
@@ -181,7 +181,7 @@ const ReportsManagement = () => {
 
     const frequencyMap = {
       daily: "Hàng ngày",
-      weekly: "Hàng tuần", 
+      weekly: "Hàng tuần",
       monthly: "Hàng tháng",
       quarterly: "Hàng quý"
     };
@@ -215,7 +215,7 @@ const ReportsManagement = () => {
     };
 
     setScheduledReports(prev => [newSchedule, ...prev]);
-    
+
     // Reset form
     setScheduleName("");
     setScheduleRecipients("");
@@ -223,7 +223,7 @@ const ReportsManagement = () => {
     setScheduleFrequency("monthly");
     setScheduleReportType("sales");
     setIsScheduleDialogOpen(false);
-    
+
     toast({
       title: "Tạo lịch thành công!",
       description: `Lịch "${scheduleName}" đã được tạo và sẽ chạy ${frequencyMap[scheduleFrequency as keyof typeof frequencyMap].toLowerCase()}`,
@@ -240,7 +240,7 @@ const ReportsManagement = () => {
     {
       title: "Số đơn hàng",
       value: "156",
-      change: "+8.2%", 
+      change: "+8.2%",
       trend: "up"
     },
     {
@@ -287,10 +287,10 @@ const ReportsManagement = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/showroom')}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Quay lại
@@ -304,11 +304,11 @@ const ReportsManagement = () => {
             </p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Label htmlFor="auto-refresh" className="text-sm">Tự động làm mới</Label>
-            <Switch 
+            <Switch
               id="auto-refresh"
               checked={isAutoRefresh}
               onCheckedChange={setIsAutoRefresh}
@@ -442,7 +442,7 @@ const ReportsManagement = () => {
         <TabsContent value="generate" className="space-y-6">
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-6">Tạo báo cáo mới</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -493,8 +493,8 @@ const ReportsManagement = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Từ ngày</Label>
-                  <Input 
-                    type="date" 
+                  <Input
+                    type="date"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
                   />
@@ -502,8 +502,8 @@ const ReportsManagement = () => {
 
                 <div className="space-y-2">
                   <Label>Đến ngày</Label>
-                  <Input 
-                    type="date" 
+                  <Input
+                    type="date"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
                   />
@@ -511,8 +511,8 @@ const ReportsManagement = () => {
 
                 <div className="space-y-2">
                   <Label>Ghi chú</Label>
-                  <Input 
-                    placeholder="Thêm ghi chú cho báo cáo..." 
+                  <Input
+                    placeholder="Thêm ghi chú cho báo cáo..."
                     value={reportNote}
                     onChange={(e) => setReportNote(e.target.value)}
                   />
@@ -529,8 +529,8 @@ const ReportsManagement = () => {
                   <Calendar className="w-4 h-4 mr-2" />
                   Lưu làm mẫu
                 </Button>
-                <Button 
-                  className="bg-gradient-primary" 
+                <Button
+                  className="bg-gradient-primary"
                   onClick={handleGenerateReport}
                   disabled={isGenerating}
                 >
@@ -558,17 +558,17 @@ const ReportsManagement = () => {
                   <DialogHeader>
                     <DialogTitle>Tạo lịch báo cáo tự động</DialogTitle>
                   </DialogHeader>
-                  
+
                   <div className="grid grid-cols-2 gap-4 py-4">
                     <div className="space-y-2">
                       <Label>Tên lịch báo cáo</Label>
-                      <Input 
+                      <Input
                         placeholder="VD: Báo cáo doanh số hàng tháng"
                         value={scheduleName}
                         onChange={(e) => setScheduleName(e.target.value)}
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label>Loại báo cáo</Label>
                       <Select value={scheduleReportType} onValueChange={setScheduleReportType}>
@@ -582,7 +582,7 @@ const ReportsManagement = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label>Tần suất</Label>
                       <Select value={scheduleFrequency} onValueChange={setScheduleFrequency}>
@@ -597,26 +597,26 @@ const ReportsManagement = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label>Thời gian chạy</Label>
-                      <Input 
-                        type="time" 
+                      <Input
+                        type="time"
                         value={scheduleTime}
                         onChange={(e) => setScheduleTime(e.target.value)}
                       />
                     </div>
-                    
+
                     <div className="col-span-2 space-y-2">
                       <Label>Danh sách người nhận (phân cách bằng dấu phẩy)</Label>
-                      <Input 
+                      <Input
                         placeholder="email1@company.com, email2@company.com"
                         value={scheduleRecipients}
                         onChange={(e) => setScheduleRecipients(e.target.value)}
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-end gap-3">
                     <Button variant="outline" onClick={() => setIsScheduleDialogOpen(false)}>
                       Hủy

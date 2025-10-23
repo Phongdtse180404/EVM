@@ -1,8 +1,8 @@
 import { ReactNode, useEffect } from "react";
 import { LayoutDashboard, Package, Users, Warehouse, Menu } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { Button } from "@/components/ui_admin/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui_admin/sheet";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { applyAdminTheme, removeAdminTheme, adminClasses } from "@/lib/admin-utils";
 
 interface DashboardLayoutProps {
@@ -76,10 +76,9 @@ function SidebarContent() {
             to={item.href}
             end
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-primary"
-                  : "text-foreground hover:bg-sidebar-accent/50"
+              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive
+                ? "bg-sidebar-accent text-sidebar-primary"
+                : "text-foreground hover:bg-sidebar-accent/50"
               }`
             }
           >

@@ -110,8 +110,8 @@ const InventoryManagement = () => {
 
   const filteredVehicles = vehicles.filter(vehicle => {
     const matchesSearch = vehicle.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         vehicle.vin.toLowerCase().includes(searchTerm.toLowerCase());
+      vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.vin.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || vehicle.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
@@ -202,7 +202,7 @@ const InventoryManagement = () => {
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/showroom')}
               className="flex items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -320,7 +320,7 @@ const InventoryManagement = () => {
                       <Input
                         id="brand"
                         value={newVehicle.brand}
-                        onChange={(e) => setNewVehicle({...newVehicle, brand: e.target.value})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, brand: e.target.value })}
                         placeholder="Tesla, VinFast, BYD..."
                       />
                     </div>
@@ -329,7 +329,7 @@ const InventoryManagement = () => {
                       <Input
                         id="model"
                         value={newVehicle.model}
-                        onChange={(e) => setNewVehicle({...newVehicle, model: e.target.value})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })}
                         placeholder="Model 3, VF8, Atto 3..."
                       />
                     </div>
@@ -339,7 +339,7 @@ const InventoryManagement = () => {
                         id="year"
                         type="number"
                         value={newVehicle.year}
-                        onChange={(e) => setNewVehicle({...newVehicle, year: parseInt(e.target.value)})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, year: parseInt(e.target.value) })}
                       />
                     </div>
                     <div>
@@ -347,7 +347,7 @@ const InventoryManagement = () => {
                       <Input
                         id="color"
                         value={newVehicle.color}
-                        onChange={(e) => setNewVehicle({...newVehicle, color: e.target.value})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, color: e.target.value })}
                         placeholder="Trắng, Đen, Xanh..."
                       />
                     </div>
@@ -357,7 +357,7 @@ const InventoryManagement = () => {
                         id="battery"
                         type="number"
                         value={newVehicle.batteryCapacity}
-                        onChange={(e) => setNewVehicle({...newVehicle, batteryCapacity: parseFloat(e.target.value)})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, batteryCapacity: parseFloat(e.target.value) })}
                       />
                     </div>
                     <div>
@@ -366,7 +366,7 @@ const InventoryManagement = () => {
                         id="range"
                         type="number"
                         value={newVehicle.range}
-                        onChange={(e) => setNewVehicle({...newVehicle, range: parseInt(e.target.value)})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, range: parseInt(e.target.value) })}
                       />
                     </div>
                     <div>
@@ -375,7 +375,7 @@ const InventoryManagement = () => {
                         id="price"
                         type="number"
                         value={newVehicle.price}
-                        onChange={(e) => setNewVehicle({...newVehicle, price: parseInt(e.target.value)})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, price: parseInt(e.target.value) })}
                       />
                     </div>
                     <div>
@@ -384,7 +384,7 @@ const InventoryManagement = () => {
                         id="stock"
                         type="number"
                         value={newVehicle.stock}
-                        onChange={(e) => setNewVehicle({...newVehicle, stock: parseInt(e.target.value)})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, stock: parseInt(e.target.value) })}
                       />
                     </div>
                     <div>
@@ -392,7 +392,7 @@ const InventoryManagement = () => {
                       <Input
                         id="vin"
                         value={newVehicle.vin}
-                        onChange={(e) => setNewVehicle({...newVehicle, vin: e.target.value})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, vin: e.target.value })}
                         placeholder="Số khung xe"
                       />
                     </div>
@@ -400,7 +400,7 @@ const InventoryManagement = () => {
                       <Label htmlFor="status">Trạng thái</Label>
                       <Select
                         value={newVehicle.status}
-                        onValueChange={(value) => setNewVehicle({...newVehicle, status: value as ElectricVehicle['status']})}
+                        onValueChange={(value) => setNewVehicle({ ...newVehicle, status: value as ElectricVehicle['status'] })}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -418,7 +418,7 @@ const InventoryManagement = () => {
                       <Textarea
                         id="description"
                         value={newVehicle.description}
-                        onChange={(e) => setNewVehicle({...newVehicle, description: e.target.value})}
+                        onChange={(e) => setNewVehicle({ ...newVehicle, description: e.target.value })}
                         placeholder="Mô tả chi tiết về xe..."
                       />
                     </div>
@@ -533,7 +533,7 @@ const InventoryManagement = () => {
                   <Input
                     id="edit-brand"
                     value={editingVehicle.brand}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, brand: e.target.value})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, brand: e.target.value })}
                   />
                 </div>
                 <div>
@@ -541,7 +541,7 @@ const InventoryManagement = () => {
                   <Input
                     id="edit-model"
                     value={editingVehicle.model}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, model: e.target.value})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, model: e.target.value })}
                   />
                 </div>
                 <div>
@@ -550,7 +550,7 @@ const InventoryManagement = () => {
                     id="edit-year"
                     type="number"
                     value={editingVehicle.year}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, year: parseInt(e.target.value)})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, year: parseInt(e.target.value) })}
                   />
                 </div>
                 <div>
@@ -558,7 +558,7 @@ const InventoryManagement = () => {
                   <Input
                     id="edit-color"
                     value={editingVehicle.color}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, color: e.target.value})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, color: e.target.value })}
                   />
                 </div>
                 <div>
@@ -567,7 +567,7 @@ const InventoryManagement = () => {
                     id="edit-battery"
                     type="number"
                     value={editingVehicle.batteryCapacity}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, batteryCapacity: parseFloat(e.target.value)})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, batteryCapacity: parseFloat(e.target.value) })}
                   />
                 </div>
                 <div>
@@ -576,7 +576,7 @@ const InventoryManagement = () => {
                     id="edit-range"
                     type="number"
                     value={editingVehicle.range}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, range: parseInt(e.target.value)})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, range: parseInt(e.target.value) })}
                   />
                 </div>
                 <div>
@@ -585,7 +585,7 @@ const InventoryManagement = () => {
                     id="edit-price"
                     type="number"
                     value={editingVehicle.price}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, price: parseInt(e.target.value)})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, price: parseInt(e.target.value) })}
                   />
                 </div>
                 <div>
@@ -594,7 +594,7 @@ const InventoryManagement = () => {
                     id="edit-stock"
                     type="number"
                     value={editingVehicle.stock}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, stock: parseInt(e.target.value)})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, stock: parseInt(e.target.value) })}
                   />
                 </div>
                 <div>
@@ -602,14 +602,14 @@ const InventoryManagement = () => {
                   <Input
                     id="edit-vin"
                     value={editingVehicle.vin}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, vin: e.target.value})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, vin: e.target.value })}
                   />
                 </div>
                 <div>
                   <Label htmlFor="edit-status">Trạng thái</Label>
                   <Select
                     value={editingVehicle.status}
-                    onValueChange={(value) => setEditingVehicle({...editingVehicle, status: value as ElectricVehicle['status']})}
+                    onValueChange={(value) => setEditingVehicle({ ...editingVehicle, status: value as ElectricVehicle['status'] })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -627,7 +627,7 @@ const InventoryManagement = () => {
                   <Textarea
                     id="edit-description"
                     value={editingVehicle.description}
-                    onChange={(e) => setEditingVehicle({...editingVehicle, description: e.target.value})}
+                    onChange={(e) => setEditingVehicle({ ...editingVehicle, description: e.target.value })}
                   />
                 </div>
               </div>

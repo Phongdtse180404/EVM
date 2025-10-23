@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,14 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import VehicleDetailModal from "@/components/VehicleDetailModal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { 
+import {
   ArrowLeft,
-  Car, 
-  Battery, 
-  Gauge, 
-  Fuel, 
-  Users, 
-  Calendar, 
+  Car,
+  Battery,
+  Gauge,
+  Fuel,
+  Users,
+  Calendar,
   Star,
   Zap,
   Timer,
@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { LogOut, User } from "lucide-react";
 
 // Import vehicle images
 import vf8Image from "@/assets/vinfast-vf8.jpg";
@@ -185,6 +186,34 @@ export default function VehicleShowroom() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+
+    //  Kiểm tra kỹ trước khi parse
+    if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setCurrentUser(parsedUser);
+      } catch (err) {
+        console.error(" Lỗi khi parse user từ localStorage:", err);
+        localStorage.removeItem("user"); // Xoá dữ liệu lỗi để tránh lặp lại
+      }
+    } else {
+      console.warn("⚠️ Không có user hợp lệ trong localStorage");
+    }
+  }, []);
+
+
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setCurrentUser(null);
+    toast.success("Đăng xuất thành công!");
+    navigate("/login");
+  };
 
   const handleViewDetails = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle);
@@ -195,7 +224,7 @@ export default function VehicleShowroom() {
     e.preventDefault();
     e.stopPropagation();
     setIsNavigating(true);
-    
+
     try {
       console.log("Navigating to sales management...");
       await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for visual feedback
@@ -210,7 +239,7 @@ export default function VehicleShowroom() {
 
   const filteredVehicles = vehicles.filter(vehicle => {
     const matchesSearch = vehicle.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         vehicle.model.toLowerCase().includes(searchTerm.toLowerCase());
+      vehicle.model.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || vehicle.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -244,56 +273,95 @@ export default function VehicleShowroom() {
                 Khám phá và trải nghiệm các mẫu xe điện hiện đại
               </p>
             </div>
-            
+
             <div className="flex space-x-2">
-              {/* Management Menu Dropdown */}
+              <Button
+                variant="outline"
+                className="transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
+              >
+                <Phone className="w-4 h-4 mr-2" />
+                Liên hệ tư vấn
+              </Button>
+
+              {/* Button Đăng nhập */}
+              {currentUser ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex items-center space-x-2 hover:bg-accent transition-all duration-200"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>{currentUser.email}</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 z-50 bg-background border border-border shadow-lg">
+                    <DropdownMenuItem
+                      onClick={() => navigate("/profile")}
+                      className="cursor-pointer"
+                    >
+                      <User className="w-4 h-4 mr-2" />
+                      Hồ sơ cá nhân
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="text-destructive cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Đăng xuất
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="icon"
                     className="bg-background hover:bg-accent hover:text-accent-foreground transition-all duration-200"
                   >
                     <Menu className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  className="w-56 z-50 bg-background border border-border shadow-lg" 
+                <DropdownMenuContent
+                  className="w-56 z-50 bg-background border border-border shadow-lg"
                   align="end"
                 >
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => navigate("/sales")}
                     className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
                     <ShoppingCart className="w-4 h-4" />
                     <span>Quản lý bán hàng</span>
                   </DropdownMenuItem>
-                  
-                  <DropdownMenuItem 
+
+                  <DropdownMenuItem
                     onClick={() => navigate("/inventory")}
                     className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
                     <Car className="w-4 h-4" />
                     <span>Quản lý tồn kho</span>
                   </DropdownMenuItem>
-                  
-                  <DropdownMenuItem 
+
+                  <DropdownMenuItem
                     onClick={() => navigate("/customers")}
                     className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
                     <Users className="w-4 h-4" />
                     <span>Quản lý khách hàng</span>
                   </DropdownMenuItem>
-                  
-                  <DropdownMenuItem 
+
+                  <DropdownMenuItem
                     onClick={() => navigate("/reports")}
                     className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
                     <Calendar className="w-4 h-4" />
                     <span>Báo cáo</span>
                   </DropdownMenuItem>
-                  
-                  <DropdownMenuItem 
+
+                  <DropdownMenuItem
                     onClick={() => navigate("/service")}
                     className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
                   >
@@ -302,20 +370,6 @@ export default function VehicleShowroom() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              <Button 
-                variant="outline"
-                className="transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
-              >
-                <Phone className="w-4 h-4 mr-2" />
-                Liên hệ tư vấn
-              </Button>
-              <Button 
-                onClick={() => navigate("/login")}
-                className="bg-gradient-primary hover:bg-gradient-primary/90 transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-              >
-                Đăng nhập
-              </Button>
             </div>
           </div>
         </div>
@@ -358,7 +412,7 @@ export default function VehicleShowroom() {
               />
             </div>
           </Card>
-          
+
           <Card className="p-3">
             <div className="flex items-center space-x-2">
               <Filter className="w-4 h-4 text-muted-foreground" />
@@ -378,22 +432,21 @@ export default function VehicleShowroom() {
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-400px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
           {/* Vehicle List */}
           <div className="lg:col-span-1 space-y-4 overflow-y-auto">
             <h3 className="font-semibold text-lg">Danh sách xe ({filteredVehicles.length})</h3>
             {filteredVehicles.map((vehicle) => (
-              <Card 
+              <Card
                 key={vehicle.id}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                  selectedVehicle?.id === vehicle.id ? 'ring-2 ring-primary bg-gradient-card' : ''
-                }`}
+                className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${selectedVehicle?.id === vehicle.id ? 'ring-2 ring-primary bg-gradient-card' : ''
+                  }`}
                 onClick={() => setSelectedVehicle(vehicle)}
               >
                 <CardContent className="p-4">
                   <div className="flex space-x-3">
-                    <img 
-                      src={vehicle.image} 
+                    <img
+                      src={vehicle.image}
                       alt={vehicle.name}
                       className="w-20 h-16 object-cover rounded-lg"
                     />
@@ -423,10 +476,10 @@ export default function VehicleShowroom() {
                 {/* Main Image and Basic Info */}
                 <Card className="overflow-hidden">
                   <div className="relative">
-                    <img 
-                      src={selectedVehicle.image} 
+                    <img
+                      src={selectedVehicle.image}
                       alt={selectedVehicle.name}
-                      className="w-full h-64 object-cover"
+                      className="w-full h-[400px] object-contain p-1"
                     />
                     <div className="absolute top-4 right-4">
                       {getStatusBadge(selectedVehicle.status)}
@@ -455,13 +508,12 @@ export default function VehicleShowroom() {
                       <div className="flex space-x-3">
                         {selectedVehicle.colors.map((color) => (
                           <div key={color} className="text-center">
-                            <div className={`w-8 h-8 rounded-full border-2 border-border cursor-pointer hover:border-primary transition-colors ${
-                              color === 'Đen' ? 'bg-black' :
+                            <div className={`w-8 h-8 rounded-full border-2 border-border cursor-pointer hover:border-primary transition-colors ${color === 'Đen' ? 'bg-black' :
                               color === 'Trắng' ? 'bg-white' :
-                              color === 'Xám' ? 'bg-gray-500' :
-                              color === 'Xanh' ? 'bg-blue-500' :
-                              color === 'Đỏ' ? 'bg-red-500' : 'bg-gray-300'
-                            }`} />
+                                color === 'Xám' ? 'bg-gray-500' :
+                                  color === 'Xanh' ? 'bg-blue-500' :
+                                    color === 'Đỏ' ? 'bg-red-500' : 'bg-gray-300'
+                              }`} />
                             <span className="text-xs text-muted-foreground mt-1 block">{color}</span>
                           </div>
                         ))}
@@ -470,8 +522,8 @@ export default function VehicleShowroom() {
 
                     {/* Action Buttons */}
                     <div className="flex space-x-2">
-                      <Button 
-                        className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90 transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl" 
+                      <Button
+                        className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90 transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -482,8 +534,8 @@ export default function VehicleShowroom() {
                         <ShoppingCart className="w-4 h-4 mr-2" />
                         Tạo đơn hàng
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => handleViewDetails(selectedVehicle)}
                         className="transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
                       >
@@ -500,7 +552,7 @@ export default function VehicleShowroom() {
                     <TabsTrigger value="specs">Thông số kỹ thuật</TabsTrigger>
                     <TabsTrigger value="features">Tính năng</TabsTrigger>
                   </TabsList>
-                  
+
                   <TabsContent value="specs">
                     <Card>
                       <CardHeader>
@@ -518,7 +570,7 @@ export default function VehicleShowroom() {
                               <p className="text-sm text-muted-foreground">{selectedVehicle.specs.batteryCapacity}</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-3">
                             <Fuel className="w-4 h-4 text-primary" />
                             <div>
@@ -526,7 +578,7 @@ export default function VehicleShowroom() {
                               <p className="text-sm text-muted-foreground">{selectedVehicle.specs.range}</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-3">
                             <Zap className="w-4 h-4 text-primary" />
                             <div>
@@ -534,7 +586,7 @@ export default function VehicleShowroom() {
                               <p className="text-sm text-muted-foreground">{selectedVehicle.specs.power}</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-3">
                             <Timer className="w-4 h-4 text-primary" />
                             <div>
@@ -542,7 +594,7 @@ export default function VehicleShowroom() {
                               <p className="text-sm text-muted-foreground">{selectedVehicle.specs.acceleration}</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-3">
                             <Battery className="w-4 h-4 text-primary" />
                             <div>
@@ -550,7 +602,7 @@ export default function VehicleShowroom() {
                               <p className="text-sm text-muted-foreground">{selectedVehicle.specs.chargingTime}</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-3">
                             <Users className="w-4 h-4 text-primary" />
                             <div>
@@ -558,7 +610,7 @@ export default function VehicleShowroom() {
                               <p className="text-sm text-muted-foreground">{selectedVehicle.specs.seats} chỗ</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-3">
                             <Calendar className="w-4 h-4 text-primary" />
                             <div>
@@ -566,7 +618,7 @@ export default function VehicleShowroom() {
                               <p className="text-sm text-muted-foreground">{selectedVehicle.specs.year}</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-3">
                             <Shield className="w-4 h-4 text-primary" />
                             <div>
@@ -578,7 +630,7 @@ export default function VehicleShowroom() {
                       </CardContent>
                     </Card>
                   </TabsContent>
-                  
+
                   <TabsContent value="features">
                     <Card>
                       <CardHeader>
@@ -614,7 +666,7 @@ export default function VehicleShowroom() {
       </div>
 
       {/* Vehicle Detail Modal */}
-      <VehicleDetailModal 
+      <VehicleDetailModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         vehicle={selectedVehicle || undefined}

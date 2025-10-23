@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Search, Filter, Download } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui_admin/card";
-import { Input } from "@/components/ui_admin/input";
-import { Button } from "@/components/ui_admin/button";
-import { Badge } from "@/components/ui_admin/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { adminClasses, getStatusBadgeClass } from "@/lib/admin-utils";
 import {
   Table,

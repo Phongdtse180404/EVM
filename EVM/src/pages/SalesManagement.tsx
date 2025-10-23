@@ -7,24 +7,27 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { VehicleShowcase } from "@/components/VehicleShowcase";
-import { 
-  ArrowLeft, 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  CheckCircle, 
+import {
+  ArrowLeft,
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  CheckCircle,
   XCircle,
   Car,
   User,
   Calendar,
   DollarSign,
   Eye,
-  BarChart3
+  BarChart3,
+  CreditCard
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import paymentQR from "@/assets/payment-qr-example.png";
 
 interface Order {
   id: string;
@@ -40,20 +43,20 @@ interface Order {
 
 export default function SalesManagement() {
   const navigate = useNavigate();
-  
+
   // Check URL params for pre-filling form
   const urlParams = new URLSearchParams(window.location.search);
   const preselectedVehicle = urlParams.get('vehicle');
   const shouldAutoCreate = urlParams.get('create') === 'true';
   const directCreate = urlParams.get('direct') === 'true';
-  
+
   const [orders, setOrders] = useState<Order[]>(() => {
     // Load orders from localStorage if available
     const savedOrders = localStorage.getItem('orders');
     if (savedOrders) {
       return JSON.parse(savedOrders);
     }
-    
+
     // Default orders
     return [
       {
@@ -68,7 +71,7 @@ export default function SalesManagement() {
         notes: "Khách hàng yêu cầu giao xe trước tết"
       },
       {
-        id: "ORD002", 
+        id: "ORD002",
         customerName: "Trần Thị B",
         customerPhone: "0987654321",
         vehicleModel: "VinFast VF9",
@@ -84,6 +87,7 @@ export default function SalesManagement() {
   const [editingOrder, setEditingOrder] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showVehicleShowcase, setShowVehicleShowcase] = useState(false);
+  const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
   const [newOrder, setNewOrder] = useState({
     customerName: "",
     customerPhone: "",
@@ -92,23 +96,23 @@ export default function SalesManagement() {
     price: preselectedVehicle ? getVehiclePriceById(preselectedVehicle) : "",
     notes: ""
   });
-  
+
   // Helper functions to get vehicle data
   function getVehicleModelById(id: string) {
     const vehicleMap: { [key: string]: string } = {
       'vf8': 'VinFast VF8',
-      'vf9': 'VinFast VF9', 
+      'vf9': 'VinFast VF9',
       'vf6': 'VinFast VF6',
       'vf7': 'VinFast VF7'
     };
     return vehicleMap[id] || "";
   }
-  
+
   function getVehiclePriceById(id: string) {
     const priceMap: { [key: string]: string } = {
       'vf8': '1200000000',
       'vf9': '1500000000',
-      'vf6': '800000000', 
+      'vf6': '800000000',
       'vf7': '999000000'
     };
     return priceMap[id] || "";
@@ -122,7 +126,7 @@ export default function SalesManagement() {
     notes: ""
   });
 
-  const filteredOrders = orders.filter(order => 
+  const filteredOrders = orders.filter(order =>
     order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.customerPhone.includes(searchTerm) ||
     order.id.toLowerCase().includes(searchTerm.toLowerCase())
@@ -156,7 +160,7 @@ export default function SalesManagement() {
       notes: ""
     });
     setIsCreating(false);
-    
+
     if (directCreate) {
       toast.success("Chốt hợp đồng thành công!");
       // Clear URL params after creating
@@ -167,14 +171,14 @@ export default function SalesManagement() {
   };
 
   const handleConfirmOrder = (orderId: string) => {
-    setOrders(orders.map(order => 
+    setOrders(orders.map(order =>
       order.id === orderId ? { ...order, status: "confirmed" as const } : order
     ));
     toast.success("Chốt hợp đồng thành công!");
   };
 
   const handleCancelOrder = (orderId: string) => {
-    setOrders(orders.map(order => 
+    setOrders(orders.map(order =>
       order.id === orderId ? { ...order, status: "cancelled" as const } : order
     ));
     toast.success("Hủy đơn hàng thành công!");
@@ -203,7 +207,7 @@ export default function SalesManagement() {
       return;
     }
 
-    setOrders(orders.map(order => 
+    setOrders(orders.map(order =>
       order.id === editingOrder ? {
         ...order,
         customerName: editOrder.customerName,
@@ -214,7 +218,7 @@ export default function SalesManagement() {
         notes: editOrder.notes
       } : order
     ));
-    
+
     setEditingOrder(null);
     setEditOrder({
       customerName: "",
@@ -260,13 +264,13 @@ export default function SalesManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/showroom")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Quay lại
           </Button>
           <div>
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Quản lý bán hàng/đơn hàng
+              Tạo hợp đồng
             </h1>
             <p className="text-muted-foreground">
               Nhập đơn khi khách tới showroom, chốt hợp đồng trực tiếp/online, chỉnh sửa/hủy đơn khi xe giao trễ
@@ -274,40 +278,13 @@ export default function SalesManagement() {
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Badge className="bg-success/20 text-success border-success px-3 py-1">
-            Đang hoạt động
-          </Badge>
-        </div>
+        <Button
+          variant="outline"
+          onClick={() => setIsCreating(!isCreating)}
+        >
+          Xem chi tiết →
+        </Button>
       </div>
-
-      {/* Main Stats Card */}
-      <Card className="p-8 bg-gradient-card border-border/50">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-2 h-12 bg-gradient-primary rounded-full"></div>
-            <div>
-              <h2 className="text-2xl font-bold">
-                &gt;98%
-              </h2>
-              <p className="text-muted-foreground">Tỉ lệ success, response &lt;2s</p>
-            </div>
-          </div>
-          <div className="text-success">
-            <BarChart3 className="w-8 h-8" />
-          </div>
-        </div>
-        
-        <div className="flex justify-center">
-          <Button 
-            onClick={() => setIsCreating(!isCreating)} 
-            className="bg-background text-foreground border border-border hover:bg-accent hover:text-accent-foreground px-8 py-3 rounded-lg font-medium"
-            variant="outline"
-          >
-            Xem chi tiết →
-          </Button>
-        </div>
-      </Card>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -317,14 +294,14 @@ export default function SalesManagement() {
           </div>
           <p className="text-muted-foreground">Đơn đã chốt</p>
         </Card>
-        
+
         <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
           <div className="text-3xl font-bold text-warning mb-2">
             {orders.filter(o => o.status === 'draft').length}
           </div>
           <p className="text-muted-foreground">Đang xử lý</p>
         </Card>
-        
+
         <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
           <div className="text-3xl font-bold text-accent mb-2">
             {(orders.filter(o => o.status === 'confirmed').reduce((sum, o) => sum + o.price, 0) / 1000000000).toFixed(1)}B₫
@@ -334,25 +311,25 @@ export default function SalesManagement() {
       </div>
 
       {/* Vehicle Showcase Dialog */}
-      <VehicleShowcase 
+      <VehicleShowcase
         open={showVehicleShowcase}
         onOpenChange={setShowVehicleShowcase}
       />
 
       {/* Create Order Form */}
       {isCreating && (
-                <Card className="p-6 bg-gradient-card border-border/50">
-                  <h3 className="text-lg font-semibold mb-4">
-                    {directCreate ? "Chốt hợp đồng mua xe" : "Tạo đơn hàng mới"}
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-6 bg-gradient-card border-border/50">
+          <h3 className="text-lg font-semibold mb-4">
+            {directCreate ? "Chốt hợp đồng mua xe" : "Tạo đơn hàng mới"}
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="customerName">Tên khách hàng *</Label>
               <Input
                 id="customerName"
                 value={newOrder.customerName}
-                onChange={(e) => setNewOrder({...newOrder, customerName: e.target.value})}
+                onChange={(e) => setNewOrder({ ...newOrder, customerName: e.target.value })}
                 placeholder="Nhập tên khách hàng"
               />
             </div>
@@ -362,14 +339,14 @@ export default function SalesManagement() {
               <Input
                 id="customerPhone"
                 value={newOrder.customerPhone}
-                onChange={(e) => setNewOrder({...newOrder, customerPhone: e.target.value})}
+                onChange={(e) => setNewOrder({ ...newOrder, customerPhone: e.target.value })}
                 placeholder="Nhập số điện thoại"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="vehicleModel">Model xe *</Label>
-              <Select value={newOrder.vehicleModel} onValueChange={(value) => setNewOrder({...newOrder, vehicleModel: value})}>
+              <Select value={newOrder.vehicleModel} onValueChange={(value) => setNewOrder({ ...newOrder, vehicleModel: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn model xe" />
                 </SelectTrigger>
@@ -387,24 +364,22 @@ export default function SalesManagement() {
               <div className="space-y-3">
                 <div className="flex space-x-3">
                   {['Đen', 'Trắng', 'Xám', 'Xanh'].map((color) => (
-                    <div 
-                      key={color} 
-                      className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${
-                        newOrder.vehicleColor === color ? 'border-primary bg-primary/10' : 'border-border'
-                      }`}
-                      onClick={() => setNewOrder({...newOrder, vehicleColor: color})}
+                    <div
+                      key={color}
+                      className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${newOrder.vehicleColor === color ? 'border-primary bg-primary/10' : 'border-border'
+                        }`}
+                      onClick={() => setNewOrder({ ...newOrder, vehicleColor: color })}
                     >
-                      <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${
-                        color === 'Đen' ? 'bg-black' :
+                      <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${color === 'Đen' ? 'bg-black' :
                         color === 'Trắng' ? 'bg-white border-gray-300' :
-                        color === 'Xám' ? 'bg-gray-500' :
-                        color === 'Xanh' ? 'bg-blue-500' : 'bg-gray-300'
-                      }`} />
+                          color === 'Xám' ? 'bg-gray-500' :
+                            color === 'Xanh' ? 'bg-blue-500' : 'bg-gray-300'
+                        }`} />
                       <span className="text-xs">{color}</span>
                     </div>
                   ))}
                 </div>
-                <Select value={newOrder.vehicleColor} onValueChange={(value) => setNewOrder({...newOrder, vehicleColor: value})}>
+                <Select value={newOrder.vehicleColor} onValueChange={(value) => setNewOrder({ ...newOrder, vehicleColor: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Hoặc chọn từ danh sách" />
                   </SelectTrigger>
@@ -425,7 +400,7 @@ export default function SalesManagement() {
                 id="price"
                 type="number"
                 value={newOrder.price}
-                onChange={(e) => setNewOrder({...newOrder, price: e.target.value})}
+                onChange={(e) => setNewOrder({ ...newOrder, price: e.target.value })}
                 placeholder="Nhập giá bán"
               />
             </div>
@@ -435,7 +410,7 @@ export default function SalesManagement() {
               <Textarea
                 id="notes"
                 value={newOrder.notes}
-                onChange={(e) => setNewOrder({...newOrder, notes: e.target.value})}
+                onChange={(e) => setNewOrder({ ...newOrder, notes: e.target.value })}
                 placeholder="Nhập ghi chú (tùy chọn)"
               />
             </div>
@@ -445,9 +420,9 @@ export default function SalesManagement() {
             <Button variant="outline" onClick={() => setIsCreating(false)}>
               Hủy
             </Button>
-                    <Button onClick={handleCreateOrder} className="bg-gradient-primary">
-                      {directCreate ? "Chốt hợp đồng" : "Tạo đơn"}
-                    </Button>
+            <Button onClick={handleCreateOrder} className="bg-gradient-primary">
+              {directCreate ? "Chốt hợp đồng" : "Tạo đơn"}
+            </Button>
           </div>
         </Card>
       )}
@@ -455,7 +430,7 @@ export default function SalesManagement() {
       {/* Orders List */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Danh sách đơn hàng ({filteredOrders.length})</h3>
-        
+
         {filteredOrders.map((order) => (
           <div key={order.id}>
             <Card className="p-6 bg-gradient-card border-border/50">
@@ -522,17 +497,27 @@ export default function SalesManagement() {
                       </Button>
                     </>
                   )}
-                  
+
                   {order.status === 'confirmed' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleCancelOrder(order.id)}
-                      className="text-xs border-warning text-warning"
-                    >
-                      <XCircle className="w-3 h-3 mr-1" />
-                      Hủy đơn
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => setPaymentOrder(order)}
+                        className="bg-gradient-primary text-xs"
+                      >
+                        <CreditCard className="w-3 h-3 mr-1" />
+                        Thanh toán
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCancelOrder(order.id)}
+                        className="text-xs border-warning text-warning"
+                      >
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Hủy đơn
+                      </Button>
+                    </>
                   )}
 
                   <Button
@@ -552,14 +537,14 @@ export default function SalesManagement() {
             {editingOrder === order.id && (
               <Card className="p-6 bg-gradient-card border-border/50 mt-4">
                 <h3 className="text-lg font-semibold mb-4">Chỉnh sửa đơn hàng #{order.id}</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="editCustomerName">Tên khách hàng *</Label>
                     <Input
                       id="editCustomerName"
                       value={editOrder.customerName}
-                      onChange={(e) => setEditOrder({...editOrder, customerName: e.target.value})}
+                      onChange={(e) => setEditOrder({ ...editOrder, customerName: e.target.value })}
                       placeholder="Nhập tên khách hàng"
                     />
                   </div>
@@ -569,14 +554,14 @@ export default function SalesManagement() {
                     <Input
                       id="editCustomerPhone"
                       value={editOrder.customerPhone}
-                      onChange={(e) => setEditOrder({...editOrder, customerPhone: e.target.value})}
+                      onChange={(e) => setEditOrder({ ...editOrder, customerPhone: e.target.value })}
                       placeholder="Nhập số điện thoại"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="editVehicleModel">Model xe *</Label>
-                    <Select value={editOrder.vehicleModel} onValueChange={(value) => setEditOrder({...editOrder, vehicleModel: value})}>
+                    <Select value={editOrder.vehicleModel} onValueChange={(value) => setEditOrder({ ...editOrder, vehicleModel: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn model xe" />
                       </SelectTrigger>
@@ -594,24 +579,22 @@ export default function SalesManagement() {
                     <div className="space-y-3">
                       <div className="flex space-x-3">
                         {['Đen', 'Trắng', 'Xám', 'Xanh'].map((color) => (
-                          <div 
-                            key={color} 
-                            className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${
-                              editOrder.vehicleColor === color ? 'border-primary bg-primary/10' : 'border-border'
-                            }`}
-                            onClick={() => setEditOrder({...editOrder, vehicleColor: color})}
+                          <div
+                            key={color}
+                            className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${editOrder.vehicleColor === color ? 'border-primary bg-primary/10' : 'border-border'
+                              }`}
+                            onClick={() => setEditOrder({ ...editOrder, vehicleColor: color })}
                           >
-                            <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${
-                              color === 'Đen' ? 'bg-black' :
+                            <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${color === 'Đen' ? 'bg-black' :
                               color === 'Trắng' ? 'bg-white border-gray-300' :
-                              color === 'Xám' ? 'bg-gray-500' :
-                              color === 'Xanh' ? 'bg-blue-500' : 'bg-gray-300'
-                            }`} />
+                                color === 'Xám' ? 'bg-gray-500' :
+                                  color === 'Xanh' ? 'bg-blue-500' : 'bg-gray-300'
+                              }`} />
                             <span className="text-xs">{color}</span>
                           </div>
                         ))}
                       </div>
-                      <Select value={editOrder.vehicleColor} onValueChange={(value) => setEditOrder({...editOrder, vehicleColor: value})}>
+                      <Select value={editOrder.vehicleColor} onValueChange={(value) => setEditOrder({ ...editOrder, vehicleColor: value })}>
                         <SelectTrigger>
                           <SelectValue placeholder="Hoặc chọn từ danh sách" />
                         </SelectTrigger>
@@ -632,7 +615,7 @@ export default function SalesManagement() {
                       id="editPrice"
                       type="number"
                       value={editOrder.price}
-                      onChange={(e) => setEditOrder({...editOrder, price: e.target.value})}
+                      onChange={(e) => setEditOrder({ ...editOrder, price: e.target.value })}
                       placeholder="Nhập giá bán"
                     />
                   </div>
@@ -642,7 +625,7 @@ export default function SalesManagement() {
                     <Textarea
                       id="editNotes"
                       value={editOrder.notes}
-                      onChange={(e) => setEditOrder({...editOrder, notes: e.target.value})}
+                      onChange={(e) => setEditOrder({ ...editOrder, notes: e.target.value })}
                       placeholder="Nhập ghi chú (tùy chọn)"
                     />
                   </div>
@@ -677,6 +660,68 @@ export default function SalesManagement() {
           )}
         </Card>
       )}
+
+      {/* Payment Dialog */}
+      <Dialog open={!!paymentOrder} onOpenChange={() => setPaymentOrder(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">Thanh toán đơn hàng</DialogTitle>
+          </DialogHeader>
+
+          {paymentOrder && (
+            <div className="space-y-6">
+              {/* QR Code */}
+              <div className="flex justify-center">
+                <div className="bg-white p-4 rounded-lg">
+                  <img
+                    src={paymentQR}
+                    alt="Payment QR Code"
+                    className="w-48 h-48 object-contain"
+                  />
+                </div>
+              </div>
+
+              {/* Order Information */}
+              <div className="space-y-3 bg-muted/50 p-4 rounded-lg">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Mã đơn hàng:</span>
+                  <span className="font-semibold">{paymentOrder.id}</span>
+                </div>
+
+                <Separator />
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Khách hàng:</span>
+                  <span className="font-medium">{paymentOrder.customerName}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Loại xe:</span>
+                  <span className="font-medium">{paymentOrder.vehicleModel}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Màu sắc:</span>
+                  <span className="font-medium">{paymentOrder.vehicleColor}</span>
+                </div>
+
+                <Separator />
+
+                <div className="flex justify-between text-lg">
+                  <span className="font-semibold">Tổng tiền:</span>
+                  <span className="font-bold text-primary">
+                    {paymentOrder.price.toLocaleString('vi-VN')} VND
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Quét mã QR để thanh toán qua ứng dụng ngân hàng
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

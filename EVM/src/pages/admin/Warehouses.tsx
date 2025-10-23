@@ -362,19 +362,19 @@ export default function Warehouses() {
                 {warehouses && warehouses.length > 0 ? (
                   warehouses.map((warehouse) => (
                     <TableRow key={warehouse.id}>
-                      <TableCell 
+                      <TableCell
                         className="font-mono text-sm cursor-pointer hover:bg-accent/50"
                         onClick={() => setSelectedWarehouse(warehouse.id)}
                       >
                         {warehouse.id.slice(0, 8)}...
                       </TableCell>
-                      <TableCell 
+                      <TableCell
                         className="cursor-pointer hover:bg-accent/50"
                         onClick={() => setSelectedWarehouse(warehouse.id)}
                       >
                         {warehouse.name}
                       </TableCell>
-                      <TableCell 
+                      <TableCell
                         className="cursor-pointer hover:bg-accent/50"
                         onClick={() => setSelectedWarehouse(warehouse.id)}
                       >

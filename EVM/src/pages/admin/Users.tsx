@@ -3,16 +3,16 @@ import { Check, Edit, Eye, EyeOff, Filter, Plus, Shield, Trash2, User, Users as 
 import { useToast } from "@/hooks/use-toast";
 import { apiService } from "@/services/api";
 import type { UserResponse, UserRequest } from "@/services/api";
-import { Button } from "@/components/ui_admin/button";
-import { Input } from "@/components/ui_admin/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui_admin/select";
-import { Badge } from "@/components/ui_admin/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui_admin/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui_admin/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui_admin/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui_admin/alert-dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui_admin/tooltip";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui_admin/pagination";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { adminClasses, getStatusBadgeClass } from "@/lib/admin-utils";
 
 export default function Users() {
@@ -39,7 +39,7 @@ export default function Users() {
       console.log('Attempting to fetch users...');
       const fetchedUsers = await apiService.getUsers();
       console.log('Fetched users:', fetchedUsers);
-      
+
       setUsers(fetchedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -238,7 +238,7 @@ export default function Users() {
       setNewUserName("");
       setNewUserRoleId(1);
       setIsAddDialogOpen(false);
-      
+
       await fetchUsers();
     } catch (error) {
       toast({
@@ -259,8 +259,8 @@ export default function Users() {
     return [...filtered].sort((a, b) => {
       if (sortBy === "date") {
         // Sort by userId as a proxy for creation date
-        return sortOrder === "asc" 
-          ? a.userId - b.userId 
+        return sortOrder === "asc"
+          ? a.userId - b.userId
           : b.userId - a.userId;
       } else {
         return sortOrder === "asc"
@@ -275,7 +275,7 @@ export default function Users() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedUsers = filteredAndSortedUsers.slice(startIndex, endIndex);
-  
+
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
@@ -332,7 +332,7 @@ export default function Users() {
             </div>
           ) : filteredAndSortedUsers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {filterRole !== "all" 
+              {filterRole !== "all"
                 ? "Không tìm thấy người dùng với vai trò này"
                 : "Chưa có người dùng nào"}
             </div>
@@ -525,7 +525,7 @@ export default function Users() {
                   })}
                 </TableBody>
               </Table>
-              
+
               <div className="mt-4 flex items-center justify-between">
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <Button onClick={() => setIsAddDialogOpen(true)} size="sm">

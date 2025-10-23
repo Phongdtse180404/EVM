@@ -1,5 +1,5 @@
 import { TrendingUp, DollarSign, ShoppingCart, Users } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui_admin/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MetricCard from "@/components/MetricCard";
 import {
   LineChart,

@@ -7,10 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import VehicleDetailModal from "@/components/VehicleDetailModal";
 import AddInventoryModal from "@/components/AddInventoryModal";
-import { 
+import {
   ArrowLeft,
-  Package, 
-  Search, 
+  Package,
+  Search,
   Filter,
   Plus,
   Minus,
@@ -206,8 +206,8 @@ export default function WarehouseManagement() {
 
   const filteredInventory = warehouseInventory.filter(item => {
     const matchesSearch = item.vehicleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.vin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.location.toLowerCase().includes(searchTerm.toLowerCase());
+      item.vin.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.location.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || item.status === filterStatus;
     const matchesZone = filterZone === "all" || item.zone === filterZone;
     return matchesSearch && matchesStatus && matchesZone;
@@ -246,7 +246,7 @@ export default function WarehouseManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/showroom")}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Quay lại
           </Button>
@@ -259,7 +259,7 @@ export default function WarehouseManagement() {
             </p>
           </div>
         </div>
-        
+
         <div className="flex space-x-2">
           <Button variant="outline">
             <BarChart3 className="w-4 h-4 mr-2" />
@@ -315,7 +315,7 @@ export default function WarehouseManagement() {
             />
           </div>
         </Card>
-        
+
         <Card className="p-3">
           <div className="flex items-center space-x-2">
             <Filter className="w-4 h-4 text-muted-foreground" />
@@ -386,8 +386,8 @@ export default function WarehouseManagement() {
                   return (
                     <TableRow key={item.id} className="hover:bg-muted/50">
                       <TableCell>
-                        <img 
-                          src={item.image} 
+                        <img
+                          src={item.image}
                           alt={item.vehicleName}
                           className="w-12 h-8 object-cover rounded"
                         />
@@ -432,8 +432,8 @@ export default function WarehouseManagement() {
                         </p>
                       </TableCell>
                       <TableCell>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleViewDetails(item)}
                         >
@@ -450,7 +450,7 @@ export default function WarehouseManagement() {
       </Card>
 
       {/* Vehicle Detail Modal */}
-      <VehicleDetailModal 
+      <VehicleDetailModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         vehicle={selectedItem || undefined}
@@ -458,7 +458,7 @@ export default function WarehouseManagement() {
       />
 
       {/* Add Inventory Modal */}
-      <AddInventoryModal 
+      <AddInventoryModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAdd={handleAddInventory}
