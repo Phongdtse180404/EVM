@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,32 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Plus, Search, Edit, Phone, Mail, Calendar, Car, Users, TrendingUp, Star, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit, Phone, Mail, Users, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import axios from "axios";
 
 interface Customer {
   id: string;
   name: string;
-  phoneNumber: string;
-  vehicleModel: string;
-  status: string;
-  assignedSalesId?: number | null;
-  assignedSalesName?: string | null;
-}
-
-
-interface TestDrive {
-  id: string;
-  customerid: string;
-  customerName: string;
-  vehicleModel: string;
-  scheduledDate: string;
-  duration: number;
-  status: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
-  feedback?: string;
-  rating?: number;
+  phone: string;
+  email: string;
+  address: string;
+  status: 'lead' | 'purchased';
+  interestedVehicle: string;
+  assignedSales: string;
+  createdAt: string;
+  lastContact: string;
+  notes: string;
+  testDriveScheduled?: string;
+  purchaseHistory?: string[];
 }
 
 const CustomerManagement = () => {
@@ -45,86 +37,86 @@ const CustomerManagement = () => {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isTestDriveDialogOpen, setIsTestDriveDialogOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
-
-  const fetchCustomers = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get("/api/customers", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCustomers(response.data);
-      setFilteredCustomers(response.data);
-    } catch (error: any) {
-      console.error("Lỗi khi lấy danh sách khách hàng:", error);
+  const [customers, setCustomers] = useState<Customer[]>([
+    {
+      id: '1',
+      name: 'Nguyễn Văn An',
+      phone: '0901234567',
+      email: 'nguyenvanan@email.com',
+      address: '123 Đường ABC, Quận 1, TP.HCM',
+      status: 'lead',
+      interestedVehicle: 'Tesla Model 3',
+      assignedSales: 'Trần Thị B',
+      createdAt: '2024-01-15',
+      lastContact: '2024-01-20',
+      notes: 'Quan tâm đến xe điện, cần tư vấn về pin và bảo hành'
+    },
+    {
+      id: '2',
+      name: 'Lê Thị Cẩm',
+      phone: '0912345678',
+      email: 'lethicam@email.com',
+      address: '456 Đường DEF, Quận 7, TP.HCM',
+      status: 'lead',
+      interestedVehicle: 'VinFast VF8',
+      assignedSales: 'Nguyễn Văn C',
+      createdAt: '2024-01-10',
+      lastContact: '2024-01-18',
+      notes: 'Đã đặt lịch lái thử, quan tâm đến màu xanh',
+      testDriveScheduled: '2024-01-25'
+    },
+    {
+      id: '3',
+      name: 'Phạm Hoàng Dũng',
+      phone: '0923456789',
+      email: 'phamhoangdung@email.com',
+      address: '789 Đường GHI, Quận Bình Thạnh, TP.HCM',
+      status: 'purchased',
+      interestedVehicle: 'BYD Atto 3',
+      assignedSales: 'Trần Thị B',
+      createdAt: '2024-01-05',
+      lastContact: '2024-01-22',
+      notes: 'Đã mua xe, cần chăm sóc hậu mãi',
+      purchaseHistory: ['BYD Atto 3 - 768.000.000 VNĐ']
+    },
+    {
+      id: '4',
+      name: 'Võ Thị Mai',
+      phone: '0934567890',
+      email: 'vothimai@email.com',
+      address: '321 Đường JKL, Quận 3, TP.HCM',
+      status: 'lead',
+      interestedVehicle: 'Hyundai IONIQ 5',
+      assignedSales: 'Nguyễn Văn C',
+      createdAt: '2024-01-12',
+      lastContact: '2024-01-21',
+      notes: 'Đang thương lượng giá, có thể đóng cọc tuần tới'
     }
-  };
-
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  const assignSalesToCustomer = async (customerId: number, salesId: number) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await axios.post(
-        `/api/customers/${customerId}/assign-sales/${salesId}`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      console.log(" Gán sale thành công:", response.data);
-      alert("Gán nhân viên sale thành công!");
-
-      // gọi lại API để cập nhật danh sách khách hàng mới
-      fetchCustomers();
-    } catch (error: any) {
-      console.error(" Lỗi khi gán nhân viên sale:", error);
-      alert("Gán sale thất bại!");
-    }
-  };
-
-  useEffect(() => {
-    const result = customers.filter((customer) => {
-      const matchesSearch =
-        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.phoneNumber.includes(searchTerm);
-      const matchesStatus =
-        filterStatus === "all" || customer.status === filterStatus;
-      const matchesSales =
-        filterSales === "all" || customer.assignedSalesName === filterSales;
-      return matchesSearch && matchesStatus && matchesSales;
-    });
-
-    setFilteredCustomers(result);
-  }, [customers, searchTerm, filterStatus, filterSales]);
-
-  const [testDrives, setTestDrives] = useState<TestDrive[]>([
   ]);
 
   const [newCustomer, setNewCustomer] = useState<Partial<Customer>>({
     name: '',
-    phoneNumber: '',
-    status: 'LEAD',
-    vehicleModel: '',
-    assignedSalesName: '',
-  });
-
-  const [newTestDrive, setNewTestDrive] = useState({
-    vehicleModel: '',
-    scheduledDate: '',
-    duration: 60
+    phone: '',
+    email: '',
+    address: '',
+    status: 'lead',
+    interestedVehicle: '',
+    assignedSales: '',
+    notes: ''
   });
 
   const salesTeam = ['Trần Thị B', 'Nguyễn Văn C', 'Lê Hoàng D', 'Phạm Thị E'];
   const vehicleModels = ['Tesla Model 3', 'VinFast VF8', 'BYD Atto 3', 'Hyundai IONIQ 5'];
 
+  const filteredCustomers = customers.filter(customer => {
+    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone.includes(searchTerm) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || customer.status === filterStatus;
+    const matchesSales = filterSales === 'all' || customer.assignedSales === filterSales;
+    return matchesSearch && matchesStatus && matchesSales;
+  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -145,51 +137,40 @@ const CustomerManagement = () => {
     }
   };
 
-  const getTestDriveStatusBadge = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return <Badge className="bg-primary/20 text-primary border-primary">Đã đặt lịch</Badge>;
-      case 'completed':
-        return <Badge className="bg-success/20 text-success border-success">Hoàn thành</Badge>;
-      case 'cancelled':
-        return <Badge className="bg-muted text-muted-foreground">Đã hủy</Badge>;
-      case 'no_show':
-        return <Badge className="bg-destructive/20 text-destructive border-destructive">Không đến</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+  const handleAddCustomer = () => {
+    if (!newCustomer.name || !newCustomer.phone) {
+      toast.error('Vui lòng nhập tên và số điện thoại');
+      return;
     }
+
+    const customer: Customer = {
+      id: Date.now().toString(),
+      name: newCustomer.name!,
+      phone: newCustomer.phone!,
+      email: newCustomer.email || '',
+      address: newCustomer.address || '',
+      status: newCustomer.status as Customer['status'] || 'lead',
+      interestedVehicle: newCustomer.interestedVehicle || '',
+      assignedSales: newCustomer.assignedSales || '',
+      createdAt: new Date().toISOString().split('T')[0],
+      lastContact: new Date().toISOString().split('T')[0],
+      notes: newCustomer.notes || ''
+    };
+
+    setCustomers([...customers, customer]);
+    setNewCustomer({
+      name: '',
+      phone: '',
+      email: '',
+      address: '',
+      status: 'lead',
+      interestedVehicle: '',
+      assignedSales: '',
+      notes: ''
+    });
+    setIsAddDialogOpen(false);
+    toast.success('Đã thêm khách hàng mới');
   };
-
-  const handleAddCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem("token");
-
-      const response = await axios.post(
-        "/api/customers",
-        {
-          interestedVehicle: newCustomer.vehicleModel,
-          name: newCustomer.name,
-          phoneNumber: newCustomer.phoneNumber,
-          status: newCustomer.status,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      toast.success("Thêm khách hàng thành công!");
-      console.log("Dữ liệu trả về:", response.data);
-      // load lại danh sách
-    } catch (error: any) {
-      toast.error("Thêm khách hàng thất bại!", {
-        description: error.response?.data?.message || "Vui lòng kiểm tra lại thông tin.",
-      });
-    }
-  };
-
 
   const handleEditCustomer = () => {
     if (!editingCustomer) return;
@@ -200,55 +181,15 @@ const CustomerManagement = () => {
     toast.success('Đã cập nhật thông tin khách hàng');
   };
 
-  const handleScheduleTestDrive = () => {
-    if (!selectedCustomer || !newTestDrive.vehicleModel || !newTestDrive.scheduledDate) {
-      toast.error('Vui lòng nhập đầy đủ thông tin');
-      return;
-    }
-
-    const testDrive: TestDrive = {
-      id: Date.now().toString(),
-      customerid: selectedCustomer.id,
-      customerName: selectedCustomer.name,
-      vehicleModel: newTestDrive.vehicleModel,
-      scheduledDate: newTestDrive.scheduledDate,
-      duration: newTestDrive.duration,
-      status: 'scheduled'
-    };
-
-    setTestDrives([...testDrives, testDrive]);
-
-    // Update customer status
-    setCustomers(customers.map(c =>
-      c.id === selectedCustomer.id
-        ? { ...c, status: 'test_drive', testDriveScheduled: newTestDrive.scheduledDate }
-        : c
-    ));
-
-    setNewTestDrive({
-      vehicleModel: '',
-      scheduledDate: '',
-      duration: 60
-    });
-    setIsTestDriveDialogOpen(false);
-    setSelectedCustomer(null);
-    toast.success('Đã đặt lịch lái thử');
-  };
-
   const getKPIData = () => {
     const totalLeads = customers.length;
     const converted = customers.filter(c => c.status === 'purchased').length;
     const conversionRate = totalLeads > 0 ? (converted / totalLeads * 100) : 0;
-    const testDrivesThisMonth = testDrives.filter(td =>
-      new Date(td.scheduledDate).getMonth() === new Date().getMonth()
-    ).length;
 
     return {
       totalLeads,
       converted,
-      conversionRate: conversionRate.toFixed(1),
-      testDrivesThisMonth,
-      avgRating: testDrives.filter(td => td.rating).reduce((sum, td) => sum + (td.rating || 0), 0) / testDrives.filter(td => td.rating).length || 0
+      conversionRate: conversionRate.toFixed(1)
     };
   };
 
@@ -278,7 +219,7 @@ const CustomerManagement = () => {
         </div>
 
         {/* KPI Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="bg-gradient-card border-border/50">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -307,55 +248,15 @@ const CustomerManagement = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-warning/20">
-                  <Car className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Lái thử tháng này</p>
-                  <p className="text-2xl font-bold">{kpiData.testDrivesThisMonth}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/20">
-                  <Star className="w-5 h-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Đánh giá TB</p>
-                  <p className="text-2xl font-bold">{kpiData.avgRating.toFixed(1)}/5</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-orange-500/20">
-                  <Clock className="w-5 h-5 text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Phản hồi TB</p>
-                  <p className="text-2xl font-bold">&lt;1.5s</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Main Content */}
         <Tabs defaultValue="customers" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="customers">Khách hàng</TabsTrigger>
-            <TabsTrigger value="test-drives">Lái thử</TabsTrigger>
+            <TabsTrigger value="sales-kpi">KPI Sales</TabsTrigger>
           </TabsList>
+
           <TabsContent value="customers" className="space-y-6">
             {/* Search and Filters */}
             <Card className="bg-gradient-card border-border/50">
@@ -379,18 +280,6 @@ const CustomerManagement = () => {
                         <SelectItem value="all">Tất cả trạng thái</SelectItem>
                         <SelectItem value="lead">Lead mới</SelectItem>
                         <SelectItem value="purchased">Đã mua</SelectItem>
-                        <SelectItem value="test_drive">Lái thử</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={filterSales} onValueChange={setFilterSales}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Lọc theo sales" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tất cả sales</SelectItem>
-                        {salesTeam.map(sales => (
-                          <SelectItem key={sales} value={sales}>{sales}</SelectItem>
-                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -419,32 +308,16 @@ const CustomerManagement = () => {
                           <Label htmlFor="phone">Số điện thoại *</Label>
                           <Input
                             id="phone"
-                            value={newCustomer.phoneNumber}
-                            onChange={(e) => setNewCustomer({ ...newCustomer, phoneNumber: e.target.value })}
+                            value={newCustomer.phone}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
                             placeholder="0901234567"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="edit-status">Trạng thái</Label>
-                          <Select
-                            value={editingCustomer?.status ?? 'lead'}
-                            onValueChange={(value) => setEditingCustomer({ ...editingCustomer, status: value as Customer['status'] })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="lead">Lead mới</SelectItem>
-                              <SelectItem value="purchased">Đã mua</SelectItem>
-                              <SelectItem value="test_drive">Lái thử</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
                           <Label htmlFor="vehicle">Xe quan tâm</Label>
                           <Select
-                            value={newCustomer.vehicleModel}
-                            onValueChange={(value) => setNewCustomer({ ...newCustomer, vehicleModel: value })}
+                            value={newCustomer.interestedVehicle}
+                            onValueChange={(value) => setNewCustomer({ ...newCustomer, interestedVehicle: value })}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Chọn mẫu xe" />
@@ -455,14 +328,6 @@ const CustomerManagement = () => {
                               ))}
                             </SelectContent>
                           </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="sales">Sales phụ trách</Label>
-                          <Input
-                            id="sales"
-                            value={newCustomer.assignedSalesName || "Chưa được phân công"}
-                            readOnly
-                          />
                         </div>
                       </div>
                       <DialogFooter>
@@ -493,7 +358,6 @@ const CustomerManagement = () => {
                         <TableHead>Khách hàng</TableHead>
                         <TableHead>Liên hệ</TableHead>
                         <TableHead>Xe quan tâm</TableHead>
-                        <TableHead>Sales</TableHead>
                         <TableHead>Trạng thái</TableHead>
                         <TableHead>Thao tác</TableHead>
                       </TableRow>
@@ -502,96 +366,104 @@ const CustomerManagement = () => {
                       {filteredCustomers.map((customer) => (
                         <TableRow key={customer.id}>
                           <TableCell>
-                            <div className="font-medium">{customer.name}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1 text-sm">
-                              <Phone className="w-3 h-3" />
-                              {customer.phoneNumber}
+                            <div>
+                              <div className="font-medium">{customer.name}</div>
                             </div>
                           </TableCell>
-                          <TableCell>{customer.vehicleModel || 'Chưa xác định'}</TableCell>
-                          <TableCell>{customer.assignedSalesName ?? 'Chưa phân'}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-sm">
+                                <Phone className="w-3 h-3" />
+                                {customer.phone}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{customer.interestedVehicle || 'Chưa xác định'}</TableCell>
                           <TableCell>{getStatusBadge(customer.status)}</TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingCustomer(customer);
-                                  setIsEditDialogOpen(true);
-                                }}
-                              >
-                                <Edit className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedCustomer(customer);
-                                  setIsTestDriveDialogOpen(true);
-                                }}
-                              >
-                                <Calendar className="w-3 h-3" />
-                              </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingCustomer(customer);
+                                setIsEditDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="sales-kpi" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-gradient-card border-border/50">
+                <CardHeader>
+                  <CardTitle>KPI theo Sales</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {salesTeam.map((sales) => {
+                      const salesCustomers = customers.filter(c => c.assignedSales === sales);
+                      const purchased = salesCustomers.filter(c => c.status === 'purchased').length;
+                      const conversionRate = salesCustomers.length > 0 ? (purchased / salesCustomers.length * 100) : 0;
+
+                      return (
+                        <div key={sales} className="flex items-center justify-between p-4 rounded-lg border">
+                          <div>
+                            <div className="font-medium">{sales}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {salesCustomers.length} leads • {purchased} chuyển đổi
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-lg">{conversionRate.toFixed(1)}%</div>
+                            <div className="text-sm text-muted-foreground">Tỉ lệ chuyển đổi</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
 
-          <TabsContent value="test-drives" className="space-y-6">
-            <Card className="bg-gradient-card border-border/50">
-              <CardHeader>
-                <CardTitle>Lịch lái thử</CardTitle>
-                <CardDescription>Quản lý các buổi lái thử xe điện</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Khách hàng</TableHead>
-                        <TableHead>Xe</TableHead>
-                        <TableHead>Thời gian</TableHead>
-                        <TableHead>Thời lượng</TableHead>
-                        <TableHead>Trạng thái</TableHead>
-                        <TableHead>Đánh giá</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {testDrives.map((testDrive) => (
-                        <TableRow key={testDrive.id}>
-                          <TableCell className="font-medium">{testDrive.customerName}</TableCell>
-                          <TableCell>{testDrive.vehicleModel}</TableCell>
-                          <TableCell>
-                            {new Date(testDrive.scheduledDate).toLocaleString('vi-VN')}
-                          </TableCell>
-                          <TableCell>{testDrive.duration} phút</TableCell>
-                          <TableCell>{getTestDriveStatusBadge(testDrive.status)}</TableCell>
-                          <TableCell>
-                            {testDrive.rating && (
-                              <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                                <span>{testDrive.rating}/5</span>
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <Card className="bg-gradient-card border-border/50">
+                <CardHeader>
+                  <CardTitle>Thống kê theo trạng thái</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {[
+                      { status: 'lead', label: 'Lead mới' },
+                      { status: 'purchased', label: 'Đã mua' },
+                    ].map(({ status, label }) => {
+                      const count = customers.filter(c => c.status === status).length;
+                      const percentage = customers.length > 0 ? (count / customers.length * 100) : 0;
 
+                      return (
+                        <div key={status} className="flex items-center justify-between p-4 rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            {getStatusBadge(status)}
+                            <span>{label}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-lg">{count}</div>
+                            <div className="text-sm text-muted-foreground">{percentage.toFixed(1)}%</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
 
         {/* Edit Customer Dialog */}
@@ -614,14 +486,14 @@ const CustomerManagement = () => {
                   <Label htmlFor="edit-phone">Số điện thoại</Label>
                   <Input
                     id="edit-phone"
-                    value={editingCustomer.phoneNumber}
-                    onChange={(e) => setEditingCustomer({ ...editingCustomer, phoneNumber: e.target.value })}
+                    value={editingCustomer.phone}
+                    onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
                   />
                 </div>
                 <div>
                   <Label htmlFor="edit-status">Trạng thái</Label>
                   <Select
-                    value={editingCustomer?.status ?? 'lead'}
+                    value={editingCustomer.status}
                     onValueChange={(value) => setEditingCustomer({ ...editingCustomer, status: value as Customer['status'] })}
                   >
                     <SelectTrigger>
@@ -630,15 +502,14 @@ const CustomerManagement = () => {
                     <SelectContent>
                       <SelectItem value="lead">Lead mới</SelectItem>
                       <SelectItem value="purchased">Đã mua</SelectItem>
-                      <SelectItem value="test_drive">Lái thử</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label htmlFor="edit-vehicle">Xe quan tâm</Label>
                   <Select
-                    value={editingCustomer.vehicleModel}
-                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, vehicleModel: value })}
+                    value={editingCustomer.interestedVehicle}
+                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, interestedVehicle: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -646,22 +517,6 @@ const CustomerManagement = () => {
                     <SelectContent>
                       {vehicleModels.map(model => (
                         <SelectItem key={model} value={model}>{model}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="edit-sales">Sales phụ trách</Label>
-                  <Select
-                    value={editingCustomer.assignedSalesName}
-                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, assignedSalesName: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {salesTeam.map(sales => (
-                        <SelectItem key={sales} value={sales}>{sales}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -673,71 +528,6 @@ const CustomerManagement = () => {
                 Hủy
               </Button>
               <Button onClick={handleEditCustomer}>Cập nhật</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Test Drive Dialog */}
-        <Dialog open={isTestDriveDialogOpen} onOpenChange={setIsTestDriveDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Đặt lịch lái thử</DialogTitle>
-            </DialogHeader>
-            {selectedCustomer && (
-              <div className="space-y-4 py-4">
-                <div>
-                  <Label>Khách hàng</Label>
-                  <Input value={selectedCustomer.name} disabled />
-                </div>
-                <div>
-                  <Label htmlFor="test-vehicle">Xe lái thử</Label>
-                  <Select
-                    value={newTestDrive.vehicleModel}
-                    onValueChange={(value) => setNewTestDrive({ ...newTestDrive, vehicleModel: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn mẫu xe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicleModels.map(model => (
-                        <SelectItem key={model} value={model}>{model}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="test-date">Thời gian</Label>
-                  <Input
-                    id="test-date"
-                    type="datetime-local"
-                    value={newTestDrive.scheduledDate}
-                    onChange={(e) => setNewTestDrive({ ...newTestDrive, scheduledDate: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="test-duration">Thời lượng (phút)</Label>
-                  <Select
-                    value={newTestDrive.duration.toString()}
-                    onValueChange={(value) => setNewTestDrive({ ...newTestDrive, duration: parseInt(value) })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="30">30 phút</SelectItem>
-                      <SelectItem value="45">45 phút</SelectItem>
-                      <SelectItem value="60">60 phút</SelectItem>
-                      <SelectItem value="90">90 phút</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsTestDriveDialogOpen(false)}>
-                Hủy
-              </Button>
-              <Button onClick={handleScheduleTestDrive}>Đặt lịch</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

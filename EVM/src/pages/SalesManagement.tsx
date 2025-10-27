@@ -88,6 +88,7 @@ export default function SalesManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showVehicleShowcase, setShowVehicleShowcase] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
+  const [contractOrder, setContractOrder] = useState<Order | null>(null);
   const [newOrder, setNewOrder] = useState({
     customerName: "",
     customerPhone: "",
@@ -510,6 +511,14 @@ export default function SalesManagement() {
                       </Button>
                       <Button
                         size="sm"
+                        onClick={() => setContractOrder(order)}
+                        className="bg-secondary text-xs"
+                      >
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Hoàn thành
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => handleCancelOrder(order.id)}
                         className="text-xs border-warning text-warning"
@@ -708,9 +717,9 @@ export default function SalesManagement() {
                 <Separator />
 
                 <div className="flex justify-between text-lg">
-                  <span className="font-semibold">Tổng tiền:</span>
+                  <span className="font-semibold">Tiền cọc:</span>
                   <span className="font-bold text-primary">
-                    {paymentOrder.price.toLocaleString('vi-VN')} VND
+                    {(paymentOrder.price * 0.3).toLocaleString('vi-VN')} VND
                   </span>
                 </div>
               </div>
@@ -718,6 +727,115 @@ export default function SalesManagement() {
               <p className="text-center text-sm text-muted-foreground">
                 Quét mã QR để thanh toán qua ứng dụng ngân hàng
               </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Contract Dialog */}
+      <Dialog open={!!contractOrder} onOpenChange={() => setContractOrder(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl font-bold">HỢP ĐỒNG MUA BÁN XE Ô TÔ</DialogTitle>
+          </DialogHeader>
+
+          {contractOrder && (
+            <div className="space-y-6 p-6">
+              {/* Header Info */}
+              <div className="text-center space-y-2 pb-4 border-b-2">
+                <p className="text-sm text-muted-foreground">Số hợp đồng: {contractOrder.id}</p>
+                <p className="text-sm text-muted-foreground">Ngày lập: {contractOrder.createdAt}</p>
+              </div>
+
+              {/* Buyer Information */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-primary">THÔNG TIN BÊN MUA (BÊN B)</h3>
+                <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                  <div className="flex">
+                    <span className="font-medium w-40">Họ và tên:</span>
+                    <span>{contractOrder.customerName}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="font-medium w-40">Số điện thoại:</span>
+                    <span>{contractOrder.customerPhone}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vehicle Information */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-primary">THÔNG TIN XE</h3>
+                <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                  <div className="flex">
+                    <span className="font-medium w-40">Model xe:</span>
+                    <span className="font-semibold">{contractOrder.vehicleModel}</span>
+                  </div>
+                  <div className="flex">
+                    <span className="font-medium w-40">Màu sắc:</span>
+                    <span>{contractOrder.vehicleColor}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Information */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-primary">THÔNG TIN THANH TOÁN</h3>
+                <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Giá xe:</span>
+                    <span className="font-semibold">{contractOrder.price.toLocaleString('vi-VN')} VND</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span className="font-medium">Tiền cọc (30%):</span>
+                    <span className="font-semibold text-primary">
+                      {(contractOrder.price * 0.3).toLocaleString('vi-VN')} VND
+                    </span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between text-lg">
+                    <span className="font-bold">Còn lại:</span>
+                    <span className="font-bold text-accent">
+                      {(contractOrder.price * 0.7).toLocaleString('vi-VN')} VND
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {contractOrder.notes && (
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-primary">GHI CHÚ</h3>
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <p className="text-sm">{contractOrder.notes}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Terms */}
+              <div className="space-y-3 border-t-2 pt-4">
+                <h3 className="text-lg font-semibold text-primary">ĐIỀU KHOẢN</h3>
+                <div className="text-sm space-y-2 text-muted-foreground">
+                  <p>• Bên B đã đặt cọc 30% giá trị xe theo thỏa thuận</p>
+                  <p>• Số tiền còn lại sẽ được thanh toán khi nhận xe</p>
+                  <p>• Thời gian giao xe dự kiến: 30 ngày kể từ ngày ký hợp đồng</p>
+                  <p>• Bên A cam kết xe giao đúng model, màu sắc như thỏa thuận</p>
+                </div>
+              </div>
+
+              {/* Signatures */}
+              <div className="grid grid-cols-2 gap-8 pt-6 border-t-2">
+                <div className="text-center space-y-4">
+                  <p className="font-semibold">BÊN BÁN (BÊN A)</p>
+                  <p className="text-sm text-muted-foreground italic">(Ký và ghi rõ họ tên)</p>
+                  <div className="h-20"></div>
+                </div>
+                <div className="text-center space-y-4">
+                  <p className="font-semibold">BÊN MUA (BÊN B)</p>
+                  <p className="text-sm text-muted-foreground italic">(Ký và ghi rõ họ tên)</p>
+                  <div className="h-20"></div>
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>

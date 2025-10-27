@@ -189,6 +189,7 @@ export default function VehicleShowroom() {
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
 
     //  Kiểm tra kỹ trước khi parse
@@ -298,13 +299,6 @@ export default function VehicleShowroom() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48 z-50 bg-background border border-border shadow-lg">
                     <DropdownMenuItem
-                      onClick={() => navigate("/profile")}
-                      className="cursor-pointer"
-                    >
-                      <User className="w-4 h-4 mr-2" />
-                      Hồ sơ cá nhân
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
                       onClick={handleLogout}
                       className="text-destructive cursor-pointer"
                     >
@@ -367,6 +361,13 @@ export default function VehicleShowroom() {
                   >
                     <Shield className="w-4 h-4" />
                     <span>Dịch vụ</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate("/admin/users")}
+                    className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Dashboard</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
