@@ -1,0 +1,59 @@
+## Node modules
+node_modules/
+
+## Bun
+.bun/
+bun.lockb
+
+## Build outputs
+dist/
+.vite/
+out/
+build/
+public/build/
+
+## TypeScript
+*.tsbuildinfo
+dist-types/
+
+## Environment
+.env
+.env.local
+.env.*.local
+
+## Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+## OS files
+.DS_Store
+Thumbs.db
+
+## Editor directories and files
+.vscode/
+.idea/
+*.code-workspace
+
+## Coverage
+coverage/
+
+## Cache and temp
+.cache/
+tmp/
+temp/
+
+## Lockfiles (optional to ignore - uncomment to ignore)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+## Storybook
+.storybook/
+
+## Misc
+*.tgz
+*.zip
