@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui_admin/dialog";
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,16 +20,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui_admin/alert-dialog";
-import { Label } from "@/components/ui_admin/label";
-import { Input } from "@/components/ui_admin/input";
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui_admin/select";
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -37,9 +37,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui_admin/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui_admin/card";
-import { Button } from "@/components/ui_admin/button";
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default function Warehouses() {
   const [selectedLocation, setSelectedLocation] = useState<string>("");

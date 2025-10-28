@@ -23,11 +23,16 @@ import {
   DollarSign,
   Eye,
   BarChart3,
-  CreditCard
+  CreditCard,
+  FileText
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import paymentQR from "@/assets/payment-qr-example.png";
+import vinfastLogo from "@/assets/vinfast-logo.png";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import { roboto } from "@/assets/fonts/Roboto-Regular";
 
 interface Order {
   id: string;
@@ -88,7 +93,6 @@ export default function SalesManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showVehicleShowcase, setShowVehicleShowcase] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
-  const [contractOrder, setContractOrder] = useState<Order | null>(null);
   const [newOrder, setNewOrder] = useState({
     customerName: "",
     customerPhone: "",
@@ -258,6 +262,271 @@ export default function SalesManagement() {
       case 'cancelled': return 'Đã hủy';
       default: return 'Nháp';
     }
+  };
+
+  const handleGenerateContractPDF = async (order: Order) => {
+    const pdf = new jsPDF();
+
+    pdf.addFileToVFS("Roboto-Regular.ttf", roboto);
+    pdf.addFont("Roboto-Regular.ttf", "Roboto", "normal");
+    pdf.setFont("Roboto");
+
+
+    // Load and add logo
+    try {
+      const logoImg = new Image();
+      logoImg.src = vinfastLogo;
+      await new Promise((resolve) => {
+        logoImg.onload = resolve;
+      });
+
+      // Add logo
+      pdf.addImage(logoImg, 'PNG', 15, 10, 30, 30);
+    } catch (error) {
+      console.error('Error loading logo:', error);
+    }
+
+    // Company Header
+    pdf.setFontSize(16);
+    pdf.setTextColor(0, 51, 102); // VinFast blue
+    pdf.setFont("Roboto", "normal");
+    pdf.text("CONG TY TNHH SAN XUAT VA KINH DOANH VINFAST", 50, 20);
+
+    pdf.setFontSize(9);
+    pdf.setTextColor(80, 80, 80);
+    pdf.setFont("helvetica", "normal");
+    pdf.text("Dia chi: Khu Cong nghiep Dinh Vu - Cat Hai, Hai Phong", 50, 27);
+    pdf.text("Dien thoai: 1900 23 23 89 | Email: info@vinfastauto.com", 50, 32);
+
+    // Decorative line
+    pdf.setDrawColor(0, 123, 255);
+    pdf.setLineWidth(1);
+    pdf.line(15, 45, 195, 45);
+
+    // Title
+    pdf.setFontSize(22);
+    pdf.setTextColor(0, 51, 102);
+    pdf.setFont("Roboto", "normal");
+    pdf.text("HOP DONG MUA BAN XE O TO", 105, 55, { align: "center" });
+
+    // Contract info box
+    pdf.setFillColor(240, 248, 255);
+    pdf.rect(15, 60, 180, 15, 'F');
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`So hop dong: ${order.id}`, 105, 67, { align: "center" });
+    pdf.text(`Ngay lap: ${new Date(order.createdAt).toLocaleDateString('vi-VN')}`, 105, 72, { align: "center" });
+
+    let currentY = 85;
+
+    // Seller Information
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 51, 102);
+    pdf.setFont("Roboto", "normal");
+    pdf.text("BEN BAN (BEN A): CONG TY TNHH SAN XUAT VA KINH DOANH VINFAST", 15, currentY);
+
+    currentY += 10;
+    autoTable(pdf, {
+      startY: currentY,
+      head: [],
+      body: [
+        ['Dia chi', 'Khu Cong nghiep Dinh Vu - Cat Hai, Hai Phong, Viet Nam'],
+        ['Ma so thue', '0108926276'],
+        ['Dien thoai', '1900 23 23 89'],
+        ['Email', 'info@vinfastauto.com'],
+      ],
+      theme: 'plain',
+      styles: {
+        fontSize: 10,
+        cellPadding: 2,
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 40 },
+        1: { cellWidth: 140 }
+      },
+      margin: { left: 15 }
+    });
+
+    currentY = (pdf as any).lastAutoTable.finalY + 10;
+
+    // Buyer Information
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 51, 102);
+    pdf.setFont("Roboto", "normal");
+    pdf.text("BEN MUA (BEN B)", 15, currentY);
+
+    currentY += 7;
+    autoTable(pdf, {
+      startY: currentY,
+      head: [],
+      body: [
+        ['Ho va ten', order.customerName],
+        ['So dien thoai', order.customerPhone],
+        ['CMND/CCCD', '___________________________'],
+        ['Dia chi', '___________________________'],
+      ],
+      theme: 'plain',
+      styles: {
+        fontSize: 10,
+        cellPadding: 2,
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 40 },
+        1: { cellWidth: 140 }
+      },
+      margin: { left: 15 }
+    });
+
+    currentY = (pdf as any).lastAutoTable.finalY + 10;
+
+    // Vehicle Information with decorative box
+    pdf.setFillColor(0, 51, 102);
+    pdf.rect(15, currentY - 5, 180, 8, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("Roboto", "normal");
+    pdf.text("THONG TIN XE", 105, currentY, { align: "center" });
+
+    currentY += 8;
+    autoTable(pdf, {
+      startY: currentY,
+      head: [],
+      body: [
+        ['Hang xe', 'VinFast'],
+        ['Model', order.vehicleModel],
+        ['Mau sac', order.vehicleColor],
+        ['Nam san xuat', '2024'],
+        ['Xuat xu', 'Viet Nam'],
+        ['Bao hanh', '10 nam hoac 200,000 km'],
+      ],
+      theme: 'striped',
+      headStyles: {
+        fillColor: [0, 51, 102],
+      },
+      styles: {
+        fontSize: 10,
+        cellPadding: 3,
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 50 },
+        1: { cellWidth: 130 }
+      },
+      margin: { left: 15 }
+    });
+
+    currentY = (pdf as any).lastAutoTable.finalY + 10;
+
+    // Payment Information with colors
+    pdf.setFillColor(0, 51, 102);
+    pdf.rect(15, currentY - 5, 180, 8, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("Roboto", "normal");
+    pdf.text("THONG TIN THANH TOAN", 105, currentY, { align: "center" });
+
+    currentY += 8;
+    const totalPrice = order.price.toLocaleString('vi-VN');
+    const deposit = (order.price * 0.3).toLocaleString('vi-VN');
+    const remaining = (order.price * 0.7).toLocaleString('vi-VN');
+
+    autoTable(pdf, {
+      startY: currentY,
+      head: [],
+      body: [
+        ['Gia xe (bao gom VAT)', `${totalPrice} VND`],
+        ['Tien coc (30%)', `${deposit} VND`],
+        ['Con lai can thanh toan', `${remaining} VND`],
+        ['Phuong thuc thanh toan', 'Chuyen khoan ngan hang / Tien mat'],
+        ['Thoi han thanh toan', 'Khi nhan xe tai showroom'],
+      ],
+      theme: 'striped',
+      styles: {
+        fontSize: 10,
+        cellPadding: 3,
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 70 },
+        1: { cellWidth: 110, fontStyle: 'bold' }
+      },
+      margin: { left: 15 }
+    });
+
+    // Add new page for terms
+    pdf.addPage();
+
+    currentY = 20;
+
+    // Notes if available
+    if (order.notes) {
+      pdf.setFillColor(255, 250, 205);
+      pdf.rect(15, currentY - 5, 180, 8, 'F');
+      pdf.setTextColor(0, 51, 102);
+      pdf.setFont("Roboto", "normal");
+      pdf.text("GHI CHU", 105, currentY, { align: "center" });
+
+      currentY += 8;
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "normal");
+      const splitNotes = pdf.splitTextToSize(order.notes, 170);
+      pdf.text(splitNotes, 15, currentY);
+      currentY += splitNotes.length * 6 + 10;
+    }
+
+    // Terms and Conditions
+    pdf.setFillColor(0, 51, 102);
+    pdf.rect(15, currentY - 5, 180, 8, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("Roboto", "normal");
+    pdf.text("DIEU KHOAN VA DIEU KIEN", 105, currentY, { align: "center" });
+
+    currentY += 10;
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont("helvetica", "normal");
+
+    const terms = [
+      "1. Ben B da dat coc 30% gia tri xe theo thoa thuan tai hop dong nay.",
+      "2. So tien con lai (70%) se duoc Ben B thanh toan khi nhan xe tai showroom.",
+      "3. Thoi gian giao xe du kien: 30 ngay ke tu ngay ky hop dong.",
+      "4. Ben A cam ket xe giao dung model, mau sac, cau hinh nhu da thoa thuan.",
+      "5. Xe duoc bao hanh 10 nam hoac 200,000 km tuy theo dieu kien nao den truoc.",
+      "6. Ben B co quyen huy hop dong va nhan lai 100% tien coc neu Ben A khong",
+      "   giao xe dung thoi han da cam ket.",
+      "7. Neu Ben B huy hop dong vi ly do ca nhan, Ben A giu lai 20% tien coc",
+      "   de bu dap chi phi.",
+      "8. Hai ben cam ket thuc hien dung cac dieu khoan da ky ket.",
+      "9. Moi tranh chap phat sinh se duoc giai quyet thong qua thuong luong,",
+      "   hoa giai. Neu khong dat duoc thoa thuan, se giai quyet tai Toa an",
+      "   noi Ben A co tru so.",
+    ];
+
+    terms.forEach((term, index) => {
+      const lines = pdf.splitTextToSize(term, 170);
+      pdf.text(lines, 20, currentY);
+      currentY += lines.length * 5;
+    });
+
+    currentY += 15;
+
+    // Signatures
+    pdf.setFontSize(11);
+    pdf.setFont("Roboto", "normal");
+    pdf.text("DAI DIEN BEN A", 50, currentY, { align: "center" });
+    pdf.text("DAI DIEN BEN B", 150, currentY, { align: "center" });
+
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "italic");
+    pdf.text("(Ky, ghi ro ho ten va dong dau)", 50, currentY + 5, { align: "center" });
+    pdf.text("(Ky va ghi ro ho ten)", 150, currentY + 5, { align: "center" });
+
+    // Footer
+    pdf.setFontSize(8);
+    pdf.setTextColor(128, 128, 128);
+    pdf.text("Hop dong nay duoc lap thanh 02 ban, moi ben giu 01 ban co gia tri phap ly nhu nhau.", 105, 280, { align: "center" });
+
+    // Save PDF
+    pdf.save(`hop-dong-${order.id}-${order.customerName}.pdf`);
+    toast.success("Đã tải xuống hợp đồng PDF!");
   };
 
   return (
@@ -511,10 +780,10 @@ export default function SalesManagement() {
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => setContractOrder(order)}
+                        onClick={() => handleGenerateContractPDF(order)}
                         className="bg-secondary text-xs"
                       >
-                        <CheckCircle className="w-3 h-3 mr-1" />
+                        <FileText className="w-3 h-3 mr-1" />
                         Hoàn thành
                       </Button>
                       <Button
@@ -727,115 +996,6 @@ export default function SalesManagement() {
               <p className="text-center text-sm text-muted-foreground">
                 Quét mã QR để thanh toán qua ứng dụng ngân hàng
               </p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Contract Dialog */}
-      <Dialog open={!!contractOrder} onOpenChange={() => setContractOrder(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-center text-2xl font-bold">HỢP ĐỒNG MUA BÁN XE Ô TÔ</DialogTitle>
-          </DialogHeader>
-
-          {contractOrder && (
-            <div className="space-y-6 p-6">
-              {/* Header Info */}
-              <div className="text-center space-y-2 pb-4 border-b-2">
-                <p className="text-sm text-muted-foreground">Số hợp đồng: {contractOrder.id}</p>
-                <p className="text-sm text-muted-foreground">Ngày lập: {contractOrder.createdAt}</p>
-              </div>
-
-              {/* Buyer Information */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-primary">THÔNG TIN BÊN MUA (BÊN B)</h3>
-                <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                  <div className="flex">
-                    <span className="font-medium w-40">Họ và tên:</span>
-                    <span>{contractOrder.customerName}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="font-medium w-40">Số điện thoại:</span>
-                    <span>{contractOrder.customerPhone}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Vehicle Information */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-primary">THÔNG TIN XE</h3>
-                <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                  <div className="flex">
-                    <span className="font-medium w-40">Model xe:</span>
-                    <span className="font-semibold">{contractOrder.vehicleModel}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="font-medium w-40">Màu sắc:</span>
-                    <span>{contractOrder.vehicleColor}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Payment Information */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-primary">THÔNG TIN THANH TOÁN</h3>
-                <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-                  <div className="flex justify-between">
-                    <span className="font-medium">Giá xe:</span>
-                    <span className="font-semibold">{contractOrder.price.toLocaleString('vi-VN')} VND</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between">
-                    <span className="font-medium">Tiền cọc (30%):</span>
-                    <span className="font-semibold text-primary">
-                      {(contractOrder.price * 0.3).toLocaleString('vi-VN')} VND
-                    </span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between text-lg">
-                    <span className="font-bold">Còn lại:</span>
-                    <span className="font-bold text-accent">
-                      {(contractOrder.price * 0.7).toLocaleString('vi-VN')} VND
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes */}
-              {contractOrder.notes && (
-                <div className="space-y-3">
-                  <h3 className="text-lg font-semibold text-primary">GHI CHÚ</h3>
-                  <div className="bg-muted/50 p-4 rounded-lg">
-                    <p className="text-sm">{contractOrder.notes}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Terms */}
-              <div className="space-y-3 border-t-2 pt-4">
-                <h3 className="text-lg font-semibold text-primary">ĐIỀU KHOẢN</h3>
-                <div className="text-sm space-y-2 text-muted-foreground">
-                  <p>• Bên B đã đặt cọc 30% giá trị xe theo thỏa thuận</p>
-                  <p>• Số tiền còn lại sẽ được thanh toán khi nhận xe</p>
-                  <p>• Thời gian giao xe dự kiến: 30 ngày kể từ ngày ký hợp đồng</p>
-                  <p>• Bên A cam kết xe giao đúng model, màu sắc như thỏa thuận</p>
-                </div>
-              </div>
-
-              {/* Signatures */}
-              <div className="grid grid-cols-2 gap-8 pt-6 border-t-2">
-                <div className="text-center space-y-4">
-                  <p className="font-semibold">BÊN BÁN (BÊN A)</p>
-                  <p className="text-sm text-muted-foreground italic">(Ký và ghi rõ họ tên)</p>
-                  <div className="h-20"></div>
-                </div>
-                <div className="text-center space-y-4">
-                  <p className="font-semibold">BÊN MUA (BÊN B)</p>
-                  <p className="text-sm text-muted-foreground italic">(Ký và ghi rõ họ tên)</p>
-                  <div className="h-20"></div>
-                </div>
-              </div>
             </div>
           )}
         </DialogContent>

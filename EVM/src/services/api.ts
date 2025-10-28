@@ -89,7 +89,7 @@ class ApiService {
     // Attach auth token if present
     this.axiosInstance.interceptors.request.use((config) => {
       // Support both 'auth_token' (newer code) and 'token' (legacy places like Login.tsx)
-      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+      const token = localStorage.getItem('token');
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -101,7 +101,6 @@ class ApiService {
       (response: AxiosResponse) => response,
       (error: AxiosError) => {
         if (error.response?.status === 401) {
-          localStorage.removeItem('auth_token');
           localStorage.removeItem('token');
           // Redirect to login page
           window.location.href = '/login';
