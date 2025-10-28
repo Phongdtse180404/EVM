@@ -29,6 +29,8 @@ export default function Users() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
+  const [newUserPhoneNumber, setNewUserPhoneNumber] = useState("");
+  const [newUserAddress, setNewUserAddress] = useState("");
   const [newUserRoleId, setNewUserRoleId] = useState<number>(1); // Default to customer role
   const [deleteUserId, setDeleteUserId] = useState<number | null>(null);
   const { toast } = useToast();
@@ -39,7 +41,7 @@ export default function Users() {
       console.log('Attempting to fetch users...');
       const fetchedUsers = await apiService.getUsers();
       console.log('Fetched users:', fetchedUsers);
-
+      
       setUsers(fetchedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -109,6 +111,12 @@ export default function Users() {
     return name.trim().length > 0;
   };
 
+  const validatePhoneNumber = (phone: string): boolean => {
+    // Basic phone number validation (10-11 digits)
+    const phoneRegex = /^[0-9]{10,11}$/;
+    return phoneRegex.test(phone.replace(/\s+/g, ''));
+  };
+
   const confirmUpdate = async () => {
     if (!editingUserId || !editedUser) return;
 
@@ -130,6 +138,15 @@ export default function Users() {
       return;
     }
 
+    if (editedUser.phoneNumber && !validatePhoneNumber(editedUser.phoneNumber)) {
+      toast({
+        title: "Lỗi",
+        description: "Số điện thoại không hợp lệ (10-11 chữ số)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (editedUser.password && editedUser.password.length < 6) {
       toast({
         title: "Lỗi",
@@ -143,6 +160,8 @@ export default function Users() {
       const userToUpdate: UserRequest = {
         email: editedUser.email || "",
         name: editedUser.name || "",
+        phoneNumber: editedUser.phoneNumber || undefined,
+        address: editedUser.address || undefined,
         password: editedUser.password || "unchanged", // Use a special value to indicate no change
         roleId: editedUser.roleId || 1
       };
@@ -219,12 +238,32 @@ export default function Users() {
       return;
     }
 
+    if (newUserPhoneNumber && !validatePhoneNumber(newUserPhoneNumber)) {
+      toast({
+        title: "Lỗi",
+        description: "Số điện thoại không hợp lệ (10-11 chữ số)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newUserAddress.trim()) {
+      toast({
+        title: "Lỗi",
+        description: "Địa chỉ không được để trống",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const password = generateRandomPassword(10);
 
     try {
       await apiService.createUser({
         email: newUserEmail,
         name: newUserName,
+        phoneNumber: newUserPhoneNumber || undefined,
+        address: newUserAddress,
         password,
         roleId: newUserRoleId
       });
@@ -236,9 +275,11 @@ export default function Users() {
 
       setNewUserEmail("");
       setNewUserName("");
+      setNewUserPhoneNumber("");
+      setNewUserAddress("");
       setNewUserRoleId(1);
       setIsAddDialogOpen(false);
-
+      
       await fetchUsers();
     } catch (error) {
       toast({
@@ -259,8 +300,8 @@ export default function Users() {
     return [...filtered].sort((a, b) => {
       if (sortBy === "date") {
         // Sort by userId as a proxy for creation date
-        return sortOrder === "asc"
-          ? a.userId - b.userId
+        return sortOrder === "asc" 
+          ? a.userId - b.userId 
           : b.userId - a.userId;
       } else {
         return sortOrder === "asc"
@@ -275,7 +316,7 @@ export default function Users() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedUsers = filteredAndSortedUsers.slice(startIndex, endIndex);
-
+  
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
@@ -332,7 +373,7 @@ export default function Users() {
             </div>
           ) : filteredAndSortedUsers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {filterRole !== "all"
+              {filterRole !== "all" 
                 ? "Không tìm thấy người dùng với vai trò này"
                 : "Chưa có người dùng nào"}
             </div>
@@ -343,6 +384,8 @@ export default function Users() {
                   <TableRow>
                     <TableHead className="text-left">Email</TableHead>
                     <TableHead className="text-left">Họ tên</TableHead>
+                    <TableHead className="text-left">Số điện thoại</TableHead>
+                    <TableHead className="text-left">Địa chỉ</TableHead>
                     <TableHead className="text-left">Vai trò</TableHead>
                     <TableHead className="text-left">Mật khẩu</TableHead>
                     <TableHead className="text-right">Thao tác</TableHead>
@@ -384,6 +427,46 @@ export default function Users() {
                               />
                             ) : (
                               user.name
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isEditing ? (
+                              <Input
+                                value={editedUser.phoneNumber || user.phoneNumber || ""}
+                                onChange={(e) =>
+                                  setEditedUser((prev) => ({
+                                    ...prev,
+                                    phoneNumber: e.target.value,
+                                  }))
+                                }
+                                placeholder="Số điện thoại"
+                                type="tel"
+                              />
+                            ) : (
+                              <span className={user.phoneNumber ? "" : "text-muted-foreground italic"}>
+                                {user.phoneNumber || "Chưa có"}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isEditing ? (
+                              <Input
+                                value={editedUser.address || user.address || ""}
+                                onChange={(e) =>
+                                  setEditedUser((prev) => ({
+                                    ...prev,
+                                    address: e.target.value,
+                                  }))
+                                }
+                                placeholder="Địa chỉ"
+                              />
+                            ) : (
+                              <span 
+                                className={user.address ? "max-w-xs truncate block" : "text-muted-foreground italic"}
+                                title={user.address || undefined}
+                              >
+                                {user.address || "Chưa có"}
+                              </span>
                             )}
                           </TableCell>
                           <TableCell>
@@ -525,7 +608,7 @@ export default function Users() {
                   })}
                 </TableBody>
               </Table>
-
+              
               <div className="mt-4 flex items-center justify-between">
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
@@ -554,6 +637,27 @@ export default function Users() {
                           value={newUserName}
                           onChange={(e) => setNewUserName(e.target.value)}
                           placeholder="Họ tên"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label>
+                          Số điện thoại <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          type="tel"
+                          value={newUserPhoneNumber}
+                          onChange={(e) => setNewUserPhoneNumber(e.target.value)}
+                          placeholder="0123456789"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label>
+                          Địa chỉ <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          value={newUserAddress}
+                          onChange={(e) => setNewUserAddress(e.target.value)}
+                          placeholder="123 Đường ABC, Quận XYZ, TP. HCM"
                         />
                       </div>
                       <div className="space-y-2">

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, Plus, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiService, Warehouse, EV } from "@/services/api";
+import { apiService, WarehouseResponse, ModelResponse, WarehouseStockRequest } from "@/services/api";
 import {
   Dialog,
   DialogContent,
@@ -43,38 +43,44 @@ import { Button } from "@/components/ui/button";
 
 export default function Warehouses() {
   const [selectedLocation, setSelectedLocation] = useState<string>("");
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>("");
+  const [selectedWarehouse, setSelectedWarehouse] = useState<number | null>(null);
   const [isWarehouseDialogOpen, setIsWarehouseDialogOpen] = useState(false);
-  const [isEVDialogOpen, setIsEVDialogOpen] = useState(false);
+  const [isStockDialogOpen, setIsStockDialogOpen] = useState(false);
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
-  const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
-  const [editingEV, setEditingEV] = useState<EV | null>(null);
-  const [deleteWarehouseId, setDeleteWarehouseId] = useState<string | null>(null);
-  const [deleteEVId, setDeleteEVId] = useState<string | null>(null);
-  const [warehouseName, setWarehouseName] = useState("");
-  const [warehouseAddress, setWarehouseAddress] = useState("");
-  const [evModel, setEvModel] = useState("");
-  const [evPrice, setEvPrice] = useState("");
-  const [evColor, setEvColor] = useState("");
-  const [evStatus, setEvStatus] = useState<"có sẵn" | "đã đặt" | "đang giao" | "bảo trì">("có sẵn");
-  const [evNotes, setEvNotes] = useState("");
-  const [newModelName, setNewModelName] = useState("");
+  const [editingWarehouse, setEditingWarehouse] = useState<WarehouseResponse | null>(null);
+  const [deleteWarehouseId, setDeleteWarehouseId] = useState<number | null>(null);
+  const [deleteStockModelId, setDeleteStockModelId] = useState<number | null>(null);
+  const [warehouseLocation, setWarehouseLocation] = useState("");
+  const [stockModelId, setStockModelId] = useState<number | null>(null);
+  const [stockQuantity, setStockQuantity] = useState<number>(0);
+  const [newModelCode, setNewModelCode] = useState("");
+  const [newModelBrand, setNewModelBrand] = useState("");
   const { toast } = useToast();
 
+  // Get unique locations from all warehouses
   const { data: locations } = useQuery({
     queryKey: ["locations"],
-    queryFn: () => apiService.getLocations(),
+    queryFn: async () => {
+      const warehouses = await apiService.getWarehouses();
+      const uniqueLocations = [...new Set(warehouses.map(w => w.warehouseLocation))];
+      return uniqueLocations;
+    },
   });
 
   const { data: warehouses, refetch: refetchWarehouses } = useQuery({
     queryKey: ["warehouses", selectedLocation],
-    queryFn: () => selectedLocation ? apiService.getWarehouses(selectedLocation) : Promise.resolve([]),
+    queryFn: () => {
+      if (!selectedLocation) return Promise.resolve([]);
+      return apiService.getWarehouses().then(warehouses => 
+        warehouses.filter(w => w.warehouseLocation === selectedLocation)
+      );
+    },
     enabled: !!selectedLocation,
   });
 
-  const { data: evs, refetch: refetchEVs } = useQuery({
-    queryKey: ["evs", selectedWarehouse],
-    queryFn: () => selectedWarehouse ? apiService.getEVs(selectedWarehouse) : Promise.resolve([]),
+  const { data: selectedWarehouseData, refetch: refetchWarehouseData } = useQuery({
+    queryKey: ["warehouse", selectedWarehouse],
+    queryFn: () => selectedWarehouse ? apiService.getWarehouse(selectedWarehouse) : Promise.resolve(null),
     enabled: !!selectedWarehouse,
   });
 
@@ -83,52 +89,33 @@ export default function Warehouses() {
     queryFn: () => apiService.getModels(),
   });
 
-  const openWarehouseDialog = (warehouse?: Warehouse) => {
+  const openWarehouseDialog = (warehouse?: WarehouseResponse) => {
     if (warehouse) {
       setEditingWarehouse(warehouse);
-      setWarehouseName(warehouse.name);
-      setWarehouseAddress(warehouse.address || "");
+      setWarehouseLocation(warehouse.warehouseLocation);
     } else {
       setEditingWarehouse(null);
-      setWarehouseName("");
-      setWarehouseAddress("");
+      setWarehouseLocation("");
     }
     setIsWarehouseDialogOpen(true);
   };
 
-  const openEVDialog = (ev?: EV) => {
-    if (ev) {
-      setEditingEV(ev);
-      setEvModel(ev.model_id);
-      setEvPrice(ev.price);
-      setEvColor(ev.color || "");
-      setEvStatus(ev.status || "có sẵn");
-      setEvNotes(ev.notes || "");
+  const openStockDialog = (modelId?: number, quantity?: number) => {
+    if (modelId !== undefined) {
+      setStockModelId(modelId);
+      setStockQuantity(quantity || 0);
     } else {
-      setEditingEV(null);
-      setEvModel("");
-      setEvPrice("");
-      setEvColor("");
-      setEvStatus("có sẵn");
-      setEvNotes("");
+      setStockModelId(null);
+      setStockQuantity(0);
     }
-    setIsEVDialogOpen(true);
+    setIsStockDialogOpen(true);
   };
 
   const handleSaveWarehouse = async () => {
-    if (!warehouseName.trim()) {
+    if (!warehouseLocation.trim()) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng nhập tên kho",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedLocation) {
-      toast({
-        title: "Lỗi",
-        description: "Vui lòng chọn địa điểm",
+        description: "Vui lòng nhập địa điểm kho",
         variant: "destructive",
       });
       return;
@@ -136,9 +123,8 @@ export default function Warehouses() {
 
     try {
       if (editingWarehouse) {
-        await apiService.updateWarehouse(editingWarehouse.id, {
-          name: warehouseName,
-          address: warehouseAddress
+        await apiService.updateWarehouse(editingWarehouse.warehouseId, {
+          warehouseLocation: warehouseLocation,
         });
         toast({
           title: "Thành công",
@@ -146,9 +132,7 @@ export default function Warehouses() {
         });
       } else {
         await apiService.createWarehouse({
-          name: warehouseName,
-          address: warehouseAddress,
-          location_id: selectedLocation
+          warehouseLocation: warehouseLocation,
         });
         toast({
           title: "Thành công",
@@ -166,82 +150,66 @@ export default function Warehouses() {
     }
   };
 
-  const handleSaveEV = async () => {
-    if (!evModel || !evPrice) {
+  const handleSaveStock = async () => {
+    if (!stockModelId || stockQuantity < 0) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng điền đầy đủ thông tin",
+        description: "Vui lòng chọn model và nhập số lượng hợp lệ",
         variant: "destructive",
       });
       return;
     }
 
-    const priceNumber = parseFloat(evPrice);
-    if (isNaN(priceNumber) || priceNumber <= 0) {
+    if (!selectedWarehouse) {
       toast({
         title: "Lỗi",
-        description: "Giá phải là số dương",
+        description: "Vui lòng chọn kho",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      if (editingEV) {
-        await apiService.updateEV(editingEV.id, {
-          model_id: evModel,
-          price: priceNumber,
-          color: evColor,
-          status: evStatus,
-          notes: evNotes,
-          warehouse_id: selectedWarehouse
-        });
-        toast({
-          title: "Thành công",
-          description: "Cập nhật xe điện thành công",
-        });
-      } else {
-        await apiService.createEV({
-          model_id: evModel,
-          price: priceNumber,
-          warehouse_id: selectedWarehouse,
-          color: evColor || null,
-          status: evStatus,
-          notes: evNotes || null
-        });
-        toast({
-          title: "Thành công",
-          description: "Thêm xe điện mới thành công",
-        });
-      }
-      setIsEVDialogOpen(false);
-      refetchEVs();
+      await apiService.upsertWarehouseStock(selectedWarehouse, {
+        modelId: stockModelId,
+        quantity: stockQuantity,
+      });
+      toast({
+        title: "Thành công",
+        description: "Cập nhật tồn kho thành công",
+      });
+      setIsStockDialogOpen(false);
+      refetchWarehouseData();
     } catch (error) {
       toast({
         title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể lưu xe điện",
+        description: error instanceof Error ? error.message : "Không thể cập nhật tồn kho",
         variant: "destructive",
       });
     }
   };
 
   const handleAddModel = async () => {
-    if (!newModelName.trim()) {
+    if (!newModelCode.trim() || !newModelBrand.trim()) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng nhập tên model",
+        description: "Vui lòng nhập mã model và thương hiệu",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      await apiService.createModel({ name: newModelName });
+      await apiService.createModel({ 
+        modelCode: newModelCode,
+        brand: newModelBrand 
+      });
       toast({
         title: "Thành công",
         description: "Thêm model mới thành công",
       });
-      setNewModelName("");
+      setNewModelCode("");
+      setNewModelBrand("");
       setIsModelDialogOpen(false);
       refetchModels();
     } catch (error) {
@@ -257,16 +225,14 @@ export default function Warehouses() {
     if (!deleteWarehouseId) return;
 
     try {
-      if (deleteWarehouseId) {
-        await apiService.deleteWarehouse(deleteWarehouseId);
-        toast({
-          title: "Thành công",
-          description: "Xóa kho thành công",
-        });
-        refetchWarehouses();
-        if (selectedWarehouse === deleteWarehouseId) {
-          setSelectedWarehouse("");
-        }
+      await apiService.deleteWarehouse(deleteWarehouseId);
+      toast({
+        title: "Thành công",
+        description: "Xóa kho thành công",
+      });
+      refetchWarehouses();
+      if (selectedWarehouse === deleteWarehouseId) {
+        setSelectedWarehouse(null);
       }
     } catch (error) {
       toast({
@@ -279,26 +245,24 @@ export default function Warehouses() {
     }
   };
 
-  const handleDeleteEV = async () => {
-    if (!deleteEVId) return;
+  const handleDeleteStock = async () => {
+    if (!deleteStockModelId || !selectedWarehouse) return;
 
     try {
-      if (deleteEVId) {
-        await apiService.deleteEV(deleteEVId);
-        toast({
-          title: "Thành công",
-          description: "Xóa xe điện thành công",
-        });
-        refetchEVs();
-      }
+      await apiService.removeWarehouseStock(selectedWarehouse, deleteStockModelId);
+      toast({
+        title: "Thành công",
+        description: "Xóa tồn kho thành công",
+      });
+      refetchWarehouseData();
     } catch (error) {
       toast({
         title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể xóa xe điện",
+        description: error instanceof Error ? error.message : "Không thể xóa tồn kho",
         variant: "destructive",
       });
     } finally {
-      setDeleteEVId(null);
+      setDeleteStockModelId(null);
     }
   };
 
@@ -318,15 +282,15 @@ export default function Warehouses() {
         <CardContent>
           <Select value={selectedLocation} onValueChange={(value) => {
             setSelectedLocation(value);
-            setSelectedWarehouse("");
+            setSelectedWarehouse(null);
           }}>
             <SelectTrigger>
               <SelectValue placeholder="Chọn địa điểm" />
             </SelectTrigger>
             <SelectContent>
               {locations?.map((location) => (
-                <SelectItem key={location.id} value={location.id}>
-                  {location.name}
+                <SelectItem key={location} value={location}>
+                  {location}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -353,32 +317,32 @@ export default function Warehouses() {
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
-                  <TableHead>Tên Kho</TableHead>
-                  <TableHead>Địa chỉ</TableHead>
+                  <TableHead>Địa điểm Kho</TableHead>
+                  <TableHead>Số lượng xe</TableHead>
                   <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {warehouses && warehouses.length > 0 ? (
                   warehouses.map((warehouse) => (
-                    <TableRow key={warehouse.id}>
-                      <TableCell
+                    <TableRow key={warehouse.warehouseId}>
+                      <TableCell 
                         className="font-mono text-sm cursor-pointer hover:bg-accent/50"
-                        onClick={() => setSelectedWarehouse(warehouse.id)}
+                        onClick={() => setSelectedWarehouse(warehouse.warehouseId)}
                       >
-                        {warehouse.id.slice(0, 8)}...
+                        {warehouse.warehouseId}
                       </TableCell>
-                      <TableCell
+                      <TableCell 
                         className="cursor-pointer hover:bg-accent/50"
-                        onClick={() => setSelectedWarehouse(warehouse.id)}
+                        onClick={() => setSelectedWarehouse(warehouse.warehouseId)}
                       >
-                        {warehouse.name}
+                        {warehouse.warehouseLocation}
                       </TableCell>
-                      <TableCell
+                      <TableCell 
                         className="cursor-pointer hover:bg-accent/50"
-                        onClick={() => setSelectedWarehouse(warehouse.id)}
+                        onClick={() => setSelectedWarehouse(warehouse.warehouseId)}
                       >
-                        {warehouse.address}
+                        {warehouse.vehicleQuantity}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -397,7 +361,7 @@ export default function Warehouses() {
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setDeleteWarehouseId(warehouse.id);
+                              setDeleteWarehouseId(warehouse.warehouseId);
                             }}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -405,7 +369,7 @@ export default function Warehouses() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setSelectedWarehouse(warehouse.id)}
+                            onClick={() => setSelectedWarehouse(warehouse.warehouseId)}
                           >
                             <ChevronRight className="h-4 w-4" />
                           </Button>
@@ -433,58 +397,54 @@ export default function Warehouses() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setSelectedWarehouse("")}
+                onClick={() => setSelectedWarehouse(null)}
                 className="h-8 w-8"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <CardTitle>Danh sách Xe điện</CardTitle>
+              <CardTitle>Tồn kho</CardTitle>
             </div>
-            <Button onClick={() => openEVDialog()} size="sm">
+            <Button onClick={() => openStockDialog()} size="sm">
               <Plus className="h-4 w-4 mr-2" />
-              Thêm Xe điện
+              Thêm tồn kho
             </Button>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Màu sắc</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead className="text-right">Giá</TableHead>
-                  <TableHead>Ghi chú</TableHead>
+                  <TableHead>Model ID</TableHead>
+                  <TableHead>Mã Model</TableHead>
+                  <TableHead>Thương hiệu</TableHead>
+                  <TableHead className="text-right">Số lượng</TableHead>
                   <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {evs && evs.length > 0 ? (
-                  evs.map((ev: EV) => (
-                    <TableRow key={ev.id}>
+                {selectedWarehouseData?.items && selectedWarehouseData.items.length > 0 ? (
+                  selectedWarehouseData.items.map((item) => (
+                    <TableRow key={item.modelId}>
                       <TableCell className="font-mono text-sm">
-                        {ev.id.slice(0, 8)}...
+                        {item.modelId}
                       </TableCell>
-                      <TableCell>{ev.models?.name || "N/A"}</TableCell>
-                      <TableCell>{ev.color || "-"}</TableCell>
-                      <TableCell>{ev.status || "có sẵn"}</TableCell>
+                      <TableCell>{item.modelCode}</TableCell>
+                      <TableCell>{item.brand}</TableCell>
                       <TableCell className="text-right">
-                        ${Number(ev.price).toLocaleString()}
+                        {item.quantity}
                       </TableCell>
-                      <TableCell className="max-w-xs truncate">{ev.notes || "-"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => openEVDialog(ev)}
+                            onClick={() => openStockDialog(item.modelId, item.quantity)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setDeleteEVId(ev.id)}
+                            onClick={() => setDeleteStockModelId(item.modelId)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -494,8 +454,8 @@ export default function Warehouses() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
-                      Không có xe điện trong kho này
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Không có tồn kho trong kho này
                     </TableCell>
                   </TableRow>
                 )}
@@ -518,21 +478,12 @@ export default function Warehouses() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="warehouse-name">Tên Kho</Label>
+              <Label htmlFor="warehouse-location">Địa điểm Kho</Label>
               <Input
-                id="warehouse-name"
-                value={warehouseName}
-                onChange={(e) => setWarehouseName(e.target.value)}
-                placeholder="Nhập tên kho"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="warehouse-address">Địa chỉ</Label>
-              <Input
-                id="warehouse-address"
-                value={warehouseAddress}
-                onChange={(e) => setWarehouseAddress(e.target.value)}
-                placeholder="Nhập địa chỉ kho"
+                id="warehouse-location"
+                value={warehouseLocation}
+                onChange={(e) => setWarehouseLocation(e.target.value)}
+                placeholder="Nhập địa điểm kho"
               />
             </div>
           </div>
@@ -547,29 +498,29 @@ export default function Warehouses() {
         </DialogContent>
       </Dialog>
 
-      {/* EV Dialog */}
-      <Dialog open={isEVDialogOpen} onOpenChange={setIsEVDialogOpen}>
+      {/* Stock Dialog */}
+      <Dialog open={isStockDialogOpen} onOpenChange={setIsStockDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingEV ? "Chỉnh sửa Xe điện" : "Thêm Xe điện mới"}
+              {stockModelId ? "Cập nhật tồn kho" : "Thêm tồn kho mới"}
             </DialogTitle>
             <DialogDescription>
-              {editingEV ? "Cập nhật thông tin xe điện" : "Nhập thông tin xe điện mới"}
+              {stockModelId ? "Cập nhật số lượng tồn kho" : "Thêm model và số lượng vào kho"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="ev-model">Model</Label>
+              <Label htmlFor="stock-model">Model</Label>
               <div className="flex gap-2">
-                <Select value={evModel} onValueChange={setEvModel}>
-                  <SelectTrigger id="ev-model" className="flex-1">
+                <Select value={stockModelId?.toString() || ""} onValueChange={(value) => setStockModelId(Number(value))}>
+                  <SelectTrigger id="stock-model" className="flex-1">
                     <SelectValue placeholder="Chọn model" />
                   </SelectTrigger>
                   <SelectContent className="bg-background border">
                     {models?.map((model) => (
-                      <SelectItem key={model.id} value={model.id}>
-                        {model.name}
+                      <SelectItem key={model.modelId} value={model.modelId.toString()}>
+                        {model.brand} - {model.modelCode}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -585,54 +536,23 @@ export default function Warehouses() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ev-price">Giá ($)</Label>
+              <Label htmlFor="stock-quantity">Số lượng</Label>
               <Input
-                id="ev-price"
+                id="stock-quantity"
                 type="number"
-                value={evPrice}
-                onChange={(e) => setEvPrice(e.target.value)}
-                placeholder="Nhập giá"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ev-color">Màu sắc</Label>
-              <Input
-                id="ev-color"
-                value={evColor}
-                onChange={(e) => setEvColor(e.target.value)}
-                placeholder="Nhập màu sắc"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ev-status">Trạng thái</Label>
-              <Select value={evStatus} onValueChange={(value) => setEvStatus(value as "có sẵn" | "đã đặt" | "đang giao" | "bảo trì")}>
-                <SelectTrigger id="ev-status">
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border">
-                  <SelectItem value="có sẵn">Có sẵn</SelectItem>
-                  <SelectItem value="đã đặt">Đã đặt</SelectItem>
-                  <SelectItem value="đang giao">Đang giao</SelectItem>
-                  <SelectItem value="bảo trì">Bảo trì</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ev-notes">Ghi chú (tùy chọn)</Label>
-              <Input
-                id="ev-notes"
-                value={evNotes}
-                onChange={(e) => setEvNotes(e.target.value)}
-                placeholder="Nhập ghi chú"
+                min="0"
+                value={stockQuantity}
+                onChange={(e) => setStockQuantity(Number(e.target.value))}
+                placeholder="Nhập số lượng"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEVDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsStockDialogOpen(false)}>
               Hủy
             </Button>
-            <Button onClick={handleSaveEV}>
-              {editingEV ? "Cập nhật" : "Thêm"}
+            <Button onClick={handleSaveStock}>
+              {stockModelId ? "Cập nhật" : "Thêm"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -644,17 +564,26 @@ export default function Warehouses() {
           <DialogHeader>
             <DialogTitle>Thêm Model mới</DialogTitle>
             <DialogDescription>
-              Nhập tên model xe điện mới
+              Nhập thông tin model xe điện mới
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="model-name">Tên Model</Label>
+              <Label htmlFor="model-code">Mã Model</Label>
               <Input
-                id="model-name"
-                value={newModelName}
-                onChange={(e) => setNewModelName(e.target.value)}
-                placeholder="Nhập tên model"
+                id="model-code"
+                value={newModelCode}
+                onChange={(e) => setNewModelCode(e.target.value)}
+                placeholder="Nhập mã model"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="model-brand">Thương hiệu</Label>
+              <Input
+                id="model-brand"
+                value={newModelBrand}
+                onChange={(e) => setNewModelBrand(e.target.value)}
+                placeholder="Nhập thương hiệu"
               />
             </div>
           </div>
@@ -683,18 +612,18 @@ export default function Warehouses() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete EV Alert */}
-      <AlertDialog open={!!deleteEVId} onOpenChange={() => setDeleteEVId(null)}>
+      {/* Delete Stock Alert */}
+      <AlertDialog open={!!deleteStockModelId} onOpenChange={() => setDeleteStockModelId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa xe điện này? Hành động này không thể hoàn tác.
+              Bạn có chắc chắn muốn xóa tồn kho này? Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEV}>Xóa</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteStock}>Xóa</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

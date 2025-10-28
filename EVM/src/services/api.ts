@@ -66,6 +66,75 @@ export interface LoginResponse {
   user: UserResponse;
 }
 
+// Warehouse types - match backend WarehouseResponse/WarehouseRequest DTOs
+export interface WarehouseStockResponse {
+  modelId: number;
+  modelCode: string;
+  brand: string;
+  quantity: number;
+}
+
+export interface WarehouseResponse {
+  warehouseId: number;
+  warehouseLocation: string;
+  vehicleQuantity: number;
+  items: WarehouseStockResponse[];
+}
+
+export interface WarehouseRequest {
+  warehouseLocation: string;
+}
+
+export interface WarehouseStockRequest {
+  modelId: number;
+  quantity: number;
+}
+
+// Model types - match backend ModelResponse/ModelRequest DTOs
+export interface ModelResponse {
+  modelId: number;
+  modelCode: string;
+  brand: string;
+}
+
+export interface ModelRequest {
+  modelCode: string;
+  brand: string;
+}
+
+// Legacy type aliases for backward compatibility
+export type Warehouse = WarehouseResponse;
+export type EV = ModelResponse; // EVs are represented as Models in the backend
+
+// Extended types for frontend compatibility
+export interface ExtendedWarehouse extends WarehouseResponse {
+  id: number;
+  name: string;
+  address?: string;
+}
+
+export interface ExtendedEV extends ModelResponse {
+  id: number;
+  model_id: number;
+  price?: number;
+  color?: string;
+  status?: string;
+  notes?: string;
+  models?: {
+    name: string;
+  };
+}
+
+export interface ExtendedLocation {
+  id: string;
+  name: string;
+}
+
+export interface ExtendedModel {
+  id: number;
+  name: string;
+}
+
 // API Service
 class ApiService {
   // Use configured API URL when provided (trim trailing slash). In development
@@ -188,6 +257,192 @@ class ApiService {
 
   async deleteRole(id: number): Promise<void> {
     await this.axiosInstance.delete(`/roles/${id}`);
+  }
+
+  // Warehouse endpoints - match WarehouseController.java endpoints
+  async getWarehouses(): Promise<WarehouseResponse[]> {
+    const res = await this.axiosInstance.get<WarehouseResponse[]>('/warehouses');
+    return res.data;
+  }
+
+  async getWarehouse(id: number): Promise<WarehouseResponse> {
+    const res = await this.axiosInstance.get<WarehouseResponse>(`/warehouses/${id}`);
+    return res.data;
+  }
+
+  async createWarehouse(data: WarehouseRequest): Promise<WarehouseResponse> {
+    const res = await this.axiosInstance.post<WarehouseResponse>('/warehouses', data);
+    return res.data;
+  }
+
+  async updateWarehouse(id: number, data: WarehouseRequest): Promise<WarehouseResponse> {
+    const res = await this.axiosInstance.put<WarehouseResponse>(`/warehouses/${id}`, data);
+    return res.data;
+  }
+
+  async deleteWarehouse(id: number): Promise<void> {
+    await this.axiosInstance.delete(`/warehouses/${id}`);
+  }
+
+  // Warehouse stock management endpoints
+  async upsertWarehouseStock(warehouseId: number, data: WarehouseStockRequest): Promise<WarehouseResponse> {
+    const res = await this.axiosInstance.post<WarehouseResponse>(`/warehouses/${warehouseId}/stocks`, data);
+    return res.data;
+  }
+
+  async removeWarehouseStock(warehouseId: number, modelId: number): Promise<WarehouseResponse> {
+    const res = await this.axiosInstance.delete<WarehouseResponse>(`/warehouses/${warehouseId}/stocks/${modelId}`);
+    return res.data;
+  }
+
+  // Model endpoints - match ModelController.java endpoints
+  async getModels(page: number = 0, size: number = 20): Promise<ModelResponse[]> {
+    const res = await this.axiosInstance.get<ModelResponse[]>(`/models?page=${page}&size=${size}`);
+    return res.data;
+  }
+
+  async getModel(id: number): Promise<ModelResponse> {
+    const res = await this.axiosInstance.get<ModelResponse>(`/models/${id}`);
+    return res.data;
+  }
+
+  async getModelByCode(modelCode: string): Promise<ModelResponse> {
+    const res = await this.axiosInstance.get<ModelResponse>(`/models/code/${modelCode}`);
+    return res.data;
+  }
+
+  async createModel(data: ModelRequest): Promise<ModelResponse> {
+    const res = await this.axiosInstance.post<ModelResponse>('/models', data);
+    return res.data;
+  }
+
+  async updateModel(id: number, data: ModelRequest): Promise<ModelResponse> {
+    const res = await this.axiosInstance.put<ModelResponse>(`/models/${id}`, data);
+    return res.data;
+  }
+
+  async deleteModel(id: number): Promise<void> {
+    await this.axiosInstance.delete(`/models/${id}`);
+  }
+
+  // Legacy methods for backward compatibility with existing warehouse page
+  async getWarehousesByLocation(location?: string): Promise<ExtendedWarehouse[]> {
+    const warehouses = await this.getWarehouses();
+    const extended = warehouses.map(w => ({
+      ...w,
+      id: w.warehouseId,
+      name: w.warehouseLocation, // Use location as name for now
+      address: w.warehouseLocation,
+    }));
+    
+    // Filter by location if provided
+    if (location) {
+      return extended.filter(w => w.warehouseLocation.toLowerCase().includes(location.toLowerCase()));
+    }
+    return extended;
+  }
+
+  async getEVs(warehouseId?: string): Promise<ExtendedEV[]> {
+    // This maps to getting all models, as there's no direct EV endpoint in the backend
+    const models = await this.getModels();
+    return models.map(m => ({
+      ...m,
+      id: m.modelId,
+      model_id: m.modelId,
+      price: 0, // Default values since backend doesn't have these
+      color: '',
+      status: 'có sẵn',
+      notes: '',
+      models: {
+        name: `${m.brand} ${m.modelCode}`,
+      },
+    }));
+  }
+
+  async getLocations(): Promise<ExtendedLocation[]> {
+    // Get unique locations from all warehouses
+    const warehouses = await this.getWarehouses();
+    const locations = [...new Set(warehouses.map(w => w.warehouseLocation))];
+    return locations.map((loc, index) => ({
+      id: loc,
+      name: loc,
+    }));
+  }
+
+  // Additional legacy methods
+  async updateWarehouseCompat(id: number, data: { name: string; address?: string }): Promise<ExtendedWarehouse> {
+    const updated = await this.updateWarehouse(id, {
+      warehouseLocation: data.name, // Map name to warehouseLocation
+    });
+    return {
+      ...updated,
+      id: updated.warehouseId,
+      name: updated.warehouseLocation,
+      address: updated.warehouseLocation,
+    };
+  }
+
+  async createWarehouseCompat(data: { name: string; address?: string }): Promise<ExtendedWarehouse> {
+    const created = await this.createWarehouse({
+      warehouseLocation: data.name,
+    });
+    return {
+      ...created,
+      id: created.warehouseId,
+      name: created.warehouseLocation,
+      address: created.warehouseLocation,
+    };
+  }
+
+  async updateEV(id: number, data: { modelCode?: string; brand?: string; price?: number; color?: string; status?: string; notes?: string }): Promise<ExtendedEV> {
+    // Map to model update since EVs are models in backend
+    const updated = await this.updateModel(id, {
+      modelCode: data.modelCode || '',
+      brand: data.brand || '',
+    });
+    return {
+      ...updated,
+      id: updated.modelId,
+      model_id: updated.modelId,
+      price: data.price || 0,
+      color: data.color || '',
+      status: data.status || 'có sẵn',
+      notes: data.notes || '',
+      models: {
+        name: `${updated.brand} ${updated.modelCode}`,
+      },
+    };
+  }
+
+  async createEV(data: { modelCode?: string; brand?: string; price?: number; color?: string; status?: string; notes?: string }): Promise<ExtendedEV> {
+    const created = await this.createModel({
+      modelCode: data.modelCode || '',
+      brand: data.brand || '',
+    });
+    return {
+      ...created,
+      id: created.modelId,
+      model_id: created.modelId,
+      price: data.price || 0,
+      color: data.color || '',
+      status: data.status || 'có sẵn',
+      notes: data.notes || '',
+      models: {
+        name: `${created.brand} ${created.modelCode}`,
+      },
+    };
+  }
+
+  async deleteEV(id: number): Promise<void> {
+    await this.deleteModel(id);
+  }
+
+  async getModelsCompat(): Promise<ExtendedModel[]> {
+    const models = await this.getModels();
+    return models.map(m => ({
+      id: m.modelId,
+      name: `${m.brand} ${m.modelCode}`,
+    }));
   }
 }
 
