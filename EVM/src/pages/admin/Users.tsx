@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Edit, Eye, EyeOff, Filter, Plus, Shield, Trash2, User, Users as UsersIcon, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { apiService } from "@/services/api";
-import type { UserResponse, UserRequest } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";;
+import type { UserResponse, UserRequest } from "@/services/api-user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,11 +12,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { adminClasses, getStatusBadgeClass } from "@/lib/admin-utils";
+import { useUsers } from "@/hooks/use-users";
 
 export default function Users() {
-  const [users, setUsers] = useState<UserResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [editedUser, setEditedUser] = useState<Partial<UserRequest>>({});
   const [showPassword, setShowPassword] = useState<{ [key: number]: boolean }>({});
@@ -31,69 +28,59 @@ export default function Users() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserPhoneNumber, setNewUserPhoneNumber] = useState("");
   const [newUserAddress, setNewUserAddress] = useState("");
-  const [newUserRoleId, setNewUserRoleId] = useState<number>(1); // Default to customer role
+  const [newUserRoleId, setNewUserRoleId] = useState<number>(1); // Default to user role
   const [deleteUserId, setDeleteUserId] = useState<number | null>(null);
   const { toast } = useToast();
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      console.log('Attempting to fetch users...');
-      const fetchedUsers = await apiService.getUsers();
-      console.log('Fetched users:', fetchedUsers);
-      
-      setUsers(fetchedUsers);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể tải danh sách người dùng",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  //Custom Hooks
+  const { 
+    users, 
+    loading, 
+    roles,
+    rolesLoading,
+    fetchUsers, 
+    fetchRoles,
+    updateUser, 
+    deleteUser, 
+    createUser, 
+    generateRandomPassword 
+  } = useUsers();
+
 
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchRoles();
+  }, [fetchUsers, fetchRoles]);
+
+
+
+  // Helper functions using RoleService data
+  const getRoleDisplayName = (roleName: string): string => {
+    const role = roles.find(r => r.roleName === roleName);
+    return role?.roleName || roleName;
+  };
 
   const getRoleBadgeVariant = (roleName: string) => {
-    if (roleName.includes("Quản lý")) return "default";
-    if (roleName.includes("Nhân viên")) return "secondary";
+    if (roleName === "ADMIN") return "default";
+    if (roleName === "EV_STAFF") return "secondary";
     return "outline";
   };
 
   const getRoleIcon = (roleName: string) => {
-    if (roleName.includes("Quản lý")) return <Shield className="h-3.5 w-3.5" />;
-    if (roleName.includes("Nhân viên")) return <UsersIcon className="h-3.5 w-3.5" />;
+    if (roleName === "ADMIN") return <Shield className="h-3.5 w-3.5" />;
+    if (roleName === "EV_STAFF") return <UsersIcon className="h-3.5 w-3.5" />;
     return <User className="h-3.5 w-3.5" />;
-  };
-
-  // Map roleId to Vietnamese role name
-  const getRoleNameById = (roleId: number): string => {
-    const roleMap: { [key: number]: string } = {
-      1: "Khách hàng",
-      2: "Khách tiềm năng",
-      3: "Nhân viên EVM",
-      4: "Quản lý EVM",
-      5: "Nhân viên đại lý",
-      6: "Quản lý đại lý"
-    };
-    return roleMap[roleId] || "Khách hàng";
   };
 
   const startEditing = (user: UserResponse) => {
     setEditingUserId(user.userId);
+    const userRole = roles.find(r => r.roleName === user.roleName);
     setEditedUser({
-      userId: user.userId,
       email: user.email,
       name: user.name,
       phoneNumber: user.phoneNumber || undefined,
       address: user.address || undefined,
-      // We need to map roleName back to roleId for the form
-      roleId: Object.entries(roleNameMap).find(([_, name]) => name === user.roleName)?.[0] as unknown as number || 1
+      roleId: userRole?.roleId || 1
     });
   };
 
@@ -117,70 +104,56 @@ export default function Users() {
     return phoneRegex.test(phone.replace(/\s+/g, ''));
   };
 
+  // Data validation for update method
+  const validateEditedUser = (user?: Partial<UserRequest>): string | null => {
+    if (!user) return "Dữ liệu người dùng không hợp lệ";
+    if (user.email && !validateEmail(user.email)) return "Email không hợp lệ";
+    if (user.name && !validateName(user.name)) return "Tên không được để trống";
+    if (user.phoneNumber && !validatePhoneNumber(user.phoneNumber)) return "Số điện thoại không hợp lệ (10-11 chữ số)";
+    if (user.password && user.password.length < 6) return "Mật khẩu phải có ít nhất 6 ký tự";
+    return null;
+  };
+
+  // Data validation for add method
+  const validateNewUser = (data: {
+    email: string;
+    name: string;
+    phoneNumber?: string;
+    address: string;
+  }): string | null => {
+    if (!data.email || !validateEmail(data.email)) return "Email không hợp lệ";
+    if (!data.name || !validateName(data.name)) return "Tên không được để trống";
+    if (data.phoneNumber && !validatePhoneNumber(data.phoneNumber)) return "Số điện thoại không hợp lệ (10-11 chữ số)";
+    if (!data.address || !data.address.trim()) return "Địa chỉ không được để trống";
+    return null;
+  };
+
   const confirmUpdate = async () => {
     if (!editingUserId || !editedUser) return;
 
-    if (editedUser.email && !validateEmail(editedUser.email)) {
+    const validationError = validateEditedUser(editedUser);
+    if (validationError) {
       toast({
         title: "Lỗi",
-        description: "Email không hợp lệ",
+        description: validationError,
         variant: "destructive",
       });
       return;
     }
 
-    if (editedUser.name && !validateName(editedUser.name)) {
-      toast({
-        title: "Lỗi",
-        description: "Tên không được để trống",
-        variant: "destructive",
-      });
-      return;
-    }
+    const userToUpdate: UserRequest = {
+      email: editedUser.email || "",
+      name: editedUser.name || "",
+      phoneNumber: editedUser.phoneNumber || undefined,
+      address: editedUser.address || undefined,
+      password: editedUser.password || "unchanged", // Use a special value to indicate no change
+      roleId: editedUser.roleId || 1,
+    };
 
-    if (editedUser.phoneNumber && !validatePhoneNumber(editedUser.phoneNumber)) {
-      toast({
-        title: "Lỗi",
-        description: "Số điện thoại không hợp lệ (10-11 chữ số)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (editedUser.password && editedUser.password.length < 6) {
-      toast({
-        title: "Lỗi",
-        description: "Mật khẩu phải có ít nhất 6 ký tự",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const userToUpdate: UserRequest = {
-        email: editedUser.email || "",
-        name: editedUser.name || "",
-        phoneNumber: editedUser.phoneNumber || undefined,
-        address: editedUser.address || undefined,
-        password: editedUser.password || "unchanged", // Use a special value to indicate no change
-        roleId: editedUser.roleId || 1
-      };
-
-      await apiService.updateUser(editingUserId, userToUpdate);
-
-      toast({
-        title: "Thành công",
-        description: "Cập nhật thông tin người dùng thành công",
-      });
-
-      await fetchUsers();
+    // Delegate API call, toast and refresh to the hook
+    const ok = await updateUser(editingUserId, userToUpdate);
+    if (ok) {
       cancelEditing();
-    } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể cập nhật thông tin người dùng",
-        variant: "destructive",
-      });
     }
   };
 
@@ -195,62 +168,25 @@ export default function Users() {
     if (!deleteUserId) return;
 
     try {
-      await apiService.deleteUser(deleteUserId);
-
-      toast({
-        title: "Thành công",
-        description: "Người dùng đã được xóa",
-      });
-
-      await fetchUsers();
-    } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể xóa người dùng",
-        variant: "destructive",
-      });
+      await deleteUser(deleteUserId);
     } finally {
       setDeleteUserId(null);
     }
   };
 
-  const generateRandomPassword = (length: number = 10): string => {
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    return Array.from({ length }, () => charset.charAt(Math.floor(Math.random() * charset.length))).join("");
-  };
+  // use generateRandomPassword from the hook
 
   const handleAddUser = async () => {
-    if (!newUserEmail || !validateEmail(newUserEmail)) {
+    const addError = validateNewUser({
+      email: newUserEmail,
+      name: newUserName,
+      phoneNumber: newUserPhoneNumber,
+      address: newUserAddress,
+    });
+    if (addError) {
       toast({
         title: "Lỗi",
-        description: "Email không hợp lệ",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!newUserName || !validateName(newUserName)) {
-      toast({
-        title: "Lỗi",
-        description: "Tên không được để trống",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newUserPhoneNumber && !validatePhoneNumber(newUserPhoneNumber)) {
-      toast({
-        title: "Lỗi",
-        description: "Số điện thoại không hợp lệ (10-11 chữ số)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!newUserAddress.trim()) {
-      toast({
-        title: "Lỗi",
-        description: "Địa chỉ không được để trống",
+        description: addError,
         variant: "destructive",
       });
       return;
@@ -258,43 +194,37 @@ export default function Users() {
 
     const password = generateRandomPassword(10);
 
-    try {
-      await apiService.createUser({
-        email: newUserEmail,
-        name: newUserName,
-        phoneNumber: newUserPhoneNumber || undefined,
-        address: newUserAddress,
-        password,
-        roleId: newUserRoleId
-      });
+    const userToAdd: UserRequest = {
+      email: newUserEmail,
+      name: newUserName,
+      phoneNumber: newUserPhoneNumber || undefined,
+      address: newUserAddress,
+      password,
+      roleId: newUserRoleId,
+    };
 
-      toast({
-        title: "Thành công",
-        description: `Người dùng mới đã được tạo với mật khẩu: ${password}`,
-      });
-
+    const ok = await createUser(userToAdd, { showPassword: password });
+    if (ok) {
       setNewUserEmail("");
       setNewUserName("");
       setNewUserPhoneNumber("");
       setNewUserAddress("");
       setNewUserRoleId(1);
       setIsAddDialogOpen(false);
-      
-      await fetchUsers();
-    } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể tạo người dùng mới",
-        variant: "destructive",
-      });
     }
+  };
+
+  // Get all unique role names from users
+  const getAvailableRoles = () => {
+    const uniqueBackendRoles = [...new Set(users.map(u => u.roleName))];
+    return uniqueBackendRoles.map(roleName => getRoleDisplayName(roleName));
   };
 
   const getFilteredAndSortedUsers = () => {
     let filtered = users;
 
     if (filterRole !== "all") {
-      filtered = filtered.filter(user => user.roleName === filterRole);
+      filtered = filtered.filter(user => getRoleDisplayName(user.roleName) === filterRole);
     }
 
     return [...filtered].sort((a, b) => {
@@ -304,9 +234,11 @@ export default function Users() {
           ? a.userId - b.userId 
           : b.userId - a.userId;
       } else {
+        const roleA = getRoleDisplayName(a.roleName);
+        const roleB = getRoleDisplayName(b.roleName);
         return sortOrder === "asc"
-          ? a.roleName.localeCompare(b.roleName)
-          : b.roleName.localeCompare(a.roleName);
+          ? roleA.localeCompare(roleB)
+          : roleB.localeCompare(roleA);
       }
     });
   };
@@ -321,16 +253,6 @@ export default function Users() {
   useEffect(() => {
     setCurrentPage(1);
   }, [filterRole]);
-
-  // Role mapping for the select dropdowns
-  const roleNameMap = {
-    1: "Khách hàng",
-    2: "Khách tiềm năng",
-    3: "Nhân viên EVM",
-    4: "Quản lý EVM",
-    5: "Nhân viên đại lý",
-    6: "Quản lý đại lý"
-  };
 
   return (
     <div className="space-y-6">
@@ -355,11 +277,11 @@ export default function Users() {
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Lọc theo vai trò" />
               </SelectTrigger>
-              <SelectContent className="bg-background border">
+                            <SelectContent className="bg-background border">
                 <SelectItem value="all">Tất cả vai trò</SelectItem>
-                {Object.entries(roleNameMap).map(([id, name]) => (
-                  <SelectItem key={id} value={name}>
-                    {name}
+                {getAvailableRoles().map((roleName, index) => (
+                  <SelectItem key={`${roleName}-${index}`} value={roleName}>
+                    {roleName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -472,7 +394,7 @@ export default function Users() {
                           <TableCell>
                             {isEditing ? (
                               <Select
-                                value={String(editedUser.roleId || Object.entries(roleNameMap).find(([_, name]) => name === user.roleName)?.[0] || "1")}
+                                value={String(editedUser.roleId || roles.find(r => r.roleName === user.roleName)?.roleId || "1")}
                                 onValueChange={(value) =>
                                   setEditedUser((prev) => ({
                                     ...prev,
@@ -484,9 +406,9 @@ export default function Users() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {Object.entries(roleNameMap).map(([id, name]) => (
-                                    <SelectItem key={id} value={id}>
-                                      {name}
+                                  {roles.map((role) => (
+                                    <SelectItem key={role.roleId} value={String(role.roleId)}>
+                                      {role.roleName}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -497,7 +419,7 @@ export default function Users() {
                                 className="gap-1"
                               >
                                 {getRoleIcon(user.roleName)}
-                                {user.roleName}
+                                {getRoleDisplayName(user.roleName)}
                               </Badge>
                             )}
                           </TableCell>
@@ -665,16 +587,27 @@ export default function Users() {
                         <Select
                           value={String(newUserRoleId)}
                           onValueChange={(value) => setNewUserRoleId(parseInt(value))}
+                          disabled={rolesLoading}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Chọn vai trò" />
+                            <SelectValue placeholder={rolesLoading ? "Đang tải vai trò..." : "Chọn vai trò"} />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(roleNameMap).map(([id, name]) => (
-                              <SelectItem key={id} value={id}>
-                                {name}
+                            {rolesLoading ? (
+                              <SelectItem value="0" disabled>
+                                Đang tải...
                               </SelectItem>
-                            ))}
+                            ) : roles.length === 0 ? (
+                              <SelectItem value="0" disabled>
+                                Không có vai trò nào
+                              </SelectItem>
+            ) : (
+                              roles.map((role) => (
+                                <SelectItem key={role.roleId} value={String(role.roleId)}>
+                                  {role.roleName}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                       </div>

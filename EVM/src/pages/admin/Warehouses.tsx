@@ -1,8 +1,12 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { ArrowLeft, ChevronRight, Plus, Edit, Trash2 } from "lucide-react";
+import { useWarehouses } from "@/hooks/use-warehouses";
+import { useWarehouseDetail } from "@/hooks/use-warehouse-detail";
+import { useModels } from "@/hooks/use-models";
 import { useToast } from "@/hooks/use-toast";
-import { apiService, WarehouseResponse, ModelResponse, WarehouseStockRequest } from "@/services/api";
+import type { WarehouseResponse } from "@/services/api-warehouse";
+import type { ModelResponse } from "@/services/api-model";
+import Models from "./Models";
 import {
   Dialog,
   DialogContent,
@@ -38,11 +42,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function Warehouses() {
-  const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [selectedWarehouse, setSelectedWarehouse] = useState<number | null>(null);
   const [isWarehouseDialogOpen, setIsWarehouseDialogOpen] = useState(false);
   const [isStockDialogOpen, setIsStockDialogOpen] = useState(false);
@@ -51,51 +60,65 @@ export default function Warehouses() {
   const [deleteWarehouseId, setDeleteWarehouseId] = useState<number | null>(null);
   const [deleteStockModelId, setDeleteStockModelId] = useState<number | null>(null);
   const [warehouseLocation, setWarehouseLocation] = useState("");
+  const [warehouseName, setWarehouseName] = useState("");
   const [stockModelId, setStockModelId] = useState<number | null>(null);
   const [stockQuantity, setStockQuantity] = useState<number>(0);
   const [newModelCode, setNewModelCode] = useState("");
   const [newModelBrand, setNewModelBrand] = useState("");
+  
   const { toast } = useToast();
+  
+  // Custom hooks
+  const { 
+    allWarehouses, 
+    loading, 
+    fetchWarehouses, 
+    createWarehouse, 
+    updateWarehouse, 
+    deleteWarehouse 
+  } = useWarehouses();
+  
+  const { 
+    warehouseDetail, 
+    warehouseDetailLoading, 
+    fetchWarehouseDetail, 
+    upsertWarehouseStock, 
+    removeWarehouseStock, 
+    clearWarehouseDetail 
+  } = useWarehouseDetail();
+  
+  const { 
+    models, 
+    modelsLoading, 
+    fetchModels, 
+    createModel 
+  } = useModels();
+  
 
-  // Get unique locations from all warehouses
-  const { data: locations } = useQuery({
-    queryKey: ["locations"],
-    queryFn: async () => {
-      const warehouses = await apiService.getWarehouses();
-      const uniqueLocations = [...new Set(warehouses.map(w => w.warehouseLocation))];
-      return uniqueLocations;
-    },
-  });
+  // Initial data fetch
+  useEffect(() => {
+    fetchWarehouses();
+    fetchModels();
+  }, [fetchWarehouses, fetchModels]);
 
-  const { data: warehouses, refetch: refetchWarehouses } = useQuery({
-    queryKey: ["warehouses", selectedLocation],
-    queryFn: () => {
-      if (!selectedLocation) return Promise.resolve([]);
-      return apiService.getWarehouses().then(warehouses => 
-        warehouses.filter(w => w.warehouseLocation === selectedLocation)
-      );
-    },
-    enabled: !!selectedLocation,
-  });
-
-  const { data: selectedWarehouseData, refetch: refetchWarehouseData } = useQuery({
-    queryKey: ["warehouse", selectedWarehouse],
-    queryFn: () => selectedWarehouse ? apiService.getWarehouse(selectedWarehouse) : Promise.resolve(null),
-    enabled: !!selectedWarehouse,
-  });
-
-  const { data: models, refetch: refetchModels } = useQuery({
-    queryKey: ["models"],
-    queryFn: () => apiService.getModels(),
-  });
+  // Fetch warehouse detail when selectedWarehouse changes
+  useEffect(() => {
+    if (selectedWarehouse) {
+      fetchWarehouseDetail(selectedWarehouse);
+    } else {
+      clearWarehouseDetail();
+    }
+  }, [selectedWarehouse, fetchWarehouseDetail, clearWarehouseDetail]);
 
   const openWarehouseDialog = (warehouse?: WarehouseResponse) => {
     if (warehouse) {
       setEditingWarehouse(warehouse);
       setWarehouseLocation(warehouse.warehouseLocation);
+      setWarehouseName(warehouse.warehouseName);
     } else {
       setEditingWarehouse(null);
       setWarehouseLocation("");
+      setWarehouseName("");
     }
     setIsWarehouseDialogOpen(true);
   };
@@ -112,10 +135,12 @@ export default function Warehouses() {
   };
 
   const handleSaveWarehouse = async () => {
-    if (!warehouseLocation.trim()) {
+    if (!warehouseLocation.trim() || !warehouseName.trim()) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng nhập địa điểm kho",
+        description: !warehouseLocation.trim() 
+          ? "Vui lòng nhập địa điểm kho"
+          : "Vui lòng nhập tên kho",
         variant: "destructive",
       });
       return;
@@ -123,67 +148,49 @@ export default function Warehouses() {
 
     try {
       if (editingWarehouse) {
-        await apiService.updateWarehouse(editingWarehouse.warehouseId, {
+        await updateWarehouse(editingWarehouse.warehouseId, {
           warehouseLocation: warehouseLocation,
-        });
-        toast({
-          title: "Thành công",
-          description: "Cập nhật kho thành công",
+          warehouseName: warehouseName,
         });
       } else {
-        await apiService.createWarehouse({
+        await createWarehouse({
           warehouseLocation: warehouseLocation,
-        });
-        toast({
-          title: "Thành công",
-          description: "Thêm kho mới thành công",
+          warehouseName: warehouseName,
         });
       }
       setIsWarehouseDialogOpen(false);
-      refetchWarehouses();
     } catch (error) {
       toast({
         title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể lưu kho",
+        description: "Không thể lưu kho",
         variant: "destructive",
       });
     }
   };
 
   const handleSaveStock = async () => {
-    if (!stockModelId || stockQuantity < 0) {
+    // Validate inputs
+    if (!stockModelId || stockQuantity < 0 || !selectedWarehouse) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng chọn model và nhập số lượng hợp lệ",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedWarehouse) {
-      toast({
-        title: "Lỗi",
-        description: "Vui lòng chọn kho",
+        description: !selectedWarehouse 
+          ? "Vui lòng chọn kho" 
+          : "Vui lòng chọn model và nhập số lượng hợp lệ",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      await apiService.upsertWarehouseStock(selectedWarehouse, {
+      await upsertWarehouseStock(selectedWarehouse, {
         modelId: stockModelId,
         quantity: stockQuantity,
       });
-      toast({
-        title: "Thành công",
-        description: "Cập nhật tồn kho thành công",
-      });
       setIsStockDialogOpen(false);
-      refetchWarehouseData();
     } catch (error) {
       toast({
         title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể cập nhật tồn kho",
+        description: "Không thể cập nhật tồn kho",
         variant: "destructive",
       });
     }
@@ -200,22 +207,17 @@ export default function Warehouses() {
     }
 
     try {
-      await apiService.createModel({ 
+      await createModel({ 
         modelCode: newModelCode,
         brand: newModelBrand 
-      });
-      toast({
-        title: "Thành công",
-        description: "Thêm model mới thành công",
       });
       setNewModelCode("");
       setNewModelBrand("");
       setIsModelDialogOpen(false);
-      refetchModels();
     } catch (error) {
       toast({
         title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể thêm model",
+        description: "Không thể thêm model",
         variant: "destructive",
       });
     }
@@ -225,21 +227,10 @@ export default function Warehouses() {
     if (!deleteWarehouseId) return;
 
     try {
-      await apiService.deleteWarehouse(deleteWarehouseId);
-      toast({
-        title: "Thành công",
-        description: "Xóa kho thành công",
-      });
-      refetchWarehouses();
+      await deleteWarehouse(deleteWarehouseId);
       if (selectedWarehouse === deleteWarehouseId) {
         setSelectedWarehouse(null);
       }
-    } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể xóa kho",
-        variant: "destructive",
-      });
     } finally {
       setDeleteWarehouseId(null);
     }
@@ -249,16 +240,11 @@ export default function Warehouses() {
     if (!deleteStockModelId || !selectedWarehouse) return;
 
     try {
-      await apiService.removeWarehouseStock(selectedWarehouse, deleteStockModelId);
-      toast({
-        title: "Thành công",
-        description: "Xóa tồn kho thành công",
-      });
-      refetchWarehouseData();
+      await removeWarehouseStock(selectedWarehouse, deleteStockModelId);
     } catch (error) {
       toast({
         title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể xóa tồn kho",
+        description: "Không thể xóa tồn kho",
         variant: "destructive",
       });
     } finally {
@@ -269,36 +255,20 @@ export default function Warehouses() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Quản lý Kho</h1>
+        <h1 className="text-3xl font-bold text-foreground">Quản lý Kho & Model</h1>
         <p className="text-muted-foreground mt-2">
-          Chọn địa điểm và kho để xem xe điện
+          Quản lý kho hàng và các model xe điện
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Chọn Địa điểm</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedLocation} onValueChange={(value) => {
-            setSelectedLocation(value);
-            setSelectedWarehouse(null);
-          }}>
-            <SelectTrigger>
-              <SelectValue placeholder="Chọn địa điểm" />
-            </SelectTrigger>
-            <SelectContent>
-              {locations?.map((location) => (
-                <SelectItem key={location} value={location}>
-                  {location}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="warehouses" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="warehouses">Quản lý Kho</TabsTrigger>
+          <TabsTrigger value="models">Quản lý Model</TabsTrigger>
+        </TabsList>
 
-      {selectedLocation && !selectedWarehouse && (
+        <TabsContent value="warehouses" className="space-y-6">
+          {!selectedWarehouse && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div>
@@ -313,24 +283,36 @@ export default function Warehouses() {
             </Button>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Địa điểm Kho</TableHead>
-                  <TableHead>Số lượng xe</TableHead>
-                  <TableHead className="text-right">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {warehouses && warehouses.length > 0 ? (
-                  warehouses.map((warehouse) => (
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Đang tải danh sách kho...
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Tên Kho</TableHead>
+                    <TableHead>Địa điểm Kho</TableHead>
+                    <TableHead>Số lượng xe</TableHead>
+                    <TableHead className="text-right">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allWarehouses && allWarehouses.length > 0 ? (
+                  allWarehouses.map((warehouse) => (
                     <TableRow key={warehouse.warehouseId}>
                       <TableCell 
                         className="font-mono text-sm cursor-pointer hover:bg-accent/50"
                         onClick={() => setSelectedWarehouse(warehouse.warehouseId)}
                       >
                         {warehouse.warehouseId}
+                      </TableCell>
+                      <TableCell 
+                        className="cursor-pointer hover:bg-accent/50"
+                        onClick={() => setSelectedWarehouse(warehouse.warehouseId)}
+                      >
+                        {warehouse.warehouseName}
                       </TableCell>
                       <TableCell 
                         className="cursor-pointer hover:bg-accent/50"
@@ -377,15 +359,16 @@ export default function Warehouses() {
                       </TableCell>
                     </TableRow>
                   ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
-                      Không có kho trong địa điểm này
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Không có kho nào
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       )}
@@ -410,57 +393,79 @@ export default function Warehouses() {
             </Button>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Model ID</TableHead>
-                  <TableHead>Mã Model</TableHead>
-                  <TableHead>Thương hiệu</TableHead>
-                  <TableHead className="text-right">Số lượng</TableHead>
-                  <TableHead className="text-right">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {selectedWarehouseData?.items && selectedWarehouseData.items.length > 0 ? (
-                  selectedWarehouseData.items.map((item) => (
-                    <TableRow key={item.modelId}>
-                      <TableCell className="font-mono text-sm">
-                        {item.modelId}
-                      </TableCell>
-                      <TableCell>{item.modelCode}</TableCell>
-                      <TableCell>{item.brand}</TableCell>
-                      <TableCell className="text-right">
-                        {item.quantity}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openStockDialog(item.modelId, item.quantity)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteStockModelId(item.modelId)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+            {warehouseDetailLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Đang tải thông tin kho...
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Model ID</TableHead>
+                    <TableHead>Mã Model</TableHead>
+                    <TableHead>Thương hiệu</TableHead>
+                    <TableHead className="text-right">Số lượng</TableHead>
+                    <TableHead className="text-right">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {warehouseDetail?.items && Array.isArray(warehouseDetail.items) && warehouseDetail.items.length > 0 ? (
+                  warehouseDetail.items
+                    .filter((item) => {
+                      if (!item) {
+                        console.warn('Found null/undefined item in warehouse items');
+                        return false;
+                      }
+                      if (!item.model) {
+                        console.warn('Found item without model:', item);
+                        return false;
+                      }
+                      if (!item.model.modelId) {
+                        console.warn('Found item with model without modelId:', item);
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map((item) => (
+                      <TableRow key={item.model.modelId}>
+                        <TableCell className="font-mono text-sm">
+                          {item.model.modelId}
+                        </TableCell>
+                        <TableCell>{item.model.modelCode || 'N/A'}</TableCell>
+                        <TableCell>{item.model.brand || 'N/A'}</TableCell>
+                        <TableCell className="text-right">
+                          {item.quantity}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openStockDialog(item.model.modelId, item.quantity)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeleteStockModelId(item.model.modelId)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Không có tồn kho trong kho này
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      Không có tồn kho trong kho này
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       )}
@@ -477,6 +482,15 @@ export default function Warehouses() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="warehouse-name">Tên Kho</Label>
+              <Input
+                id="warehouse-name"
+                value={warehouseName}
+                onChange={(e) => setWarehouseName(e.target.value)}
+                placeholder="Nhập tên kho"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="warehouse-location">Địa điểm Kho</Label>
               <Input
@@ -513,16 +527,28 @@ export default function Warehouses() {
             <div className="space-y-2">
               <Label htmlFor="stock-model">Model</Label>
               <div className="flex gap-2">
-                <Select value={stockModelId?.toString() || ""} onValueChange={(value) => setStockModelId(Number(value))}>
+                <Select 
+                  value={stockModelId?.toString() || ""} 
+                  onValueChange={(value) => setStockModelId(Number(value))}
+                  disabled={modelsLoading}
+                >
                   <SelectTrigger id="stock-model" className="flex-1">
-                    <SelectValue placeholder="Chọn model" />
+                    <SelectValue placeholder={modelsLoading ? "Đang tải..." : "Chọn model"} />
                   </SelectTrigger>
                   <SelectContent className="bg-background border">
-                    {models?.map((model) => (
-                      <SelectItem key={model.modelId} value={model.modelId.toString()}>
-                        {model.brand} - {model.modelCode}
+                    {models && Array.isArray(models) && models.length > 0 ? (
+                      models
+                        .filter((model: ModelResponse) => model && typeof model.modelId !== 'undefined' && model.modelId !== null)
+                        .map((model: ModelResponse) => (
+                          <SelectItem key={model.modelId} value={model.modelId.toString()}>
+                            {model.brand || 'Unknown'} - {model.modelCode || 'Unknown'}
+                          </SelectItem>
+                        ))
+                    ) : (
+                      <SelectItem value="no-models" disabled>
+                        {modelsLoading ? "Đang tải..." : "Không có model nào"}
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
                 <Button
@@ -627,6 +653,14 @@ export default function Warehouses() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </TabsContent>
+
+        <TabsContent value="models" className="space-y-6">
+          <Models />
+        </TabsContent>
+      </Tabs>
+
+
     </div>
   );
 }

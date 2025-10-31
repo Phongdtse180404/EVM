@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Eye, EyeOff, User, Mail, Lock, Sparkles, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import axios from "axios";
+import { authService } from "@/services/api-auth";
 
 
 const Login = () => {
@@ -17,13 +17,13 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axios.post("/api/auth/login", {
+      const response = await authService.login({
         email: loginForm.email,
         password: loginForm.password,
       });
 
-      // { token, user }
-      const { token, email } = response.data;
+      // { token, tokenType, email }
+      const { token, email } = response;
       console.log("Token nhận được từ server:", token);
       console.log("Email nhận được từ server:", email);
 
@@ -40,9 +40,10 @@ const Login = () => {
       });
 
       navigate("/showroom");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Sai email hoặc mật khẩu";
       toast.error("Đăng nhập thất bại!", {
-        description: error.response?.data?.message || "Sai email hoặc mật khẩu",
+        description: errorMessage,
       });
     }
   };
