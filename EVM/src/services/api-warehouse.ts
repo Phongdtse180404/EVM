@@ -1,7 +1,8 @@
 import { BaseApiService } from './api';
-import type { ModelResponse } from './api-model';
 
-// Warehouse types
+
+
+
 export interface WarehouseResponse {
   warehouseId: number;
   warehouseLocation: string;
@@ -11,12 +12,24 @@ export interface WarehouseResponse {
 }
 
 export interface WarehouseStockResponse {
-  id: number;
-  warehouseId: number;
-  model: ModelResponse;
+  modelCode: string;
+  brand: string;
+  color: string;
+  productionYear: number;
   quantity: number;
-  createdAt: string;
-  updatedAt: string;
+  serials: VehicleSerialResponse[];
+}
+
+export interface VehicleSerialResponse {
+  vin: string;
+  status: VehicleStatus;
+  holdUntil?: string;
+}
+
+export enum VehicleStatus {
+  AVAILABLE = 'AVAILABLE',
+  HOLD = 'HOLD',
+  SOLD_OUT = 'SOLD_OUT'
 }
 
 export interface WarehouseRequest {
@@ -61,8 +74,8 @@ class WarehouseService extends BaseApiService {
     return res.data;
   }
 
-  async removeWarehouseStock(warehouseId: number, modelId: number): Promise<WarehouseResponse> {
-    const res = await this.axiosInstance.delete<WarehouseResponse>(`/warehouses/${warehouseId}/stocks/${modelId}`);
+  async removeWarehouseStock(warehouseId: number, modelCode: string): Promise<WarehouseResponse> {
+    const res = await this.axiosInstance.delete<WarehouseResponse>(`/warehouses/${warehouseId}/stocks/${modelCode}`);
     return res.data;
   }
 }

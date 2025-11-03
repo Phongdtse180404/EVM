@@ -50,6 +50,8 @@ import {
 } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Folder } from "@/components/ui/folder";
+import { WarehouseStatusBadge } from "@/components/ui/warehouse-status-badge";
 
 export default function Warehouses() {
   const [selectedWarehouse, setSelectedWarehouse] = useState<number | null>(null);
@@ -58,7 +60,7 @@ export default function Warehouses() {
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<WarehouseResponse | null>(null);
   const [deleteWarehouseId, setDeleteWarehouseId] = useState<number | null>(null);
-  const [deleteStockModelId, setDeleteStockModelId] = useState<number | null>(null);
+  const [deleteStockModelCode, setDeleteStockModelCode] = useState<string | null>(null);
   const [warehouseLocation, setWarehouseLocation] = useState("");
   const [warehouseName, setWarehouseName] = useState("");
   const [stockModelId, setStockModelId] = useState<number | null>(null);
@@ -237,10 +239,10 @@ export default function Warehouses() {
   };
 
   const handleDeleteStock = async () => {
-    if (!deleteStockModelId || !selectedWarehouse) return;
+    if (!deleteStockModelCode || !selectedWarehouse) return;
 
     try {
-      await removeWarehouseStock(selectedWarehouse, deleteStockModelId);
+      await removeWarehouseStock(selectedWarehouse, deleteStockModelCode);
     } catch (error) {
       toast({
         title: "Lỗi",
@@ -248,9 +250,11 @@ export default function Warehouses() {
         variant: "destructive",
       });
     } finally {
-      setDeleteStockModelId(null);
+      setDeleteStockModelCode(null);
     }
   };
+
+
 
   return (
     <div className="space-y-6">
@@ -398,73 +402,111 @@ export default function Warehouses() {
                 Đang tải thông tin kho...
               </div>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Model ID</TableHead>
+                    <TableHead className="w-8"></TableHead>
                     <TableHead>Mã Model</TableHead>
                     <TableHead>Thương hiệu</TableHead>
-                    <TableHead className="text-right">Số lượng</TableHead>
+                    <TableHead>Màu</TableHead>
+                    <TableHead>Năm SX</TableHead>
+                    <TableHead className="text-right">Tổng SL</TableHead>
+                    <TableHead className="text-right">Xe có sẵn</TableHead>
                     <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {warehouseDetail?.items && Array.isArray(warehouseDetail.items) && warehouseDetail.items.length > 0 ? (
-                  warehouseDetail.items
-                    .filter((item) => {
-                      if (!item) {
-                        console.warn('Found null/undefined item in warehouse items');
-                        return false;
-                      }
-                      if (!item.model) {
-                        console.warn('Found item without model:', item);
-                        return false;
-                      }
-                      if (!item.model.modelId) {
-                        console.warn('Found item with model without modelId:', item);
-                        return false;
-                      }
-                      return true;
-                    })
-                    .map((item) => (
-                      <TableRow key={item.model.modelId}>
-                        <TableCell className="font-mono text-sm">
-                          {item.model.modelId}
-                        </TableCell>
-                        <TableCell>{item.model.modelCode || 'N/A'}</TableCell>
-                        <TableCell>{item.model.brand || 'N/A'}</TableCell>
-                        <TableCell className="text-right">
-                          {item.quantity}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
+                    warehouseDetail.items.map((item, index) => {
+                      const modelKey = `${item.modelCode}-${item.color}-${index}`;
+                      const availableCount = item.serials ? item.serials.filter(serial => serial.status === 'AVAILABLE').length : 0;
+                      
+                      return (
+                        <Folder
+                          key={modelKey}
+                          id={modelKey}
+                          colSpan={8}
+                          expandedContent={
+                            <div>
+                              {item.serials && item.serials.length > 0 ? (
+                                <div className="space-y-3">
+                                  <div className="text-sm font-medium text-muted-foreground mb-3">
+                                    Chi tiết xe - {item.brand} {item.modelCode} ({item.color})
+                                  </div>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>VIN</TableHead>
+                                        <TableHead>Trạng thái</TableHead>
+                                        <TableHead>Giữ chỗ đến</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {item.serials.map((serial, serialIndex) => (
+                                        <TableRow key={`${serial.vin}-${serialIndex}`} className="hover:bg-muted/50">
+                                          <TableCell className="font-mono text-sm">
+                                            {serial.vin}
+                                          </TableCell>
+                                          <TableCell>
+                                            <WarehouseStatusBadge vehicleStatus={serial.status} />
+                                          </TableCell>
+                                          <TableCell className="text-sm text-muted-foreground">
+                                            {serial.holdUntil ? new Date(serial.holdUntil).toLocaleString('vi-VN') : '-'}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              ) : (
+                                <div className="text-center py-4 text-muted-foreground text-sm">
+                                  Không có xe nào trong model này
+                                </div>
+                              )}
+                            </div>
+                          }
+                        >
+                          <TableCell className="font-mono text-sm font-medium">
+                            {item.modelCode}
+                          </TableCell>
+                          <TableCell className="font-medium">{item.brand}</TableCell>
+                          <TableCell>
+                            <WarehouseStatusBadge variant="secondary">
+                              {item.color}
+                            </WarehouseStatusBadge>
+                          </TableCell>
+                          <TableCell>{item.productionYear}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {item.quantity}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <WarehouseStatusBadge count={availableCount} />
+                          </TableCell>
+                          <TableCell className="text-right">
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => openStockDialog(item.model.modelId, item.quantity)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeleteStockModelId(item.model.modelId)}
+                              onClick={() => setDeleteStockModelCode(item.modelCode)}
+                              title="Xóa tồn kho"
+                              className="h-8 w-8"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                          </TableCell>
+                        </Folder>
+                      );
+                    })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
                         Không có tồn kho trong kho này
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
+              </>
             )}
           </CardContent>
         </Card>
@@ -639,7 +681,7 @@ export default function Warehouses() {
       </AlertDialog>
 
       {/* Delete Stock Alert */}
-      <AlertDialog open={!!deleteStockModelId} onOpenChange={() => setDeleteStockModelId(null)}>
+      <AlertDialog open={!!deleteStockModelCode} onOpenChange={() => setDeleteStockModelCode(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>

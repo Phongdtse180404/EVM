@@ -11,17 +11,7 @@ export const useWarehouseDetail = () => {
   const fetchWarehouseDetail = useCallback(async (warehouseId: number) => {
     setWarehouseDetailLoading(true);
     try {
-      console.log('Attempting to fetch warehouse detail for ID:', warehouseId);
       const data = await warehouseService.getWarehouse(warehouseId);
-      console.log('Warehouse detail loaded:', data);
-      console.log('Warehouse items:', data?.items);
-      console.log('Items structure:', data?.items?.map(item => ({
-        quantity: item?.quantity,
-        model: item?.model,
-        modelId: item?.model?.modelId,
-        modelCode: item?.model?.modelCode
-      })));
-      
       setWarehouseDetail(data);
     } catch (error) {
       console.error('Error loading warehouse detail:', error);
@@ -55,9 +45,9 @@ export const useWarehouseDetail = () => {
     }
   }, [toast, fetchWarehouseDetail]);
 
-  const removeWarehouseStock = useCallback(async (warehouseId: number, modelId: number) => {
+  const removeWarehouseStock = useCallback(async (warehouseId: number, modelCode: string) => {
     try {
-      await warehouseService.removeWarehouseStock(warehouseId, modelId);
+      await warehouseService.removeWarehouseStock(warehouseId, modelCode);
       toast({
         title: "Thành công",
         description: "Xóa tồn kho thành công",
