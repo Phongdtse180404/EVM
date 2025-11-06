@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useElectricVehicle } from "@/hooks/use-electric-vehicle";
+import { useWarehouses } from "@/hooks/use-warehouses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,39 +29,108 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { customerService } from "@/services/api-customers";
-import { orderService, OrderStatus, type OrderRequest } from "@/services/api-orders";
-import type { ElectricVehicleResponse } from "@/services/api-electric-vehicle";
+import { orderService, OrderStatus, type OrderDepositRequest } from "@/services/api-orders";
+import type { WarehouseStockResponse, VehicleSerialResponse } from "@/services/api-warehouse";
+import { electricVehicleService, type ElectricVehicleResponse } from "@/services/api-electric-vehicle";
+
+// Type for individual vehicle with serial info
+type IndividualVehicle = WarehouseStockResponse & {
+  serial: VehicleSerialResponse;
+  status: string;
+  holdUntil?: string;
+  vin: string;
+  imageUrl?: string;
+};
 
 
 export default function OrderDetails() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const vehicleId = searchParams.get('vehicle');
+  const modelCode = searchParams.get('model');
+  const color = searchParams.get('color');
+  const vin = searchParams.get('vin');
   
-  // Use the electric vehicle hook to get API data
-  const { fetchElectricVehicles, loading, electricVehicles } = useElectricVehicle();
-  const [selectedVehicle, setSelectedVehicle] = useState<ElectricVehicleResponse | null>(null);
+  // Use the warehouse hook to get API data
+  const { fetchWarehouse, loading, selectedWarehouse } = useWarehouses();
+  const [selectedVehicle, setSelectedVehicle] = useState<IndividualVehicle | null>(null);
+  const [electricVehicles, setElectricVehicles] = useState<ElectricVehicleResponse[]>([]);
 
   // Firebase fallback image URL
   const firebaseImageUrl = "https://firebasestorage.googleapis.com/v0/b/evdealer.firebasestorage.app/o/images%2Fvehicles%2Fvf6-electric-car.png?alt=media&token=ac7891b1-f5e2-4e23-9b35-2c4d6e7f8a9b";
 
-  // Fetch vehicles and set selected vehicle
+  // Fetch warehouse data and set selected vehicle
   useEffect(() => {
+    fetchWarehouse(1); // Fetch warehouse ID 1
+  }, [fetchWarehouse]);
+
+  // Fetch electric vehicles data for images
+  useEffect(() => {
+    const fetchElectricVehicles = async () => {
+      try {
+        const vehicles = await electricVehicleService.getAllElectricVehicles();
+        setElectricVehicles(vehicles);
+      } catch (error) {
+        console.error('Error fetching electric vehicles:', error);
+      }
+    };
+
     fetchElectricVehicles();
-  }, [fetchElectricVehicles]);
+  }, []);
+
+  // Function to get the correct image for a vehicle based on model code and color
+  const getVehicleImage = (vehicle: IndividualVehicle): string => {
+    // Find matching electric vehicle by model code and color
+    const matchingEV = electricVehicles.find(ev => 
+      ev.modelCode === vehicle.modelCode && 
+      ev.color === vehicle.color
+    );
+    
+    // Return the image URL from electric vehicle data, or fallback to firebase image
+    return matchingEV?.imageUrl || firebaseImageUrl;
+  };
 
   useEffect(() => {
-    if (electricVehicles.length > 0) {
-      if (vehicleId) {
-        // Try to find the specific vehicle by ID
-        const foundVehicle = electricVehicles.find(v => v.vehicleId?.toString() === vehicleId);
-        setSelectedVehicle(foundVehicle || electricVehicles[0]);
+    if (selectedWarehouse?.items && selectedWarehouse.items.length > 0) {
+      // Flatten warehouse items into individual vehicles
+      const individualVehicles = selectedWarehouse.items.flatMap(item => 
+        (item.serials || []).map(serial => ({
+          ...item,
+          serial: serial,
+          status: serial.status,
+          holdUntil: serial.holdUntil,
+          vin: serial.vin
+        }))
+      );
+
+      if (vin) {
+        // First priority: Find exact vehicle by VIN
+        const foundVehicle = individualVehicles.find(v => v.vin === vin);
+        setSelectedVehicle(foundVehicle);
+        
+        if (!foundVehicle) {
+          console.warn(`Vehicle with VIN ${vin} not found`);
+          // Fallback to model and color if VIN not found
+          if (modelCode && color) {
+            const fallbackVehicle = individualVehicles.find(v => 
+              v.modelCode === modelCode && v.color === color && v.status === 'AVAILABLE'
+            );
+            setSelectedVehicle(fallbackVehicle || individualVehicles.find(v => v.status === 'AVAILABLE') || individualVehicles[0]);
+          } else {
+            setSelectedVehicle(individualVehicles.find(v => v.status === 'AVAILABLE') || individualVehicles[0]);
+          }
+        }
+      } else if (modelCode && color) {
+        // Second priority: Find by model and color
+        const foundVehicle = individualVehicles.find(v => 
+          v.modelCode === modelCode && v.color === color && v.status === 'AVAILABLE'
+        );
+        setSelectedVehicle(foundVehicle || individualVehicles.find(v => v.status === 'AVAILABLE') || individualVehicles[0]);
       } else {
-        // Default to first vehicle if no ID specified
-        setSelectedVehicle(electricVehicles[0]);
+        // Default: First available vehicle
+        setSelectedVehicle(individualVehicles.find(v => v.status === 'AVAILABLE') || individualVehicles[0]);
       }
     }
-  }, [electricVehicles, vehicleId]);
+  }, [selectedWarehouse, modelCode, color, vin]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -87,13 +156,37 @@ export default function OrderDetails() {
     notes: ""
   });
 
+  // Reset form function to clear any corrupted data
+  const resetForm = () => {
+    setOrderForm({
+      customerName: "",
+      customerPhone: "",
+      customerEmail: "",
+      customerAddress: "",
+      selectedColor: selectedVehicle?.color || "",
+      paymentMethod: "",
+      deliveryDate: "",
+      notes: ""
+    });
+  };
+
+  // Update order form when vehicle is loaded
+  useEffect(() => {
+    if (selectedVehicle && selectedVehicle.color && !orderForm.selectedColor) {
+      setOrderForm(prev => ({
+        ...prev,
+        selectedColor: selectedVehicle.color
+      }));
+    }
+  }, [selectedVehicle, orderForm.selectedColor]);
+
   const [orderType, setOrderType] = useState<"showroom" | "online" | "direct">("showroom");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePhoneNumberChange = async (phoneNumber: string) => {
     setOrderForm({...orderForm, customerPhone: phoneNumber});
     
-    // If phone number is valid length (assume Vietnamese phone number), try to fetch customer
+    // If phone number has reasonable length, try to fetch customer
     if (phoneNumber.length >= 10) {
       try {
         const customer = await customerService.getCustomerByPhone(phoneNumber);
@@ -114,6 +207,11 @@ export default function OrderDetails() {
 
   const handleSubmitOrder = async () => {
     if (isSubmitting || !selectedVehicle) return;
+    
+    console.log('🚀 ORDER SUBMISSION STARTED');
+    console.log('📋 Order Form Data:', orderForm);
+    console.log('🚗 Selected Vehicle:', selectedVehicle);
+    console.log('📦 Order Type:', orderType);
     
     setIsSubmitting(true);
     // Validate required fields
@@ -151,46 +249,47 @@ export default function OrderDetails() {
       return;
     }
     
-    // Validate phone number format (Vietnamese phone numbers)
-    const phoneRegex = /^(0|\+84)[3-9]\d{8}$/;
-    if (!phoneRegex.test(orderForm.customerPhone.trim())) {
-      toast.error("Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam hợp lệ");
-      setIsSubmitting(false);
-      return;
-    }
+
 
     try {
-      // Step 1: Find or create customer
-      let customerId: number;
-      
-      try {
-        // Try to find existing customer
-        const existingCustomer = await customerService.getCustomerByPhone(orderForm.customerPhone.trim());
-        customerId = existingCustomer.customerId;
+        // Step 1: Find or create customer
+        let customerId: number;
         
-        // Update customer name if it's different (in case user manually changed it)
-        if (existingCustomer.name !== orderForm.customerName.trim()) {
-          await customerService.updateCustomer(customerId, {
-            vehicleId: selectedVehicle.vehicleId || 1, // Use API vehicle ID
+        console.log('👤 CUSTOMER LOOKUP/CREATION');
+        console.log('📞 Looking up customer by phone:', orderForm.customerPhone.trim());
+        
+        try {
+          // Try to find existing customer
+          const existingCustomer = await customerService.getCustomerByPhone(orderForm.customerPhone.trim());
+          customerId = existingCustomer.customerId;
+          console.log('✅ Found existing customer:', existingCustomer);
+          
+          // Update customer name if it's different (in case user manually changed it)
+          if (existingCustomer.name !== orderForm.customerName.trim()) {
+            const updateData = {
+              vehicleId: 1, // Default vehicle ID since we're using warehouse system
+              name: orderForm.customerName.trim(),
+              phoneNumber: orderForm.customerPhone.trim(),
+              interestVehicle: selectedVehicle.modelCode || 'Electric Vehicle',
+              status: "CUSTOMER"
+            };
+            console.log('🔄 Updating customer with data:', updateData);
+            await customerService.updateCustomer(customerId, updateData);
+          }
+        } catch (error) {
+          // Customer doesn't exist, create new one
+          const newCustomerData = {
+            vehicleId: 1, // Default vehicle ID since we're using warehouse system
             name: orderForm.customerName.trim(),
             phoneNumber: orderForm.customerPhone.trim(),
             interestVehicle: selectedVehicle.modelCode || 'Electric Vehicle',
             status: "CUSTOMER"
-          });
-        }
-      } catch (error) {
-        // Customer doesn't exist, create new one
-        const newCustomer = await customerService.createCustomer({
-          vehicleId: selectedVehicle.vehicleId || 1, // Use API vehicle ID
-          name: orderForm.customerName.trim(),
-          phoneNumber: orderForm.customerPhone.trim(),
-          interestVehicle: selectedVehicle.modelCode || 'Electric Vehicle',
-          status: "CUSTOMER"
-        });
-        customerId = newCustomer.customerId;
-      }
-
-      // Step 2: Determine order status based on order type
+          };
+          console.log('➕ Creating new customer with data:', newCustomerData);
+          const newCustomer = await customerService.createCustomer(newCustomerData);
+          customerId = newCustomer.customerId;
+          console.log('✅ Created new customer:', newCustomer);
+        }      // Step 2: Determine order status based on order type
       let orderStatus: OrderStatus;
       switch (orderType) {
         case "direct":
@@ -205,17 +304,40 @@ export default function OrderDetails() {
           break;
       }
 
-      // Step 3: Create order
-      const orderRequest: OrderRequest = {
-        customerId: customerId,
-        vehicleId: selectedVehicle.vehicleId || 1, // Use API vehicle ID
-        totalAmount: selectedVehicle.price || 0,
-        depositAmount: orderType === "direct" ? (selectedVehicle.price || 0) : undefined,
-        status: orderStatus,
-        deliveryDate: orderForm.deliveryDate || undefined
-      };
+        // Step 3: Create deposit order with specific vehicle serial
+        // For now, we'll use a default price since warehouse data doesn't include pricing
+        // This should be integrated with a pricing system in the future
+        const defaultPrice = 800000000; // 800M VND as example
+        const depositAmount = orderType === "direct" ? defaultPrice : Math.floor(defaultPrice * 0.1); // 10% deposit for non-direct orders
+        
+        console.log('💰 ORDER DEPOSIT CALCULATION');
+        console.log('💵 Default Price:', defaultPrice);
+        console.log('💸 Deposit Amount:', depositAmount);
+        console.log('📊 Order Type:', orderType);
+        console.log('🔧 Vehicle Serial Object:', selectedVehicle.serial);
+        console.log('🏷️ VIN Code:', selectedVehicle.vin);
+        console.log('🆔 VIN Type:', typeof selectedVehicle.vin);
+        
+        const orderDepositRequest: OrderDepositRequest = {
+          customerId: customerId,
+          vehicleSerialId: selectedVehicle.vin, // Use the VIN code as vehicle serial ID
+          depositAmount: depositAmount,
+          userId: undefined, // Optional: Can be set to current sales person ID if available
+          orderDate: new Date().toISOString()
+        };
 
-      const createdOrder = await orderService.createOrder(orderRequest);
+        console.log('📝 SENDING ORDER DEPOSIT REQUEST TO API:');
+        console.log('OrderDepositRequest data:', {
+          customerId: orderDepositRequest.customerId,
+          vehicleSerialId: orderDepositRequest.vehicleSerialId,
+          depositAmount: orderDepositRequest.depositAmount,
+          userId: orderDepositRequest.userId,
+          orderDate: orderDepositRequest.orderDate
+        });
+        console.log('📝 Full Request Object:', orderDepositRequest);
+
+        const createdOrder = await orderService.createDeposit(orderDepositRequest);
+        console.log('✅ ORDER CREATED SUCCESSFULLY:', createdOrder);
 
       const successMessage = orderType === "direct" ? 
         "Chốt hợp đồng thành công!" : 
@@ -225,9 +347,21 @@ export default function OrderDetails() {
       navigate("/sales");
 
     } catch (error) {
-      console.error('Error creating order:', error);
+      console.error('❌ ERROR CREATING ORDER:', error);
+      console.error('📋 Error Details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        orderForm,
+        selectedVehicle: selectedVehicle ? {
+          modelCode: selectedVehicle.modelCode,
+          vin: selectedVehicle.vin,
+          serial: selectedVehicle.serial,
+          status: selectedVehicle.status
+        } : null,
+        orderType
+      });
       toast.error("Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại.");
     } finally {
+      console.log('🏁 ORDER SUBMISSION FINISHED');
       setIsSubmitting(false);
     }
   };
@@ -319,9 +453,14 @@ export default function OrderDetails() {
           <Card className="overflow-hidden">
             <div className="relative">
               <img 
-                src={selectedVehicle.imageUrl || firebaseImageUrl} 
-                alt={selectedVehicle.modelCode || 'Electric Vehicle'}
+                src={getVehicleImage(selectedVehicle)} 
+                alt={`${selectedVehicle.modelCode || 'Electric Vehicle'} - ${selectedVehicle.color}`}
                 className="w-full h-64 object-cover"
+                onError={(e) => {
+                  // Fallback to firebase image if the API image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.src = firebaseImageUrl;
+                }}
               />
               <div className="absolute top-4 right-4">
                 {getStatusBadge(selectedVehicle.status || '')}
@@ -332,77 +471,76 @@ export default function OrderDetails() {
                 <h2 className="text-2xl font-bold">{selectedVehicle.modelCode || 'Electric Vehicle'}</h2>
                 <p className="text-muted-foreground">{selectedVehicle.brand || ''}</p>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Electric vehicle {selectedVehicle.productionYear ? `from ${selectedVehicle.productionYear}` : ''}
+                  {selectedVehicle.color} - Năm sản xuất {selectedVehicle.productionYear}
                 </p>
+                <p className="text-xs text-muted-foreground font-mono mt-1">
+                  VIN: {selectedVehicle.vin}
+                </p>
+                {selectedVehicle.holdUntil && (
+                  <p className="text-xs text-yellow-600 mt-1">
+                    Giữ đến: {new Date(selectedVehicle.holdUntil).toLocaleDateString('vi-VN')}
+                  </p>
+                )}
               </div>
               
               <div className="text-2xl font-bold text-primary mb-6">
-                {(selectedVehicle.price || 0).toLocaleString('vi-VN')}₫
+                800,000,000₫
               </div>
 
               {/* Vehicle Specs */}
               <div className="space-y-4">
-                <h4 className="font-medium">Thông số kỹ thuật</h4>
+                <h4 className="font-medium">Thông tin xe</h4>
                 <div className="grid grid-cols-2 gap-4">
-                  {selectedVehicle.batteryCapacity && (
-                    <div className="flex items-center space-x-2">
-                      <Battery className="w-4 h-4 text-primary" />
-                      <div>
-                        <p className="text-xs font-medium">Dung lượng pin</p>
-                        <p className="text-xs text-muted-foreground">{selectedVehicle.batteryCapacity} kWh</p>
-                      </div>
+                  <div className="flex items-center space-x-2">
+                    <Car className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs font-medium">Mã model</p>
+                      <p className="text-xs text-muted-foreground">{selectedVehicle.modelCode}</p>
                     </div>
-                  )}
+                  </div>
                   
-                  {selectedVehicle.brand && (
-                    <div className="flex items-center space-x-2">
-                      <Car className="w-4 h-4 text-primary" />
-                      <div>
-                        <p className="text-xs font-medium">Thương hiệu</p>
-                        <p className="text-xs text-muted-foreground">{selectedVehicle.brand}</p>
-                      </div>
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs font-medium">Thương hiệu</p>
+                      <p className="text-xs text-muted-foreground">{selectedVehicle.brand}</p>
                     </div>
-                  )}
+                  </div>
                   
-                  {selectedVehicle.modelCode && (
-                    <div className="flex items-center space-x-2">
-                      <Zap className="w-4 h-4 text-primary" />
-                      <div>
-                        <p className="text-xs font-medium">Mã model</p>
-                        <p className="text-xs text-muted-foreground">{selectedVehicle.modelCode}</p>
-                      </div>
+                  <div className="flex items-center space-x-2">
+                    <Battery className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs font-medium">Màu sắc</p>
+                      <p className="text-xs text-muted-foreground">{selectedVehicle.color}</p>
                     </div>
-                  )}
+                  </div>
                   
-                  {selectedVehicle.productionYear && (
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <div>
-                        <p className="text-xs font-medium">Năm sản xuất</p>
-                        <p className="text-xs text-muted-foreground">{selectedVehicle.productionYear}</p>
-                      </div>
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs font-medium">Năm sản xuất</p>
+                      <p className="text-xs text-muted-foreground">{selectedVehicle.productionYear}</p>
                     </div>
-                  )}
+                  </div>
                   
-                  {selectedVehicle.color && (
-                    <div className="flex items-center space-x-2">
-                      <Shield className="w-4 h-4 text-primary" />
-                      <div>
-                        <p className="text-xs font-medium">Màu sắc</p>
-                        <p className="text-xs text-muted-foreground">{selectedVehicle.color}</p>
-                      </div>
+                  <div className="flex items-center space-x-2">
+                    <Zap className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs font-medium">VIN</p>
+                      <p className="text-xs text-muted-foreground font-mono">{selectedVehicle.vin}</p>
                     </div>
-                  )}
+                  </div>
                   
-                  {selectedVehicle.status && (
-                    <div className="flex items-center space-x-2">
-                      <Timer className="w-4 h-4 text-primary" />
-                      <div>
-                        <p className="text-xs font-medium">Trạng thái</p>
-                        <p className="text-xs text-muted-foreground">{selectedVehicle.status}</p>
-                      </div>
+                  <div className="flex items-center space-x-2">
+                    <Timer className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-xs font-medium">Trạng thái</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedVehicle.status === 'AVAILABLE' ? 'Có sẵn' : 
+                         selectedVehicle.status === 'HOLD' ? 'Đang giữ' : 'Đã bán'}
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -420,18 +558,18 @@ export default function OrderDetails() {
                     <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
                     <span className="text-sm text-muted-foreground">Tiết kiệm chi phí vận hành</span>
                   </div>
-                  {selectedVehicle.batteryCapacity && (
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                      <span className="text-sm text-muted-foreground">Dung lượng pin {selectedVehicle.batteryCapacity} kWh</span>
-                    </div>
-                  )}
-                  {selectedVehicle.brand && (
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                      <span className="text-sm text-muted-foreground">Thương hiệu {selectedVehicle.brand}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground">Thương hiệu {selectedVehicle.brand}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground">Năm sản xuất {selectedVehicle.productionYear}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
+                    <span className="text-sm text-muted-foreground">VIN: {selectedVehicle.vin}</span>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -484,43 +622,28 @@ export default function OrderDetails() {
               <div className="space-y-2">
                 <Label>Màu xe *</Label>
                 <div className="flex space-x-3 mb-3">
-                  {selectedVehicle.color ? (
-                    <div 
-                      className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${
-                        orderForm.selectedColor === selectedVehicle.color ? 'border-primary bg-primary/10' : 'border-border'
-                      }`}
-                      onClick={() => setOrderForm({...orderForm, selectedColor: selectedVehicle.color!})}
-                    >
-                      <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${
-                        selectedVehicle.color?.toLowerCase().includes('đen') || selectedVehicle.color?.toLowerCase().includes('black') ? 'bg-black' :
-                        selectedVehicle.color?.toLowerCase().includes('trắng') || selectedVehicle.color?.toLowerCase().includes('white') ? 'bg-white border-gray-300' :
-                        selectedVehicle.color?.toLowerCase().includes('xám') || selectedVehicle.color?.toLowerCase().includes('gray') ? 'bg-gray-500' :
-                        selectedVehicle.color?.toLowerCase().includes('xanh') || selectedVehicle.color?.toLowerCase().includes('blue') ? 'bg-blue-500' :
-                        selectedVehicle.color?.toLowerCase().includes('đỏ') || selectedVehicle.color?.toLowerCase().includes('red') ? 'bg-red-500' : 'bg-gray-300'
-                      }`} />
-                      <span className="text-xs">{selectedVehicle.color}</span>
-                    </div>
-                  ) : (
-                    // Default color options if vehicle doesn't have a specific color
-                    ['Đen', 'Trắng', 'Xám', 'Xanh'].map((color) => (
-                      <div 
-                        key={color} 
-                        className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${
-                          orderForm.selectedColor === color ? 'border-primary bg-primary/10' : 'border-border'
-                        }`}
-                        onClick={() => setOrderForm({...orderForm, selectedColor: color})}
-                      >
-                        <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${
-                          color === 'Đen' ? 'bg-black' :
-                          color === 'Trắng' ? 'bg-white border-gray-300' :
-                          color === 'Xám' ? 'bg-gray-500' :
-                          color === 'Xanh' ? 'bg-blue-500' : 'bg-gray-300'
-                        }`} />
-                        <span className="text-xs">{color}</span>
-                      </div>
-                    ))
-                  )}
+                  <div 
+                    className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${
+                      orderForm.selectedColor === selectedVehicle.color ? 'border-primary bg-primary/10' : 'border-border'
+                    }`}
+                    onClick={() => setOrderForm({...orderForm, selectedColor: selectedVehicle.color!})}
+                  >
+                    <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${
+                      selectedVehicle.color?.toLowerCase().includes('đen') || selectedVehicle.color?.toLowerCase().includes('black') ? 'bg-black' :
+                      selectedVehicle.color?.toLowerCase().includes('trắng') || selectedVehicle.color?.toLowerCase().includes('white') ? 'bg-white border-gray-300' :
+                      selectedVehicle.color?.toLowerCase().includes('xám') || selectedVehicle.color?.toLowerCase().includes('gray') ? 'bg-gray-500' :
+                      selectedVehicle.color?.toLowerCase().includes('xanh') || selectedVehicle.color?.toLowerCase().includes('blue') ? 'bg-blue-500' :
+                      selectedVehicle.color?.toLowerCase().includes('đỏ') || selectedVehicle.color?.toLowerCase().includes('red') ? 'bg-red-500' : 'bg-gray-300'
+                    }`} />
+                    <span className="text-xs">{selectedVehicle.color}</span>
+                  </div>
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <span>VIN: {selectedVehicle.vin}</span>
+                  </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Màu sắc được chọn dựa trên xe cụ thể (VIN: {selectedVehicle.vin.slice(-8)})
+                </p>
               </div>
 
               {orderType !== 'showroom' && (
@@ -574,8 +697,23 @@ export default function OrderDetails() {
                   <span className="font-medium">{selectedVehicle.modelCode}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span>VIN:</span>
+                  <span className="font-medium font-mono text-xs">{selectedVehicle.vin}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Mã số xe:</span>
+                  <span className="font-medium text-xs">#{selectedVehicle.serial.serialId}</span>
+                </div>
+                <div className="flex justify-between">
                   <span>Màu:</span>
-                  <span className="font-medium">{orderForm.selectedColor || "Chưa chọn"}</span>
+                  <span className="font-medium">{orderForm.selectedColor || selectedVehicle.color}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Trạng thái:</span>
+                  <span className="font-medium">
+                    {selectedVehicle.status === 'AVAILABLE' ? 'Có sẵn' : 
+                     selectedVehicle.status === 'HOLD' ? 'Đang giữ' : 'Đã bán'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Loại đơn:</span>
@@ -585,10 +723,24 @@ export default function OrderDetails() {
                   </span>
                 </div>
                 <Separator />
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Tổng giá:</span>
-                  <span className="text-primary">{selectedVehicle.price.toLocaleString('vi-VN')}₫</span>
+                <div className="flex justify-between">
+                  <span>Tổng giá xe:</span>
+                  <span className="font-medium">800,000,000₫</span>
                 </div>
+                <div className="flex justify-between text-lg font-bold">
+                  <span>
+                    {orderType === "direct" ? "Thanh toán:" : "Đặt cọc (10%):"}
+                  </span>
+                  <span className="text-primary">
+                    {orderType === "direct" ? "800,000,000₫" : "80,000,000₫"}
+                  </span>
+                </div>
+                {orderType !== "direct" && (
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Còn lại:</span>
+                    <span>720,000,000₫</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -601,6 +753,13 @@ export default function OrderDetails() {
                 Hủy
               </Button>
               <Button 
+                variant="outline" 
+                onClick={resetForm}
+                className="flex-1"
+              >
+                Làm mới
+              </Button>
+              <Button 
                 onClick={handleSubmitOrder}
                 disabled={isSubmitting}
                 className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90 disabled:opacity-50"
@@ -608,7 +767,7 @@ export default function OrderDetails() {
                 <ShoppingCart className="w-4 h-4 mr-2" />
                 {isSubmitting 
                   ? 'Đang xử lý...' 
-                  : orderType === 'direct' ? 'Chốt hợp đồng' : 'Tạo đơn hàng'
+                  : orderType === 'direct' ? 'Chốt hợp đồng (Thanh toán đủ)' : 'Đặt cọc xe'
                 }
               </Button>
             </div>

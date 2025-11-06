@@ -5,6 +5,7 @@ import type { WarehouseResponse } from '@/services/api-warehouse';
 
 export const useWarehouses = () => {
   const [allWarehouses, setAllWarehouses] = useState<WarehouseResponse[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -87,10 +88,35 @@ export const useWarehouses = () => {
     }
   }, [toast, fetchWarehouses]);
 
+  const fetchWarehouse = useCallback(async (warehouseId: number) => {
+    setLoading(true);
+    try {
+      console.log(`Attempting to fetch warehouse ${warehouseId}...`);
+      const warehouse = await warehouseService.getWarehouse(warehouseId);
+      console.log('Fetched warehouse:', warehouse);
+      
+      setSelectedWarehouse(warehouse);
+      return warehouse;
+    } catch (error) {
+      console.error('Error fetching warehouse:', error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải thông tin kho",
+        variant: "destructive",
+      });
+      setSelectedWarehouse(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   return {
     allWarehouses,
+    selectedWarehouse,
     loading,
     fetchWarehouses,
+    fetchWarehouse,
     createWarehouse,
     updateWarehouse,
     deleteWarehouse,

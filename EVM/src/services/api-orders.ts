@@ -42,6 +42,29 @@ export interface OrderResponse {
   orderDate: string; // ISO datetime string
 }
 
+// New Order Deposit Request type (matching backend OrderDepositRequest)
+export interface OrderDepositRequest {
+  customerId: number;
+  vehicleSerialId: string; // VIN code as string
+  depositAmount: number;
+  userId?: number; // Optional: salesId from assigned sales
+  orderDate?: string; // Optional: ISO datetime string, will use current time if not provided
+}
+
+// New Order Deposit Response type (matching backend OrderDepositResponse)
+export interface OrderDepositResponse {
+  orderId: number;
+  customerId: number;
+  vehicleId: number;
+  depositAmount: number;
+  remainingAmount: number;
+  paymentStatus: OrderPaymentStatus;
+  status: OrderStatus;
+  currency: string;
+  orderDate: string; // ISO datetime string
+  deliveryDate?: string; // ISO date string
+}
+
 class OrderService extends BaseApiService {
   async createOrder(data: OrderRequest): Promise<OrderResponse> {
     const res = await this.axiosInstance.post<OrderResponse>('/orders', data);
@@ -76,8 +99,15 @@ class OrderService extends BaseApiService {
   async deleteOrder(id: number): Promise<void> {
     await this.axiosInstance.delete(`/orders/${id}`);
   }
+
+  async createDeposit(data: OrderDepositRequest): Promise<OrderDepositResponse> {
+    const res = await this.axiosInstance.post<OrderDepositResponse>('/orders/deposit', data);
+    return res.data;
+  }
 }
 
 // Export singleton instance
 export const orderService = new OrderService();
 export { OrderService };
+
+
