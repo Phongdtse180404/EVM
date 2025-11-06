@@ -27,6 +27,8 @@ import {
   Clock
 } from "lucide-react";
 import { toast } from "sonner";
+import { customerService } from "@/services/api-customers";
+import { orderService, OrderStatus, type OrderRequest } from "@/services/api-orders";
 
 // Import vehicle images
 import vf8Image from "@/assets/vinfast-vf8.jpg";
@@ -172,6 +174,7 @@ export default function OrderDetails() {
   const vehicleId = searchParams.get('vehicle') || 'vf8';
   
   const selectedVehicle = vehicles.find(v => v.id === vehicleId) || vehicles[0];
+
   
   const [orderForm, setOrderForm] = useState({
     customerName: "",
@@ -185,41 +188,148 @@ export default function OrderDetails() {
   });
 
   const [orderType, setOrderType] = useState<"showroom" | "online" | "direct">("showroom");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmitOrder = () => {
-    if (!orderForm.customerName || !orderForm.customerPhone || !orderForm.selectedColor) {
-      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc");
+  const handlePhoneNumberChange = async (phoneNumber: string) => {
+    setOrderForm({...orderForm, customerPhone: phoneNumber});
+    
+    // If phone number is valid length (assume Vietnamese phone number), try to fetch customer
+    if (phoneNumber.length >= 10) {
+      try {
+        const customer = await customerService.getCustomerByPhone(phoneNumber);
+        if (customer && customer.name) {
+          setOrderForm(prev => ({
+            ...prev, 
+            customerPhone: phoneNumber,
+            customerName: customer.name
+          }));
+          toast.success(`Tìm thấy khách hàng: ${customer.name}`);
+        }
+      } catch (error) {
+        // Customer not found, don't show error as this is expected for new customers
+        console.log('Customer not found for phone number:', phoneNumber);
+      }
+    }
+  };
+
+  const handleSubmitOrder = async () => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    // Validate required fields
+    const errors = [];
+    
+    if (!orderForm.customerName.trim()) {
+      errors.push("Tên khách hàng");
+    }
+    
+    if (!orderForm.customerPhone.trim()) {
+      errors.push("Số điện thoại");
+    }
+    
+    if (!orderForm.selectedColor) {
+      errors.push("Màu xe");
+    }
+    
+    // Additional validations for non-showroom orders
+    if (orderType !== 'showroom') {
+      if (!orderForm.paymentMethod) {
+        errors.push("Phương thức thanh toán");
+      }
+      
+      if (!orderForm.deliveryDate) {
+        errors.push("Ngày giao xe mong muốn");
+      }
+    }
+    
+    // Show error if any required fields are missing
+    if (errors.length > 0) {
+      const errorMessage = errors.length === 1 
+        ? `Vui lòng điền ${errors[0]}`
+        : `Vui lòng điền các trường bắt buộc: ${errors.join(", ")}`;
+      toast.error(errorMessage);
+      return;
+    }
+    
+    // Validate phone number format (Vietnamese phone numbers)
+    const phoneRegex = /^(0|\+84)[3-9]\d{8}$/;
+    if (!phoneRegex.test(orderForm.customerPhone.trim())) {
+      toast.error("Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam hợp lệ");
+      setIsSubmitting(false);
       return;
     }
 
-    const newOrder = {
-      id: `ORD${Date.now()}`,
-      customerName: orderForm.customerName,
-      customerPhone: orderForm.customerPhone,
-      customerEmail: orderForm.customerEmail,
-      customerAddress: orderForm.customerAddress,
-      vehicleModel: selectedVehicle.name,
-      vehicleColor: orderForm.selectedColor,
-      price: selectedVehicle.price,
-      status: orderType === "direct" ? "confirmed" : "draft",
-      createdAt: new Date().toISOString().split('T')[0],
-      paymentMethod: orderForm.paymentMethod,
-      deliveryDate: orderForm.deliveryDate,
-      notes: orderForm.notes,
-      orderType: orderType
-    };
+    try {
+      // Step 1: Find or create customer
+      let customerId: number;
+      
+      try {
+        // Try to find existing customer
+        const existingCustomer = await customerService.getCustomerByPhone(orderForm.customerPhone.trim());
+        customerId = existingCustomer.customerId;
+        
+        // Update customer name if it's different (in case user manually changed it)
+        if (existingCustomer.name !== orderForm.customerName.trim()) {
+          await customerService.updateCustomer(customerId, {
+            vehicleId: parseInt(selectedVehicle.id) || 1, // Default vehicle ID if parsing fails
+            name: orderForm.customerName.trim(),
+            phoneNumber: orderForm.customerPhone.trim(),
+            interestVehicle: selectedVehicle.name,
+            status: "CUSTOMER"
+          });
+        }
+      } catch (error) {
+        // Customer doesn't exist, create new one
+        const newCustomer = await customerService.createCustomer({
+          vehicleId: parseInt(selectedVehicle.id) || 1, // Default vehicle ID if parsing fails
+          name: orderForm.customerName.trim(),
+          phoneNumber: orderForm.customerPhone.trim(),
+          interestVehicle: selectedVehicle.name,
+          status: "CUSTOMER"
+        });
+        customerId = newCustomer.customerId;
+      }
 
-    // Save to localStorage
-    const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-    existingOrders.unshift(newOrder);
-    localStorage.setItem('orders', JSON.stringify(existingOrders));
+      // Step 2: Determine order status based on order type
+      let orderStatus: OrderStatus;
+      switch (orderType) {
+        case "direct":
+          orderStatus = OrderStatus.CONFIRMED;
+          break;
+        case "online":
+          orderStatus = OrderStatus.NEW;
+          break;
+        case "showroom":
+        default:
+          orderStatus = OrderStatus.NEW;
+          break;
+      }
 
-    const successMessage = orderType === "direct" ? 
-      "Chốt hợp đồng thành công!" : 
-      "Tạo đơn hàng thành công!";
-    
-    toast.success(successMessage);
-    navigate("/sales");
+      // Step 3: Create order
+      const orderRequest: OrderRequest = {
+        customerId: customerId,
+        vehicleId: parseInt(selectedVehicle.id) || 1, // Default vehicle ID if parsing fails
+        totalAmount: selectedVehicle.price,
+        depositAmount: orderType === "direct" ? selectedVehicle.price : undefined,
+        status: orderStatus,
+        deliveryDate: orderForm.deliveryDate || undefined
+      };
+
+      const createdOrder = await orderService.createOrder(orderRequest);
+
+      const successMessage = orderType === "direct" ? 
+        "Chốt hợp đồng thành công!" : 
+        "Tạo đơn hàng thành công!";
+      
+      toast.success(successMessage);
+      navigate("/sales");
+
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast.error("Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -400,6 +510,16 @@ export default function OrderDetails() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <Label htmlFor="customerPhone">Số điện thoại *</Label>
+                  <Input
+                    id="customerPhone"
+                    value={orderForm.customerPhone}
+                    onChange={(e) => handlePhoneNumberChange(e.target.value)}
+                    placeholder="Nhập số điện thoại"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="customerName">Tên khách hàng *</Label>
                   <Input
                     id="customerName"
@@ -408,28 +528,9 @@ export default function OrderDetails() {
                     placeholder="Nhập tên khách hàng"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="customerPhone">Số điện thoại *</Label>
-                  <Input
-                    id="customerPhone"
-                    value={orderForm.customerPhone}
-                    onChange={(e) => setOrderForm({...orderForm, customerPhone: e.target.value})}
-                    placeholder="Nhập số điện thoại"
-                  />
-                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="customerEmail">Email</Label>
-                <Input
-                  id="customerEmail"
-                  type="email"
-                  value={orderForm.customerEmail}
-                  onChange={(e) => setOrderForm({...orderForm, customerEmail: e.target.value})}
-                  placeholder="Nhập email khách hàng"
-                />
-              </div>
+              
 
               <div className="space-y-2">
                 <Label htmlFor="customerAddress">Địa chỉ giao xe</Label>
@@ -545,10 +646,14 @@ export default function OrderDetails() {
               </Button>
               <Button 
                 onClick={handleSubmitOrder}
-                className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90"
+                disabled={isSubmitting}
+                className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90 disabled:opacity-50"
               >
                 <ShoppingCart className="w-4 h-4 mr-2" />
-                {orderType === 'direct' ? 'Chốt hợp đồng' : 'Tạo đơn hàng'}
+                {isSubmitting 
+                  ? 'Đang xử lý...' 
+                  : orderType === 'direct' ? 'Chốt hợp đồng' : 'Tạo đơn hàng'
+                }
               </Button>
             </div>
           </Card>
