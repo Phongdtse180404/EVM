@@ -37,20 +37,20 @@ export const useModels = () => {
 
   const createModel = useCallback(async (data: ModelRequest) => {
     try {
-      await modelService.createModel(data);
+      const createdModel = await modelService.createModel(data);
       toast({
         title: "Thành công",
         description: "Thêm model mới thành công",
       });
       await fetchModels();
-      return true;
+      return createdModel;
     } catch (error) {
       toast({
         title: "Lỗi",
         description: error instanceof Error ? error.message : "Không thể thêm model",
         variant: "destructive",
       });
-      return false;
+      return null;
     }
   }, [toast, fetchModels]);
 

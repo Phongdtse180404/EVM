@@ -38,7 +38,7 @@ export interface WarehouseRequest {
 }
 
 export interface WarehouseStockRequest {
-  modelId: number;
+  modelCode: string;
   quantity: number;
 }
 

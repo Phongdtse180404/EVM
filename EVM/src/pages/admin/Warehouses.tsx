@@ -5,8 +5,8 @@ import { useWarehouseDetail } from "@/hooks/use-warehouse-detail";
 import { useModels } from "@/hooks/use-models";
 import { useToast } from "@/hooks/use-toast";
 import type { WarehouseResponse } from "@/services/api-warehouse";
-import type { ModelResponse } from "@/services/api-model";
 import Models from "./Models";
+import AddModelDialog from "@/components/AddModelDialog";
 import {
   Dialog,
   DialogContent,
@@ -63,10 +63,8 @@ export default function Warehouses() {
   const [deleteStockModelCode, setDeleteStockModelCode] = useState<string | null>(null);
   const [warehouseLocation, setWarehouseLocation] = useState("");
   const [warehouseName, setWarehouseName] = useState("");
-  const [stockModelId, setStockModelId] = useState<number | null>(null);
+  const [stockModelCode, setStockModelCode] = useState<string>("");
   const [stockQuantity, setStockQuantity] = useState<number>(0);
-  const [newModelCode, setNewModelCode] = useState("");
-  const [newModelBrand, setNewModelBrand] = useState("");
   
   const { toast } = useToast();
   
@@ -90,9 +88,9 @@ export default function Warehouses() {
   } = useWarehouseDetail();
   
   const { 
-    models, 
-    modelsLoading, 
-    fetchModels, 
+    models,
+    modelsLoading,
+    fetchModels,
     createModel 
   } = useModels();
   
@@ -125,12 +123,12 @@ export default function Warehouses() {
     setIsWarehouseDialogOpen(true);
   };
 
-  const openStockDialog = (modelId?: number, quantity?: number) => {
-    if (modelId !== undefined) {
-      setStockModelId(modelId);
+  const openStockDialog = (modelCode?: string, quantity?: number) => {
+    if (modelCode !== undefined) {
+      setStockModelCode(modelCode);
       setStockQuantity(quantity || 0);
     } else {
-      setStockModelId(null);
+      setStockModelCode("");
       setStockQuantity(0);
     }
     setIsStockDialogOpen(true);
@@ -171,24 +169,55 @@ export default function Warehouses() {
   };
 
   const handleSaveStock = async () => {
-    // Validate inputs
-    if (!stockModelId || stockQuantity < 0 || !selectedWarehouse) {
+    // Validate inputs - much simpler now!
+    if (!selectedWarehouse) {
       toast({
         title: "Lỗi",
-        description: !selectedWarehouse 
-          ? "Vui lòng chọn kho" 
-          : "Vui lòng chọn model và nhập số lượng hợp lệ",
+        description: "Vui lòng chọn kho",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!stockModelCode.trim()) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng nhập mã model",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (stockQuantity < 0) {
+      toast({
+        title: "Lỗi",
+        description: "Số lượng phải >= 0",
         variant: "destructive",
       });
       return;
     }
 
     try {
+      console.log('Request details:', {
+        warehouseId: selectedWarehouse,
+        modelCode: stockModelCode.trim(),
+        quantity: stockQuantity
+      });
+      
       await upsertWarehouseStock(selectedWarehouse, {
-        modelId: stockModelId,
+        modelCode: stockModelCode.trim(),
         quantity: stockQuantity,
       });
+      
+      // Reset form and close dialog
+      setStockModelCode("");
+      setStockQuantity(0);
       setIsStockDialogOpen(false);
+      
+      toast({
+        title: "Thành công",
+        description: `Đã thêm ${stockQuantity} xe model ${stockModelCode} vào kho`,
+      });
     } catch (error) {
       toast({
         title: "Lỗi",
@@ -198,31 +227,11 @@ export default function Warehouses() {
     }
   };
 
-  const handleAddModel = async () => {
-    if (!newModelCode.trim() || !newModelBrand.trim()) {
-      toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập mã model và thương hiệu",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      await createModel({ 
-        modelCode: newModelCode,
-        brand: newModelBrand 
-      });
-      setNewModelCode("");
-      setNewModelBrand("");
-      setIsModelDialogOpen(false);
-    } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Không thể thêm model",
-        variant: "destructive",
-      });
-    }
+  const handleModelCreated = (modelCode: string) => {
+    // Auto-select the newly created model in the stock dialog
+    setStockModelCode(modelCode);
+    // Refresh models list
+    fetchModels();
   };
 
   const handleDeleteWarehouse = async () => {
@@ -559,36 +568,34 @@ export default function Warehouses() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {stockModelId ? "Cập nhật tồn kho" : "Thêm tồn kho mới"}
+              {stockModelCode ? "Cập nhật tồn kho" : "Thêm tồn kho mới"}
             </DialogTitle>
             <DialogDescription>
-              {stockModelId ? "Cập nhật số lượng tồn kho" : "Thêm model và số lượng vào kho"}
+              {stockModelCode ? "Cập nhật số lượng tồn kho" : "Thêm model và số lượng vào kho"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="stock-model">Model</Label>
+              <Label htmlFor="stock-model">Chọn Model</Label>
               <div className="flex gap-2">
                 <Select 
-                  value={stockModelId?.toString() || ""} 
-                  onValueChange={(value) => setStockModelId(Number(value))}
+                  value={stockModelCode} 
+                  onValueChange={setStockModelCode}
                   disabled={modelsLoading}
                 >
-                  <SelectTrigger id="stock-model" className="flex-1">
-                    <SelectValue placeholder={modelsLoading ? "Đang tải..." : "Chọn model"} />
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={modelsLoading ? "Đang tải models..." : "Chọn model"} />
                   </SelectTrigger>
-                  <SelectContent className="bg-background border">
-                    {models && Array.isArray(models) && models.length > 0 ? (
-                      models
-                        .filter((model: ModelResponse) => model && typeof model.modelId !== 'undefined' && model.modelId !== null)
-                        .map((model: ModelResponse) => (
-                          <SelectItem key={model.modelId} value={model.modelId.toString()}>
-                            {model.brand || 'Unknown'} - {model.modelCode || 'Unknown'}
-                          </SelectItem>
-                        ))
+                  <SelectContent>
+                    {models && models.length > 0 ? (
+                      models.map((model) => (
+                        <SelectItem key={model.modelId} value={model.modelCode}>
+                          {model.modelCode}
+                        </SelectItem>
+                      ))
                     ) : (
-                      <SelectItem value="no-models" disabled>
-                        {modelsLoading ? "Đang tải..." : "Không có model nào"}
+                      <SelectItem value="" disabled>
+                        Không có model nào
                       </SelectItem>
                     )}
                   </SelectContent>
@@ -598,6 +605,7 @@ export default function Warehouses() {
                   variant="outline"
                   size="icon"
                   onClick={() => setIsModelDialogOpen(true)}
+                  title="Thêm model mới"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -620,49 +628,18 @@ export default function Warehouses() {
               Hủy
             </Button>
             <Button onClick={handleSaveStock}>
-              {stockModelId ? "Cập nhật" : "Thêm"}
+              {stockModelCode ? "Cập nhật" : "Thêm"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Add Model Dialog */}
-      <Dialog open={isModelDialogOpen} onOpenChange={setIsModelDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Thêm Model mới</DialogTitle>
-            <DialogDescription>
-              Nhập thông tin model xe điện mới
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="model-code">Mã Model</Label>
-              <Input
-                id="model-code"
-                value={newModelCode}
-                onChange={(e) => setNewModelCode(e.target.value)}
-                placeholder="Nhập mã model"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="model-brand">Thương hiệu</Label>
-              <Input
-                id="model-brand"
-                value={newModelBrand}
-                onChange={(e) => setNewModelBrand(e.target.value)}
-                placeholder="Nhập thương hiệu"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModelDialogOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={handleAddModel}>Thêm</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddModelDialog 
+        open={isModelDialogOpen}
+        onOpenChange={setIsModelDialogOpen}
+        onModelCreated={handleModelCreated}
+      />
 
       {/* Delete Warehouse Alert */}
       <AlertDialog open={!!deleteWarehouseId} onOpenChange={() => setDeleteWarehouseId(null)}>

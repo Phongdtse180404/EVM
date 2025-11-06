@@ -9,7 +9,6 @@ export type VehicleStatus =
 export interface ElectricVehicleRequest {
   modelId?: number;
   modelCode?: string;
-  warehouseId: number;
   cost: number;
   price: number;
   batteryCapacity: number;
