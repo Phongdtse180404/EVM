@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useModels } from "@/hooks/use-models";
-import type { ModelRequest, ModelResponse } from "@/services/api-model";
+import type { ModelResponse } from "@/services/api-model";
+import AddModelDialog from "@/components/AddModelDialog";
 import {
   Dialog,
   DialogContent,
@@ -40,12 +41,6 @@ export default function Models() {
   const [editingModel, setEditingModel] = useState<ModelResponse | null>(null);
   const [deleteModelId, setDeleteModelId] = useState<number | null>(null);
   const [isEditModelDialogOpen, setIsEditModelDialogOpen] = useState(false);
-  const [modelFormData, setModelFormData] = useState<ModelRequest>({
-    modelCode: "",
-    brand: "",
-    color: "",
-    productionYear: new Date().getFullYear()
-  });
 
   const { toast } = useToast();
   
@@ -66,46 +61,14 @@ export default function Models() {
 
   // Model CRUD Functions
   const openEditModelDialog = (model?: ModelResponse) => {
-
-    // Displays model information if updating
-    if (model) {
-      setEditingModel(model);
-      setModelFormData({
-        modelCode: model.modelCode || "",
-        brand: model.brand || "",
-        color: model.color || "",
-        productionYear: model.productionYear || new Date().getFullYear()
-      });
-    // Displays empty form if adding
-    } else {
-      setEditingModel(null);
-      setModelFormData({
-        modelCode: "",
-        brand: "",
-        color: "",
-        productionYear: new Date().getFullYear()
-      });
-    }
+    setEditingModel(model || null);
     setIsEditModelDialogOpen(true);
   };
 
-  const handleSaveModel = async () => {
-    if (!modelFormData.modelCode.trim() || !modelFormData.brand.trim()) {
-      toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập mã model và thương hiệu",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const success = editingModel 
-      ? await updateModel(editingModel.modelId, modelFormData)
-      : await createModel(modelFormData);
-      
-    if (success) {
-      setIsEditModelDialogOpen(false);
-    }
+  const handleModelCreated = async (modelCode: string) => {
+    // Electric vehicle creation is now handled automatically in AddModelDialog
+    // Just refresh the models list to show the new model
+    fetchModels();
   };
 
   const handleDeleteModel = async () => {
@@ -195,67 +158,12 @@ export default function Models() {
       </Card>
 
       {/* Model Edit Dialog */}
-      <Dialog open={isEditModelDialogOpen} onOpenChange={setIsEditModelDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingModel ? "Chỉnh sửa Model" : "Thêm Model mới"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingModel ? "Cập nhật thông tin model" : "Nhập thông tin model mới"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="model-code">Mã Model *</Label>
-              <Input
-                id="model-code"
-                value={modelFormData.modelCode}
-                onChange={(e) => setModelFormData(prev => ({ ...prev, modelCode: e.target.value }))}
-                placeholder="Nhập mã model"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="brand">Thương hiệu *</Label>
-              <Input
-                id="brand"
-                value={modelFormData.brand}
-                onChange={(e) => setModelFormData(prev => ({ ...prev, brand: e.target.value }))}
-                placeholder="Nhập thương hiệu"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="color">Màu sắc</Label>
-              <Input
-                id="color"
-                value={modelFormData.color}
-                onChange={(e) => setModelFormData(prev => ({ ...prev, color: e.target.value }))}
-                placeholder="Nhập màu sắc"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="production-year">Năm sản xuất</Label>
-              <Input
-                id="production-year"
-                type="number"
-                min="1900"
-                max={new Date().getFullYear() + 1}
-                value={modelFormData.productionYear}
-                onChange={(e) => setModelFormData(prev => ({ ...prev, productionYear: Number(e.target.value) }))}
-                placeholder="Nhập năm sản xuất"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditModelDialogOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={handleSaveModel}>
-              {editingModel ? "Cập nhật" : "Thêm"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddModelDialog 
+        open={isEditModelDialogOpen}
+        onOpenChange={setIsEditModelDialogOpen}
+        editingModel={editingModel}
+        onModelCreated={handleModelCreated}
+      />
 
       {/* Delete Model Alert */}
       <AlertDialog open={!!deleteModelId} onOpenChange={() => setDeleteModelId(null)}>
