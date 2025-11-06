@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,174 +12,138 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Plus, Search, Edit, Phone, Mail, Users, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-
-interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  status: 'lead' | 'purchased';
-  interestedVehicle: string;
-  assignedSales: string;
-  createdAt: string;
-  lastContact: string;
-  notes: string;
-  testDriveScheduled?: string;
-  purchaseHistory?: string[];
-}
+import type { CustomerResponse, CustomerRequest } from '@/services/api-customers';
+import type { ModelResponse } from '@/services/api-model';
+import { electricVehicleService } from '@/services/api-electric-vehicle';
+import { customerService } from '@/services/api-customers';
+import { modelService } from '@/services/api-model';
 
 const CustomerManagement = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterSales, setFilterSales] = useState<string>('all');
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerResponse | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const [customers, setCustomers] = useState<Customer[]>([
-    {
-      id: '1',
-      name: 'Nguyễn Văn An',
-      phone: '0901234567',
-      email: 'nguyenvanan@email.com',
-      address: '123 Đường ABC, Quận 1, TP.HCM',
-      status: 'lead',
-      interestedVehicle: 'Tesla Model 3',
-      assignedSales: 'Trần Thị B',
-      createdAt: '2024-01-15',
-      lastContact: '2024-01-20',
-      notes: 'Quan tâm đến xe điện, cần tư vấn về pin và bảo hành'
-    },
-    {
-      id: '2',
-      name: 'Lê Thị Cẩm',
-      phone: '0912345678',
-      email: 'lethicam@email.com',
-      address: '456 Đường DEF, Quận 7, TP.HCM',
-      status: 'lead',
-      interestedVehicle: 'VinFast VF8',
-      assignedSales: 'Nguyễn Văn C',
-      createdAt: '2024-01-10',
-      lastContact: '2024-01-18',
-      notes: 'Đã đặt lịch lái thử, quan tâm đến màu xanh',
-      testDriveScheduled: '2024-01-25'
-    },
-    {
-      id: '3',
-      name: 'Phạm Hoàng Dũng',
-      phone: '0923456789',
-      email: 'phamhoangdung@email.com',
-      address: '789 Đường GHI, Quận Bình Thạnh, TP.HCM',
-      status: 'purchased',
-      interestedVehicle: 'BYD Atto 3',
-      assignedSales: 'Trần Thị B',
-      createdAt: '2024-01-05',
-      lastContact: '2024-01-22',
-      notes: 'Đã mua xe, cần chăm sóc hậu mãi',
-      purchaseHistory: ['BYD Atto 3 - 768.000.000 VNĐ']
-    },
-    {
-      id: '4',
-      name: 'Võ Thị Mai',
-      phone: '0934567890',
-      email: 'vothimai@email.com',
-      address: '321 Đường JKL, Quận 3, TP.HCM',
-      status: 'lead',
-      interestedVehicle: 'Hyundai IONIQ 5',
-      assignedSales: 'Nguyễn Văn C',
-      createdAt: '2024-01-12',
-      lastContact: '2024-01-21',
-      notes: 'Đang thương lượng giá, có thể đóng cọc tuần tới'
-    }
-  ]);
-
-  const [newCustomer, setNewCustomer] = useState<Partial<Customer>>({
+  const [customers, setCustomers] = useState<CustomerResponse[]>([]);
+  const [vehiclesByModel, setVehiclesByModel] = useState<any[]>([]);
+  const [vehicleModels, setvehicleModels] = useState<ModelResponse[]>([]);
+  const [newCustomer, setNewCustomer] = useState<Partial<CustomerRequest>>({
     name: '',
-    phone: '',
-    email: '',
-    address: '',
-    status: 'lead',
-    interestedVehicle: '',
-    assignedSales: '',
-    notes: ''
+    phoneNumber: '',
+    vehicleId: 0,
+    status: 'LEAD',
   });
 
-  const salesTeam = ['Trần Thị B', 'Nguyễn Văn C', 'Lê Hoàng D', 'Phạm Thị E'];
-  const vehicleModels = ['Tesla Model 3', 'VinFast VF8', 'BYD Atto 3', 'Hyundai IONIQ 5'];
 
   const filteredCustomers = customers.filter(customer => {
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || customer.status === filterStatus;
-    const matchesSales = filterSales === 'all' || customer.assignedSales === filterSales;
+    const matchesSearch =
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phoneNumber.includes(searchTerm);
+
+    const matchesStatus =
+      filterStatus === 'all' || customer.status.toLowerCase() === filterStatus.toLowerCase();
+
+    const matchesSales =
+      filterSales === 'all' ||
+      (customer.assignedSalesName &&
+        customer.assignedSalesName.toLowerCase().includes(filterSales.toLowerCase()));
+
     return matchesSearch && matchesStatus && matchesSales;
   });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [customersData, modelsData] = await Promise.all([
+          customerService.getCustomers(),
+          modelService.getModels(),
+        ]);
+
+        setCustomers(customersData);
+        setvehicleModels(modelsData);
+      } catch (error: any) {
+        toast.error('Không tải được dữ liệu', {
+          description: error.message,
+        });
+      }
+    };
+
+    fetchData();
+  }, []);
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'lead':
         return <Badge className="bg-muted text-muted-foreground">Lead mới</Badge>;
-      case 'interested':
-        return <Badge className="bg-primary/20 text-primary border-primary">Quan tâm</Badge>;
-      case 'test_drive':
-        return <Badge className="bg-warning/20 text-warning border-warning">Lái thử</Badge>;
-      case 'negotiating':
-        return <Badge className="bg-orange-500/20 text-orange-500 border-orange-500">Thương lượng</Badge>;
       case 'purchased':
         return <Badge className="bg-success/20 text-success border-success">Đã mua</Badge>;
-      case 'follow_up':
-        return <Badge className="bg-blue-500/20 text-blue-500 border-blue-500">Theo dõi</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const handleAddCustomer = () => {
-    if (!newCustomer.name || !newCustomer.phone) {
+  const handleAddCustomer = async () => {
+    if (!newCustomer.name || !newCustomer.phoneNumber) {
       toast.error('Vui lòng nhập tên và số điện thoại');
       return;
     }
 
-    const customer: Customer = {
-      id: Date.now().toString(),
-      name: newCustomer.name!,
-      phone: newCustomer.phone!,
-      email: newCustomer.email || '',
-      address: newCustomer.address || '',
-      status: newCustomer.status as Customer['status'] || 'lead',
-      interestedVehicle: newCustomer.interestedVehicle || '',
-      assignedSales: newCustomer.assignedSales || '',
-      createdAt: new Date().toISOString().split('T')[0],
-      lastContact: new Date().toISOString().split('T')[0],
-      notes: newCustomer.notes || ''
-    };
-
-    setCustomers([...customers, customer]);
-    setNewCustomer({
-      name: '',
-      phone: '',
-      email: '',
-      address: '',
-      status: 'lead',
-      interestedVehicle: '',
-      assignedSales: '',
-      notes: ''
-    });
-    setIsAddDialogOpen(false);
-    toast.success('Đã thêm khách hàng mới');
+    try {
+      const created = await customerService.createCustomer(newCustomer);
+      setCustomers(prev => [...prev, created]);
+      toast.success('Đã thêm khách hàng mới');
+      setIsAddDialogOpen(false);
+      setNewCustomer({
+        name: '',
+        phoneNumber: '',
+        vehicleId: 0,
+        status: 'LEAD',
+      });
+    } catch (error: any) {
+      toast.error('Thêm khách hàng thất bại', {
+        description: error.message || 'Lỗi API',
+      });
+    }
   };
 
-  const handleEditCustomer = () => {
+  const handleSelectModel = async (modelCode: string) => {
+    try {
+      const vehicles = await electricVehicleService.searchVehiclesByModelCode(modelCode);
+      setVehiclesByModel(vehicles); // cập nhật danh sách xe thuộc model đó
+    } catch (error: any) {
+      toast.error("Không thể tải danh sách xe", {
+        description: error.message,
+      });
+    }
+  };
+
+  const handleEditCustomer = async () => {
     if (!editingCustomer) return;
 
-    setCustomers(customers.map(c => c.id === editingCustomer.id ? editingCustomer : c));
-    setEditingCustomer(null);
-    setIsEditDialogOpen(false);
-    toast.success('Đã cập nhật thông tin khách hàng');
+    try {
+      const updated = await customerService.updateCustomer(editingCustomer.customerId, editingCustomer);
+
+      // Cập nhật lại danh sách khách hàng trên UI
+      setCustomers(prev =>
+        prev.map(c => (c.customerId === updated.customerId ? updated : c))
+      );
+
+      // Đóng dialog + reset state
+      setEditingCustomer(null);
+      setIsEditDialogOpen(false);
+
+      toast.success("Đã cập nhật thông tin khách hàng");
+    } catch (error: any) {
+      toast.error("Cập nhật thất bại", {
+        description: error.message || "Lỗi API",
+      });
+    }
   };
+
 
   const getKPIData = () => {
     const totalLeads = customers.length;
@@ -234,27 +198,12 @@ const CustomerManagement = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-success/20">
-                  <TrendingUp className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Tỉ lệ chuyển đổi</p>
-                  <p className="text-2xl font-bold text-success">{kpiData.conversionRate}%</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
         </div>
 
         {/* Main Content */}
         <Tabs defaultValue="customers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-1">
             <TabsTrigger value="customers">Khách hàng</TabsTrigger>
-            <TabsTrigger value="sales-kpi">KPI Sales</TabsTrigger>
           </TabsList>
 
           <TabsContent value="customers" className="space-y-6">
@@ -308,23 +257,42 @@ const CustomerManagement = () => {
                           <Label htmlFor="phone">Số điện thoại *</Label>
                           <Input
                             id="phone"
-                            value={newCustomer.phone}
-                            onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                            value={newCustomer.phoneNumber}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, phoneNumber: e.target.value })}
                             placeholder="0901234567"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="vehicle">Xe quan tâm</Label>
-                          <Select
-                            value={newCustomer.interestedVehicle}
-                            onValueChange={(value) => setNewCustomer({ ...newCustomer, interestedVehicle: value })}
-                          >
+                          <Label htmlFor="vehicle">Hãng xe quan tâm</Label>
+                          <Select onValueChange={handleSelectModel}>
                             <SelectTrigger>
-                              <SelectValue placeholder="Chọn mẫu xe" />
+                              <SelectValue placeholder="Chọn hãng xe" />
                             </SelectTrigger>
                             <SelectContent>
-                              {vehicleModels.map(model => (
-                                <SelectItem key={model} value={model}>{model}</SelectItem>
+                              {vehicleModels.map((model) => (
+                                <SelectItem key={model.modelId} value={model.modelCode}>
+                                  {model.brand}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="vehicle">Xe quan tâm</Label>
+                          <Select
+                            value={String(newCustomer.vehicleId)}
+                            onValueChange={(value) =>
+                              setNewCustomer({ ...newCustomer, vehicleId: Number(value) })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn xe" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {vehiclesByModel.map((v) => (
+                                <SelectItem key={v.vehicleId} value={v.vehicleId.toString()}>
+                                  {v.vehicleId}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -364,7 +332,7 @@ const CustomerManagement = () => {
                     </TableHeader>
                     <TableBody>
                       {filteredCustomers.map((customer) => (
-                        <TableRow key={customer.id}>
+                        <TableRow key={customer.customerId}>
                           <TableCell>
                             <div>
                               <div className="font-medium">{customer.name}</div>
@@ -374,11 +342,11 @@ const CustomerManagement = () => {
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-sm">
                                 <Phone className="w-3 h-3" />
-                                {customer.phone}
+                                {customer.phoneNumber}
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>{customer.interestedVehicle || 'Chưa xác định'}</TableCell>
+                          <TableCell>{customer.vehicleModel || 'Chưa xác định'}</TableCell>
                           <TableCell>{getStatusBadge(customer.status)}</TableCell>
                           <TableCell>
                             <Button
@@ -399,70 +367,6 @@ const CustomerManagement = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="sales-kpi" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="bg-gradient-card border-border/50">
-                <CardHeader>
-                  <CardTitle>KPI theo Sales</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {salesTeam.map((sales) => {
-                      const salesCustomers = customers.filter(c => c.assignedSales === sales);
-                      const purchased = salesCustomers.filter(c => c.status === 'purchased').length;
-                      const conversionRate = salesCustomers.length > 0 ? (purchased / salesCustomers.length * 100) : 0;
-
-                      return (
-                        <div key={sales} className="flex items-center justify-between p-4 rounded-lg border">
-                          <div>
-                            <div className="font-medium">{sales}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {salesCustomers.length} leads • {purchased} chuyển đổi
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold text-lg">{conversionRate.toFixed(1)}%</div>
-                            <div className="text-sm text-muted-foreground">Tỉ lệ chuyển đổi</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-card border-border/50">
-                <CardHeader>
-                  <CardTitle>Thống kê theo trạng thái</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { status: 'lead', label: 'Lead mới' },
-                      { status: 'purchased', label: 'Đã mua' },
-                    ].map(({ status, label }) => {
-                      const count = customers.filter(c => c.status === status).length;
-                      const percentage = customers.length > 0 ? (count / customers.length * 100) : 0;
-
-                      return (
-                        <div key={status} className="flex items-center justify-between p-4 rounded-lg border">
-                          <div className="flex items-center gap-3">
-                            {getStatusBadge(status)}
-                            <span>{label}</span>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold text-lg">{count}</div>
-                            <div className="text-sm text-muted-foreground">{percentage.toFixed(1)}%</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
         </Tabs>
 
@@ -486,37 +390,39 @@ const CustomerManagement = () => {
                   <Label htmlFor="edit-phone">Số điện thoại</Label>
                   <Input
                     id="edit-phone"
-                    value={editingCustomer.phone}
-                    onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
+                    value={editingCustomer.phoneNumber}
+                    onChange={(e) => setEditingCustomer({ ...editingCustomer, phoneNumber: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="edit-status">Trạng thái</Label>
-                  <Select
-                    value={editingCustomer.status}
-                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, status: value as Customer['status'] })}
-                  >
+                  <Label htmlFor="vehicle">Hãng xe quan tâm</Label>
+                  <Select onValueChange={handleSelectModel}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Chọn hãng xe" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="lead">Lead mới</SelectItem>
-                      <SelectItem value="purchased">Đã mua</SelectItem>
+                      {vehicleModels.map((model) => (
+                        <SelectItem key={model.modelId} value={model.modelCode}>
+                          {model.brand}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label htmlFor="edit-vehicle">Xe quan tâm</Label>
                   <Select
-                    value={editingCustomer.interestedVehicle}
-                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, interestedVehicle: value })}
+                    value={String(editingCustomer.vehicleId)}
+                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, vehicleId: Number(value) })}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Chọn xe" />
                     </SelectTrigger>
                     <SelectContent>
-                      {vehicleModels.map(model => (
-                        <SelectItem key={model} value={model}>{model}</SelectItem>
+                      {vehiclesByModel.map((v) => (
+                        <SelectItem key={v.vehicleId} value={v.vehicleId.toString()}>
+                          {v.vehicleId}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

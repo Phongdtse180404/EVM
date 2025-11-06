@@ -8,14 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { 
-  ArrowLeft, 
-  Car, 
-  Battery, 
-  Gauge, 
-  Fuel, 
-  Users, 
-  Calendar, 
+import {
+  ArrowLeft,
+  Car,
+  Battery,
+  Gauge,
+  Fuel,
+  Users,
+  Calendar,
   Zap,
   Timer,
   Shield,
@@ -172,10 +172,10 @@ export default function OrderDetails() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const vehicleId = searchParams.get('vehicle') || 'vf8';
-  
+
   const selectedVehicle = vehicles.find(v => v.id === vehicleId) || vehicles[0];
 
-  
+
   const [orderForm, setOrderForm] = useState({
     customerName: "",
     customerPhone: "",
@@ -191,15 +191,15 @@ export default function OrderDetails() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePhoneNumberChange = async (phoneNumber: string) => {
-    setOrderForm({...orderForm, customerPhone: phoneNumber});
-    
+    setOrderForm({ ...orderForm, customerPhone: phoneNumber });
+
     // If phone number is valid length (assume Vietnamese phone number), try to fetch customer
     if (phoneNumber.length >= 10) {
       try {
         const customer = await customerService.getCustomerByPhone(phoneNumber);
         if (customer && customer.name) {
           setOrderForm(prev => ({
-            ...prev, 
+            ...prev,
             customerPhone: phoneNumber,
             customerName: customer.name
           }));
@@ -214,43 +214,43 @@ export default function OrderDetails() {
 
   const handleSubmitOrder = async () => {
     if (isSubmitting) return;
-    
+
     setIsSubmitting(true);
     // Validate required fields
     const errors = [];
-    
+
     if (!orderForm.customerName.trim()) {
       errors.push("Tên khách hàng");
     }
-    
+
     if (!orderForm.customerPhone.trim()) {
       errors.push("Số điện thoại");
     }
-    
+
     if (!orderForm.selectedColor) {
       errors.push("Màu xe");
     }
-    
+
     // Additional validations for non-showroom orders
     if (orderType !== 'showroom') {
       if (!orderForm.paymentMethod) {
         errors.push("Phương thức thanh toán");
       }
-      
+
       if (!orderForm.deliveryDate) {
         errors.push("Ngày giao xe mong muốn");
       }
     }
-    
+
     // Show error if any required fields are missing
     if (errors.length > 0) {
-      const errorMessage = errors.length === 1 
+      const errorMessage = errors.length === 1
         ? `Vui lòng điền ${errors[0]}`
         : `Vui lòng điền các trường bắt buộc: ${errors.join(", ")}`;
       toast.error(errorMessage);
       return;
     }
-    
+
     // Validate phone number format (Vietnamese phone numbers)
     const phoneRegex = /^(0|\+84)[3-9]\d{8}$/;
     if (!phoneRegex.test(orderForm.customerPhone.trim())) {
@@ -262,12 +262,12 @@ export default function OrderDetails() {
     try {
       // Step 1: Find or create customer
       let customerId: number;
-      
+
       try {
         // Try to find existing customer
         const existingCustomer = await customerService.getCustomerByPhone(orderForm.customerPhone.trim());
         customerId = existingCustomer.customerId;
-        
+
         // Update customer name if it's different (in case user manually changed it)
         if (existingCustomer.name !== orderForm.customerName.trim()) {
           await customerService.updateCustomer(customerId, {
@@ -294,14 +294,14 @@ export default function OrderDetails() {
       let orderStatus: OrderStatus;
       switch (orderType) {
         case "direct":
-          orderStatus = OrderStatus.CONFIRMED;
+          orderStatus = OrderStatus.COMPLETED;
           break;
         case "online":
-          orderStatus = OrderStatus.NEW;
+          orderStatus = OrderStatus.PROCESSING;
           break;
         case "showroom":
         default:
-          orderStatus = OrderStatus.NEW;
+          orderStatus = OrderStatus.PROCESSING;
           break;
       }
 
@@ -317,10 +317,10 @@ export default function OrderDetails() {
 
       const createdOrder = await orderService.createOrder(orderRequest);
 
-      const successMessage = orderType === "direct" ? 
-        "Chốt hợp đồng thành công!" : 
+      const successMessage = orderType === "direct" ?
+        "Chốt hợp đồng thành công!" :
         "Tạo đơn hàng thành công!";
-      
+
       toast.success(successMessage);
       navigate("/sales");
 
@@ -350,7 +350,7 @@ export default function OrderDetails() {
             </p>
           </div>
         </div>
-        
+
         <Badge className="bg-success/20 text-success border-success px-3 py-1">
           Đang hoạt động
         </Badge>
@@ -360,10 +360,9 @@ export default function OrderDetails() {
       <Card className="p-6 bg-gradient-card border-border/50">
         <h3 className="text-lg font-semibold mb-4">Chọn luồng đặt hàng</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card 
-            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
-              orderType === 'showroom' ? 'ring-2 ring-primary bg-primary/5' : ''
-            }`}
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${orderType === 'showroom' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
             onClick={() => setOrderType('showroom')}
           >
             <div className="text-center">
@@ -372,11 +371,10 @@ export default function OrderDetails() {
               <p className="text-sm text-muted-foreground">Tạo đơn nháp để theo dõi</p>
             </div>
           </Card>
-          
-          <Card 
-            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
-              orderType === 'online' ? 'ring-2 ring-primary bg-primary/5' : ''
-            }`}
+
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${orderType === 'online' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
             onClick={() => setOrderType('online')}
           >
             <div className="text-center">
@@ -386,10 +384,9 @@ export default function OrderDetails() {
             </div>
           </Card>
 
-          <Card 
-            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
-              orderType === 'direct' ? 'ring-2 ring-primary bg-primary/5' : ''
-            }`}
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${orderType === 'direct' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
             onClick={() => setOrderType('direct')}
           >
             <div className="text-center">
@@ -406,8 +403,8 @@ export default function OrderDetails() {
         <div className="space-y-6">
           <Card className="overflow-hidden">
             <div className="relative">
-              <img 
-                src={selectedVehicle.image} 
+              <img
+                src={selectedVehicle.image}
                 alt={selectedVehicle.name}
                 className="w-full h-64 object-cover"
               />
@@ -423,7 +420,7 @@ export default function OrderDetails() {
                   {selectedVehicle.description}
                 </p>
               </div>
-              
+
               <div className="text-2xl font-bold text-primary mb-6">
                 {selectedVehicle.price.toLocaleString('vi-VN')}₫
               </div>
@@ -439,7 +436,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground">{selectedVehicle.specs.batteryCapacity}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Fuel className="w-4 h-4 text-primary" />
                     <div>
@@ -447,7 +444,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground">{selectedVehicle.specs.range}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Zap className="w-4 h-4 text-primary" />
                     <div>
@@ -455,7 +452,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground">{selectedVehicle.specs.power}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Gauge className="w-4 h-4 text-primary" />
                     <div>
@@ -463,7 +460,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground">{selectedVehicle.specs.acceleration}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Timer className="w-4 h-4 text-primary" />
                     <div>
@@ -471,7 +468,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground">{selectedVehicle.specs.chargingTime}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Users className="w-4 h-4 text-primary" />
                     <div>
@@ -506,7 +503,7 @@ export default function OrderDetails() {
             <h3 className="text-lg font-semibold mb-4">
               {orderType === 'direct' ? 'Thông tin hợp đồng' : 'Thông tin đặt hàng'}
             </h3>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -524,20 +521,20 @@ export default function OrderDetails() {
                   <Input
                     id="customerName"
                     value={orderForm.customerName}
-                    onChange={(e) => setOrderForm({...orderForm, customerName: e.target.value})}
+                    onChange={(e) => setOrderForm({ ...orderForm, customerName: e.target.value })}
                     placeholder="Nhập tên khách hàng"
                   />
                 </div>
               </div>
 
-              
+
 
               <div className="space-y-2">
                 <Label htmlFor="customerAddress">Địa chỉ giao xe</Label>
                 <Input
                   id="customerAddress"
                   value={orderForm.customerAddress}
-                  onChange={(e) => setOrderForm({...orderForm, customerAddress: e.target.value})}
+                  onChange={(e) => setOrderForm({ ...orderForm, customerAddress: e.target.value })}
                   placeholder="Nhập địa chỉ giao xe"
                 />
               </div>
@@ -547,20 +544,18 @@ export default function OrderDetails() {
                 <Label>Màu xe *</Label>
                 <div className="flex space-x-3 mb-3">
                   {selectedVehicle.colors.map((color) => (
-                    <div 
-                      key={color} 
-                      className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${
-                        orderForm.selectedColor === color ? 'border-primary bg-primary/10' : 'border-border'
-                      }`}
-                      onClick={() => setOrderForm({...orderForm, selectedColor: color})}
+                    <div
+                      key={color}
+                      className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${orderForm.selectedColor === color ? 'border-primary bg-primary/10' : 'border-border'
+                        }`}
+                      onClick={() => setOrderForm({ ...orderForm, selectedColor: color })}
                     >
-                      <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${
-                        color === 'Đen' ? 'bg-black' :
-                        color === 'Trắng' ? 'bg-white border-gray-300' :
-                        color === 'Xám' ? 'bg-gray-500' :
-                        color === 'Xanh' ? 'bg-blue-500' :
-                        color === 'Đỏ' ? 'bg-red-500' : 'bg-gray-300'
-                      }`} />
+                      <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${color === 'Đen' ? 'bg-black' :
+                          color === 'Trắng' ? 'bg-white border-gray-300' :
+                            color === 'Xám' ? 'bg-gray-500' :
+                              color === 'Xanh' ? 'bg-blue-500' :
+                                color === 'Đỏ' ? 'bg-red-500' : 'bg-gray-300'
+                        }`} />
                       <span className="text-xs">{color}</span>
                     </div>
                   ))}
@@ -571,7 +566,7 @@ export default function OrderDetails() {
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="paymentMethod">Phương thức thanh toán</Label>
-                    <Select value={orderForm.paymentMethod} onValueChange={(value) => setOrderForm({...orderForm, paymentMethod: value})}>
+                    <Select value={orderForm.paymentMethod} onValueChange={(value) => setOrderForm({ ...orderForm, paymentMethod: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn phương thức thanh toán" />
                       </SelectTrigger>
@@ -589,7 +584,7 @@ export default function OrderDetails() {
                       id="deliveryDate"
                       type="date"
                       value={orderForm.deliveryDate}
-                      onChange={(e) => setOrderForm({...orderForm, deliveryDate: e.target.value})}
+                      onChange={(e) => setOrderForm({ ...orderForm, deliveryDate: e.target.value })}
                     />
                   </div>
                 </>
@@ -600,7 +595,7 @@ export default function OrderDetails() {
                 <Textarea
                   id="notes"
                   value={orderForm.notes}
-                  onChange={(e) => setOrderForm({...orderForm, notes: e.target.value})}
+                  onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
                   placeholder="Nhập ghi chú (tùy chọn)"
                   rows={3}
                 />
@@ -624,8 +619,8 @@ export default function OrderDetails() {
                 <div className="flex justify-between">
                   <span>Loại đơn:</span>
                   <span className="font-medium">
-                    {orderType === 'showroom' ? 'Khách tới showroom' : 
-                     orderType === 'online' ? 'Đặt hàng online' : 'Chốt trực tiếp'}
+                    {orderType === 'showroom' ? 'Khách tới showroom' :
+                      orderType === 'online' ? 'Đặt hàng online' : 'Chốt trực tiếp'}
                   </span>
                 </div>
                 <Separator />
@@ -637,21 +632,21 @@ export default function OrderDetails() {
             </div>
 
             <div className="flex space-x-3 mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => navigate(-1)}
                 className="flex-1"
               >
                 Hủy
               </Button>
-              <Button 
+              <Button
                 onClick={handleSubmitOrder}
                 disabled={isSubmitting}
                 className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90 disabled:opacity-50"
               >
                 <ShoppingCart className="w-4 h-4 mr-2" />
-                {isSubmitting 
-                  ? 'Đang xử lý...' 
+                {isSubmitting
+                  ? 'Đang xử lý...'
                   : orderType === 'direct' ? 'Chốt hợp đồng' : 'Tạo đơn hàng'
                 }
               </Button>

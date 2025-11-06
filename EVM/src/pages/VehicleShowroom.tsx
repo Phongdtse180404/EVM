@@ -276,14 +276,6 @@ export default function VehicleShowroom() {
             </div>
 
             <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                className="transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
-              >
-                <Phone className="w-4 h-4 mr-2" />
-                Liên hệ tư vấn
-              </Button>
-
               {/* Button Đăng nhập */}
               {currentUser ? (
                 <DropdownMenu>

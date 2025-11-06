@@ -5,7 +5,7 @@ export interface CustomerRequest {
   name: string;
   phoneNumber: string;
   interestVehicle: string;
-  status: string; // ví dụ: "LEAD", "CUSTOMER"
+  status: string;
 }
 
 // Response type (dữ liệu server trả về)

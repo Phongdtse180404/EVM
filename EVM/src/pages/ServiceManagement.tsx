@@ -377,25 +377,6 @@ const ServiceManagement = () => {
             </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="auto-monitoring" className="text-sm">Giám sát tự động</Label>
-            <Switch
-              id="auto-monitoring"
-              checked={isAutoMonitoring}
-              onCheckedChange={setIsAutoMonitoring}
-            />
-          </div>
-          <Button variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Đồng bộ
-          </Button>
-          <Button variant="outline" size="sm">
-            <Settings className="w-4 h-4 mr-2" />
-            Cài đặt
-          </Button>
-        </div>
       </div>
 
       {/* KPI Overview */}
