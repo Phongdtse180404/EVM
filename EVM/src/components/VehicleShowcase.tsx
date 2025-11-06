@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useElectricVehicle } from "@/hooks/use-electric-vehicle";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,172 +17,45 @@ import {
   Timer,
   Shield
 } from "lucide-react";
+import type { ElectricVehicleResponse } from "@/services/api-electric-vehicle";
 
-// Import vehicle images
-import vf8Image from "@/assets/vinfast-vf8.jpg";
-import vf9Image from "@/assets/vinfast-vf9.jpg";
-import vf6Image from "@/assets/vinfast-vf6.jpg";
-import vf7Image from "@/assets/vinfast-vf7.jpg";
-
-interface Vehicle {
-  id: string;
-  name: string;
-  model: string;
-  image: string;
-  price: number;
-  colors: string[];
-  status: "available" | "out-of-stock" | "limited";
-  stock: number;
-  specs: {
-    batteryCapacity: string;
-    range: string;
-    power: string;
-    acceleration: string;
-    chargingTime: string;
-    seats: number;
-    year: number;
-    warranty: string;
-  };
-  features: string[];
-  description: string;
-}
+// Firebase fallback image URL
+const firebaseImageUrl = "https://firebasestorage.googleapis.com/v0/b/evdealer.firebasestorage.app/o/images%2Fvehicles%2Fvf6-electric-car.png?alt=media&token=ac7891b1-f5e2-4e23-9b35-2c4d6e7f8a9b";
 
 interface VehicleShowcaseProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const vehicles: Vehicle[] = [
-  {
-    id: "vf8",
-    name: "VinFast VF8",
-    model: "VF8 Plus",
-    image: vf8Image,
-    price: 1200000000,
-    colors: ["Đen", "Trắng", "Xám", "Xanh"],
-    status: "available",
-    stock: 15,
-    specs: {
-      batteryCapacity: "87.7 kWh",
-      range: "420 km",
-      power: "300 kW",
-      acceleration: "5.9s (0-100km/h)",
-      chargingTime: "31 phút (10-70%)",
-      seats: 7,
-      year: 2024,
-      warranty: "10 năm/200,000km"
-    },
-    features: [
-      "Hệ thống lái tự động Level 2",
-      "Màn hình cảm ứng 15.6 inch",
-      "Âm thanh 13 loa Harman Kardon",
-      "Sạc không dây",
-      "Hệ thống an toàn 5 sao",
-      "Cửa sổ trời toàn cảnh"
-    ],
-    description: "SUV điện cao cấp 7 chỗ với thiết kế hiện đại và công nghệ tiên tiến."
-  },
-  {
-    id: "vf9",
-    name: "VinFast VF9",
-    model: "VF9 Plus",
-    image: vf9Image,
-    price: 1500000000,
-    colors: ["Trắng", "Đen", "Xám", "Đỏ"],
-    status: "available",
-    stock: 8,
-    specs: {
-      batteryCapacity: "123 kWh",
-      range: "594 km",
-      power: "300 kW",
-      acceleration: "6.5s (0-100km/h)",
-      chargingTime: "35 phút (10-70%)",
-      seats: 7,
-      year: 2024,
-      warranty: "10 năm/200,000km"
-    },
-    features: [
-      "Hệ thống lái tự động Level 2+",
-      "Màn hình cảm ứng 15.6 inch",
-      "Âm thanh 14 loa Harman Kardon",
-      "Sạc không dây cao cấp",
-      "Hệ thống an toàn 5 sao EURO NCAP",
-      "Cửa sổ trời toàn cảnh điện tử"
-    ],
-    description: "SUV điện flagship hạng sang với không gian rộng rãi và hiệu suất vượt trội."
-  },
-  {
-    id: "vf6",
-    name: "VinFast VF6",
-    model: "VF6 S",
-    image: vf6Image,
-    price: 800000000,
-    colors: ["Đỏ", "Trắng", "Đen", "Xanh"],
-    status: "limited",
-    stock: 3,
-    specs: {
-      batteryCapacity: "59.6 kWh",
-      range: "388 km",
-      power: "130 kW",
-      acceleration: "8.9s (0-100km/h)",
-      chargingTime: "45 phút (10-80%)",
-      seats: 5,
-      year: 2024,
-      warranty: "8 năm/160,000km"
-    },
-    features: [
-      "Hệ thống hỗ trợ lái xe thông minh",
-      "Màn hình cảm ứng 12.9 inch",
-      "Âm thanh 8 loa",
-      "Sạc không dây",
-      "Cảm biến hỗ trợ đỗ xe",
-      "Đèn LED ma trận"
-    ],
-    description: "SUV điện compact thông minh, phù hợp cho gia đình trẻ năng động."
-  },
-  {
-    id: "vf7",
-    name: "VinFast VF7",
-    model: "VF7 Plus",
-    image: vf7Image,
-    price: 999000000,
-    colors: ["Xanh", "Trắng", "Đen", "Xám"],
-    status: "available",
-    stock: 12,
-    specs: {
-      batteryCapacity: "75.3 kWh",
-      range: "450 km",
-      power: "260 kW",
-      acceleration: "6.8s (0-100km/h)",
-      chargingTime: "38 phút (10-70%)",
-      seats: 5,
-      year: 2024,
-      warranty: "10 năm/200,000km"
-    },
-    features: [
-      "Hệ thống lái tự động Level 2",
-      "Màn hình cảm ứng 12.9 inch",
-      "Âm thanh 10 loa Harman Kardon",
-      "Sạc không dây thông minh",
-      "Hệ thống an toàn 5 sao",
-      "Đèn LED thích ứng"
-    ],
-    description: "SUV điện cao cấp 5 chỗ với thiết kế thể thao và công nghệ hiện đại."
-  }
-];
-
 export function VehicleShowcase({ open, onOpenChange }: VehicleShowcaseProps) {
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const { fetchElectricVehicles, loading, electricVehicles } = useElectricVehicle();
+  const [selectedVehicle, setSelectedVehicle] = useState<ElectricVehicleResponse | null>(null);
+  const [vehicles, setVehicles] = useState<ElectricVehicleResponse[]>([]);
 
-  const getStatusBadge = (status: Vehicle['status']) => {
-    switch (status) {
-      case 'available':
-        return <Badge className="bg-success/20 text-success border-success">Có sẵn</Badge>;
-      case 'limited':
-        return <Badge className="bg-warning/20 text-warning border-warning">Số lượng hạn chế</Badge>;
-      case 'out-of-stock':
-        return <Badge className="bg-destructive/20 text-destructive border-destructive">Hết hàng</Badge>;
+  // Fetch electric vehicles when dialog opens
+  useEffect(() => {
+    if (open) {
+      const loadVehicles = async () => {
+        const apiVehicles = await fetchElectricVehicles();
+        if (apiVehicles) {
+          setVehicles(apiVehicles);
+        }
+      };
+      loadVehicles();
     }
+  }, [open, fetchElectricVehicles]);
+
+  const getStatusBadge = (vehicle: ElectricVehicleResponse) => {
+    // Use actual status from API
+    if (vehicle.status === 'AVAILABLE') {
+      return <Badge className="bg-success/20 text-success border-success">Có sẵn</Badge>;
+    } else if (vehicle.status === 'HOLD') {
+      return <Badge className="bg-warning/20 text-warning border-warning">Đang giữ</Badge>;
+    } else if (vehicle.status === 'SOLD_OUT') {
+      return <Badge className="bg-destructive/20 text-destructive border-destructive">Đã bán</Badge>;
+    }
+    
+    return null; // Don't show badge if no valid status
   };
 
   return (
@@ -197,39 +71,63 @@ export function VehicleShowcase({ open, onOpenChange }: VehicleShowcaseProps) {
         <div className="flex h-[75vh] space-x-6">
           {/* Vehicle List */}
           <div className="w-1/3 overflow-y-auto space-y-4">
-            <h3 className="font-semibold text-lg mb-4">Danh sách xe ({vehicles.length})</h3>
-            {vehicles.map((vehicle) => (
-              <Card 
-                key={vehicle.id}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                  selectedVehicle?.id === vehicle.id ? 'ring-2 ring-primary bg-gradient-card' : ''
-                }`}
-                onClick={() => setSelectedVehicle(vehicle)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex space-x-3">
-                    <img 
-                      src={vehicle.image} 
-                      alt={vehicle.name}
-                      className="w-20 h-16 object-cover rounded-lg"
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-sm">{vehicle.name}</h4>
-                      <p className="text-xs text-muted-foreground mb-2">{vehicle.model}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-primary">
-                          {vehicle.price.toLocaleString('vi-VN')}₫
-                        </span>
-                        {getStatusBadge(vehicle.status)}
+            <h3 className="font-semibold text-lg mb-4">
+              Danh sách xe ({loading ? 'Đang tải...' : vehicles.length})
+            </h3>
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="text-sm text-muted-foreground mt-2">Đang tải xe điện...</p>
+              </div>
+            ) : vehicles.length === 0 ? (
+              <div className="text-center py-8">
+                <Car className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground">Không có xe điện nào trong kho</p>
+              </div>
+            ) : (
+              vehicles.map((vehicle) => (
+                <Card 
+                  key={vehicle.vehicleId}
+                  className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                    selectedVehicle?.vehicleId === vehicle.vehicleId ? 'ring-2 ring-primary bg-gradient-card' : ''
+                  }`}
+                  onClick={() => setSelectedVehicle(vehicle)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex space-x-3">
+                      {(vehicle.imageUrl || firebaseImageUrl) && (
+                        <img 
+                          src={vehicle.imageUrl || firebaseImageUrl} 
+                          alt={vehicle.modelCode}
+                          className="w-20 h-16 object-cover rounded-lg"
+                        />
+                      )}
+                      <div className="flex-1">
+                        {vehicle.modelCode && (
+                          <h4 className="font-medium text-sm">{vehicle.modelCode}</h4>
+                        )}
+                        {vehicle.brand && (
+                          <p className="text-xs text-muted-foreground mb-2">{vehicle.brand}</p>
+                        )}
+                        <div className="flex items-center justify-between">
+                          {vehicle.price && (
+                            <span className="text-sm font-semibold text-primary">
+                              {vehicle.price.toLocaleString('vi-VN')}₫
+                            </span>
+                          )}
+                          {getStatusBadge(vehicle)}
+                        </div>
+                        {vehicle.batteryCapacity && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Pin: {vehicle.batteryCapacity} kWh
+                          </p>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Tồn kho: {vehicle.stock}
-                      </p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
 
           {/* Vehicle Details */}
@@ -240,42 +138,60 @@ export function VehicleShowcase({ open, onOpenChange }: VehicleShowcaseProps) {
                 <Card className="overflow-hidden">
                   <div className="relative">
                     <img 
-                      src={selectedVehicle.image} 
-                      alt={selectedVehicle.name}
+                      src={selectedVehicle.imageUrl || firebaseImageUrl} 
+                      alt={selectedVehicle.modelCode}
                       className="w-full h-64 object-cover"
                     />
                     <div className="absolute top-4 right-4">
-                      {getStatusBadge(selectedVehicle.status)}
+                      {getStatusBadge(selectedVehicle)}
                     </div>
                   </div>
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h2 className="text-2xl font-bold">{selectedVehicle.name}</h2>
-                        <p className="text-muted-foreground">{selectedVehicle.model}</p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {selectedVehicle.description}
-                        </p>
+                        {selectedVehicle.modelCode && (
+                          <h2 className="text-2xl font-bold">{selectedVehicle.modelCode}</h2>
+                        )}
+                        {selectedVehicle.brand && (
+                          <p className="text-muted-foreground">{selectedVehicle.brand}</p>
+                        )}
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-primary">
-                          {selectedVehicle.price.toLocaleString('vi-VN')}₫
-                        </div>
-                        <p className="text-sm text-muted-foreground">Tồn kho: {selectedVehicle.stock}</p>
+                        {selectedVehicle.price && (
+                          <div className="text-2xl font-bold text-primary">
+                            {selectedVehicle.price.toLocaleString('vi-VN')}₫
+                          </div>
+                        )}
+                        {selectedVehicle.productionYear && (
+                          <p className="text-sm text-muted-foreground">Năm SX: {selectedVehicle.productionYear}</p>
+                        )}
+                        {selectedVehicle.color && (
+                          <p className="text-sm text-muted-foreground">Màu: {selectedVehicle.color}</p>
+                        )}
                       </div>
                     </div>
 
-                    {/* Colors */}
-                    <div className="mb-4">
-                      <h4 className="font-medium mb-2">Màu sắc có sẵn:</h4>
-                      <div className="flex space-x-2">
-                        {selectedVehicle.colors.map((color) => (
-                          <Badge key={color} variant="outline" className="text-xs">
-                            {color}
-                          </Badge>
-                        ))}
+                    {/* Color and Status */}
+                    {(selectedVehicle.color || selectedVehicle.status) && (
+                      <div className="mb-4 grid grid-cols-2 gap-4">
+                        {selectedVehicle.color && (
+                          <div>
+                            <h4 className="font-medium mb-2">Màu sắc:</h4>
+                            <Badge variant="outline" className="text-xs">
+                              {selectedVehicle.color}
+                            </Badge>
+                          </div>
+                        )}
+                        {selectedVehicle.status && (
+                          <div>
+                            <h4 className="font-medium mb-2">Trạng thái:</h4>
+                            <Badge variant="outline" className="text-xs">
+                              {selectedVehicle.status}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -283,7 +199,7 @@ export function VehicleShowcase({ open, onOpenChange }: VehicleShowcaseProps) {
                 <Tabs defaultValue="specs" className="space-y-4">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="specs">Thông số kỹ thuật</TabsTrigger>
-                    <TabsTrigger value="features">Tính năng</TabsTrigger>
+                    <TabsTrigger value="features">Thông tin xe</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="specs">
@@ -296,69 +212,65 @@ export function VehicleShowcase({ open, onOpenChange }: VehicleShowcaseProps) {
                       </CardHeader>
                       <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="flex items-center space-x-3">
-                            <Battery className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-sm font-medium">Dung lượng pin</p>
-                              <p className="text-sm text-muted-foreground">{selectedVehicle.specs.batteryCapacity}</p>
+                          {selectedVehicle.batteryCapacity && (
+                            <div className="flex items-center space-x-3">
+                              <Battery className="w-4 h-4 text-primary" />
+                              <div>
+                                <p className="text-sm font-medium">Dung lượng pin</p>
+                                <p className="text-sm text-muted-foreground">{selectedVehicle.batteryCapacity} kWh</p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
-                          <div className="flex items-center space-x-3">
-                            <Fuel className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-sm font-medium">Quãng đường</p>
-                              <p className="text-sm text-muted-foreground">{selectedVehicle.specs.range}</p>
+                          {selectedVehicle.productionYear && (
+                            <div className="flex items-center space-x-3">
+                              <Calendar className="w-4 h-4 text-primary" />
+                              <div>
+                                <p className="text-sm font-medium">Năm sản xuất</p>
+                                <p className="text-sm text-muted-foreground">{selectedVehicle.productionYear}</p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
-                          <div className="flex items-center space-x-3">
-                            <Zap className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-sm font-medium">Công suất</p>
-                              <p className="text-sm text-muted-foreground">{selectedVehicle.specs.power}</p>
+                          {selectedVehicle.price && (
+                            <div className="flex items-center space-x-3">
+                              <Zap className="w-4 h-4 text-primary" />
+                              <div>
+                                <p className="text-sm font-medium">Giá bán</p>
+                                <p className="text-sm text-muted-foreground">{selectedVehicle.price.toLocaleString('vi-VN')}₫</p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
-                          <div className="flex items-center space-x-3">
-                            <Timer className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-sm font-medium">Tăng tốc</p>
-                              <p className="text-sm text-muted-foreground">{selectedVehicle.specs.acceleration}</p>
+                          {selectedVehicle.modelCode && (
+                            <div className="flex items-center space-x-3">
+                              <Car className="w-4 h-4 text-primary" />
+                              <div>
+                                <p className="text-sm font-medium">Mã model</p>
+                                <p className="text-sm text-muted-foreground">{selectedVehicle.modelCode}</p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
-                          <div className="flex items-center space-x-3">
-                            <Battery className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-sm font-medium">Thời gian sạc</p>
-                              <p className="text-sm text-muted-foreground">{selectedVehicle.specs.chargingTime}</p>
+                          {selectedVehicle.brand && (
+                            <div className="flex items-center space-x-3">
+                              <Shield className="w-4 h-4 text-primary" />
+                              <div>
+                                <p className="text-sm font-medium">Thương hiệu</p>
+                                <p className="text-sm text-muted-foreground">{selectedVehicle.brand}</p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                           
-                          <div className="flex items-center space-x-3">
-                            <Users className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-sm font-medium">Số ghế</p>
-                              <p className="text-sm text-muted-foreground">{selectedVehicle.specs.seats} chỗ</p>
+                          {selectedVehicle.status && (
+                            <div className="flex items-center space-x-3">
+                              <Timer className="w-4 h-4 text-primary" />
+                              <div>
+                                <p className="text-sm font-medium">Trạng thái</p>
+                                <p className="text-sm text-muted-foreground">{selectedVehicle.status}</p>
+                              </div>
                             </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-3">
-                            <Calendar className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-sm font-medium">Năm sản xuất</p>
-                              <p className="text-sm text-muted-foreground">{selectedVehicle.specs.year}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-3">
-                            <Shield className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="text-sm font-medium">Bảo hành</p>
-                              <p className="text-sm text-muted-foreground">{selectedVehicle.specs.warranty}</p>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -369,18 +281,25 @@ export function VehicleShowcase({ open, onOpenChange }: VehicleShowcaseProps) {
                       <CardHeader>
                         <CardTitle className="flex items-center space-x-2">
                           <Star className="w-5 h-5" />
-                          <span>Tính năng nổi bật</span>
+                          <span>Thông tin xe</span>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {selectedVehicle.features.map((feature, index) => (
-                            <div key={index} className="flex items-center space-x-2">
-                              <div className="w-2 h-2 bg-primary rounded-full"></div>
-                              <span className="text-sm">{feature}</span>
-                            </div>
-                          ))}
-                        </div>
+                        {selectedVehicle.batteryCapacity || selectedVehicle.price || selectedVehicle.modelCode ? (
+                          <div className="space-y-3">
+                            {selectedVehicle.batteryCapacity && (
+                              <p className="text-sm">Xe điện với dung lượng pin {selectedVehicle.batteryCapacity} kWh</p>
+                            )}
+                            {selectedVehicle.modelCode && (
+                              <p className="text-sm">Model: {selectedVehicle.modelCode}</p>
+                            )}
+                            {selectedVehicle.brand && (
+                              <p className="text-sm">Thương hiệu: {selectedVehicle.brand}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">Không có thông tin chi tiết</p>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>

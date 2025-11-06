@@ -5,14 +5,6 @@ import { useModels } from "@/hooks/use-models";
 import type { ModelResponse } from "@/services/api-model";
 import AddModelDialog from "@/components/AddModelDialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -22,8 +14,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -34,7 +24,6 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mode } from "fs";
 
 export default function Models() {
   // Model CRUD state
@@ -49,8 +38,6 @@ export default function Models() {
     models,
     modelsLoading,
     fetchModels,
-    createModel,
-    updateModel,
     deleteModel
   } = useModels();
 

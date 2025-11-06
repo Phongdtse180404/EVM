@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useModels } from "@/hooks/use-models";
-import type { ModelRequest } from "@/services/api-model";
-import { electricVehicleService } from "@/services/api-electric-vehicle";
+import { useElectricVehicle } from "@/hooks/use-electric-vehicle";
+import type { ModelRequest, ModelResponse } from "@/services/api-model";
+import type { ElectricVehicleRequest, ElectricVehicleResponse } from "@/services/api-electric-vehicle";
 import {
   Dialog,
   DialogContent,
@@ -19,13 +20,7 @@ interface AddModelDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onModelCreated?: (modelCode: string) => void;
-  editingModel?: {
-    modelId: number;
-    modelCode: string;
-    brand: string;
-    color: string;
-    productionYear: number;
-  } | null;
+  editingModel?: ModelResponse | null;
 }
 
 export default function AddModelDialog({ 
@@ -41,11 +36,43 @@ export default function AddModelDialog({
     productionYear: editingModel?.productionYear || new Date().getFullYear()
   });
 
+  const [electricVehicleFormData, setElectricVehicleFormData] = useState<Omit<ElectricVehicleRequest, 'modelId' | 'modelCode'>>({
+    cost: 500000000,
+    price: 800000000,
+    batteryCapacity: 75,
+    imageUrl: "",
+    status: "AVAILABLE"
+  });
+
+  const [existingElectricVehicle, setExistingElectricVehicle] = useState<ElectricVehicleResponse | null>(null);
+
   const { toast } = useToast();
   const { createModel, updateModel } = useModels();
+  const { createElectricVehicle, updateElectricVehicle, findElectricVehicleByModelId, loading: electricVehicleLoading } = useElectricVehicle();
 
-  // Reset form when dialog opens/closes or editingModel changes
+  // Fetch electric vehicle data when editing a model
   useEffect(() => {
+    const fetchElectricVehicleData = async () => {
+      if (editingModel && open) {
+        try {
+          const existingEV = await findElectricVehicleByModelId(editingModel.modelId);
+          
+          if (existingEV) {
+            setExistingElectricVehicle(existingEV);
+            setElectricVehicleFormData({
+              cost: existingEV.cost,
+              price: existingEV.price,
+              batteryCapacity: existingEV.batteryCapacity,
+              imageUrl: existingEV.imageUrl || "",
+              status: existingEV.status
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching electric vehicle data:', error);
+        }
+      }
+    };
+
     if (open) {
       setModelFormData({
         modelCode: editingModel?.modelCode || "",
@@ -53,8 +80,22 @@ export default function AddModelDialog({
         color: editingModel?.color || "",
         productionYear: editingModel?.productionYear || new Date().getFullYear()
       });
+      
+      if (editingModel) {
+        fetchElectricVehicleData();
+      } else {
+        // Reset to defaults for new model
+        setElectricVehicleFormData({
+          cost: 500000000,
+          price: 800000000,
+          batteryCapacity: 75,
+          imageUrl: "",
+          status: "AVAILABLE"
+        });
+        setExistingElectricVehicle(null);
+      }
     }
-  }, [open, editingModel]);
+  }, [open, editingModel, findElectricVehicleByModelId]);
 
   const handleSave = async () => {
     if (!modelFormData.modelCode?.trim() || !modelFormData.brand?.trim()) {
@@ -66,41 +107,45 @@ export default function AddModelDialog({
       return;
     }
 
+    // Validate electric vehicle data for both create and update
+    if (!electricVehicleFormData.cost || !electricVehicleFormData.price || !electricVehicleFormData.batteryCapacity) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng nhập đầy đủ thông tin xe điện (giá vốn, giá bán, dung lượng pin)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const result = editingModel 
         ? await updateModel(editingModel.modelId, modelFormData)
         : await createModel(modelFormData);
         
       if (result) {
-        // If creating a new model, also create the electric vehicle
-        if (!editingModel && typeof result === 'object' && result.modelId && result.modelCode) {
-          try {
-            await electricVehicleService.createElectricVehicle({
-              modelId: result.modelId,
-              modelCode: result.modelCode,
-              cost: 500000000, // 500M VND placeholder
-              price: 800000000, // 800M VND placeholder
-              batteryCapacity: 75, // 75 kWh placeholder
-              imageUrl: "https://via.placeholder.com/400x300", // Placeholder image
-              status: "AVAILABLE"
-            });
-            
-            toast({
-              title: "Thành công",
-              description: "Đã tạo model và xe điện thành công",
-            });
-          } catch (electricVehicleError) {
-            toast({
-              title: "Cảnh báo",
-              description: "Model đã được tạo nhưng không thể tạo xe điện",
-              variant: "destructive",
+        if (editingModel) {
+          // Update existing electric vehicle
+          if (existingElectricVehicle) {
+            await updateElectricVehicle(existingElectricVehicle.vehicleId, {
+              modelId: editingModel.modelId,
+              modelCode: editingModel.modelCode,
+              ...electricVehicleFormData
             });
           }
-        } else if (editingModel) {
+          
           toast({
             title: "Thành công",
-            description: "Đã cập nhật model thành công",
+            description: "Đã cập nhật model và xe điện thành công",
           });
+        } else {
+          // Creating a new model, also create the electric vehicle
+          if (typeof result === 'object' && result.modelId && result.modelCode) {
+            await createElectricVehicle({
+              modelId: result.modelId,
+              modelCode: result.modelCode,
+              ...electricVehicleFormData
+            });
+          }
         }
         
         // If creating a new model and callback provided, call it with the model code
@@ -130,45 +175,115 @@ export default function AddModelDialog({
             {editingModel ? "Cập nhật thông tin model" : "Nhập thông tin model mới"}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="model-code">Mã Model *</Label>
-            <Input
-              id="model-code"
-              value={modelFormData.modelCode}
-              onChange={(e) => setModelFormData(prev => ({ ...prev, modelCode: e.target.value }))}
-              placeholder="Nhập mã model"
-            />
+        <div className="space-y-6 py-4">
+          {/* Model Information */}
+          <div>
+            <h3 className="text-lg font-medium mb-4">Thông tin Model</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="model-code">Mã Model *</Label>
+                <Input
+                  id="model-code"
+                  value={modelFormData.modelCode}
+                  onChange={(e) => setModelFormData(prev => ({ ...prev, modelCode: e.target.value }))}
+                  placeholder="Nhập mã model"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="brand">Thương hiệu *</Label>
+                <Input
+                  id="brand"
+                  value={modelFormData.brand}
+                  onChange={(e) => setModelFormData(prev => ({ ...prev, brand: e.target.value }))}
+                  placeholder="Nhập thương hiệu"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="color">Màu sắc</Label>
+                <Input
+                  id="color"
+                  value={modelFormData.color}
+                  onChange={(e) => setModelFormData(prev => ({ ...prev, color: e.target.value }))}
+                  placeholder="Nhập màu sắc"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="production-year">Năm sản xuất</Label>
+                <Input
+                  id="production-year"
+                  type="number"
+                  min="1900"
+                  max={new Date().getFullYear() + 1}
+                  value={modelFormData.productionYear}
+                  onChange={(e) => setModelFormData(prev => ({ ...prev, productionYear: Number(e.target.value) }))}
+                  placeholder="Nhập năm sản xuất"
+                />
+              </div>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="brand">Thương hiệu *</Label>
-            <Input
-              id="brand"
-              value={modelFormData.brand}
-              onChange={(e) => setModelFormData(prev => ({ ...prev, brand: e.target.value }))}
-              placeholder="Nhập thương hiệu"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="color">Màu sắc</Label>
-            <Input
-              id="color"
-              value={modelFormData.color}
-              onChange={(e) => setModelFormData(prev => ({ ...prev, color: e.target.value }))}
-              placeholder="Nhập màu sắc"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="production-year">Năm sản xuất</Label>
-            <Input
-              id="production-year"
-              type="number"
-              min="1900"
-              max={new Date().getFullYear() + 1}
-              value={modelFormData.productionYear}
-              onChange={(e) => setModelFormData(prev => ({ ...prev, productionYear: Number(e.target.value) }))}
-              placeholder="Nhập năm sản xuất"
-            />
+
+          {/* Electric Vehicle Information - Show for both create and update */}
+          <div>
+            <h3 className="text-lg font-medium mb-4">
+              Thông tin Xe điện
+              {editingModel && electricVehicleLoading && (
+                <span className="text-sm text-muted-foreground ml-2">(Đang tải...)</span>
+              )}
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cost">Giá vốn (VND) *</Label>
+                <Input
+                  id="cost"
+                  type="number"
+                  min="0"
+                  value={electricVehicleFormData.cost}
+                  onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, cost: Number(e.target.value) }))}
+                  placeholder="Nhập giá vốn"
+                  disabled={electricVehicleLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="price">Giá bán (VND) *</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  min="0"
+                  value={electricVehicleFormData.price}
+                  onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, price: Number(e.target.value) }))}
+                  placeholder="Nhập giá bán"
+                  disabled={electricVehicleLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="battery-capacity">Dung lượng pin (kWh) *</Label>
+                <Input
+                  id="battery-capacity"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={electricVehicleFormData.batteryCapacity}
+                  onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, batteryCapacity: Number(e.target.value) }))}
+                  placeholder="Nhập dung lượng pin"
+                  disabled={electricVehicleLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="image-url">URL hình ảnh</Label>
+                <Input
+                  id="image-url"
+                  value={electricVehicleFormData.imageUrl}
+                  onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  placeholder="Nhập URL hình ảnh"
+                  disabled={electricVehicleLoading}
+                />
+              </div>
+            </div>
+            {editingModel && !existingElectricVehicle && !electricVehicleLoading && (
+              <p className="text-sm text-yellow-600 mt-2">
+                ⚠️ Không tìm thấy thông tin xe điện cho model này.
+              </p>
+            )}
           </div>
         </div>
         <DialogFooter>
