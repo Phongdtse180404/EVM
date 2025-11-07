@@ -31,7 +31,7 @@ export const useWarehouses = () => {
     }
   }, [toast]);
 
-  const createWarehouse = useCallback(async (data: { warehouseLocation: string; warehouseName: string }) => {
+  const createWarehouse = useCallback(async (data: { warehouseLocation: string; warehouseName: string; maxCapacity?: number }) => {
     try {
       await warehouseService.createWarehouse(data);
       toast({
@@ -50,7 +50,7 @@ export const useWarehouses = () => {
     }
   }, [toast, fetchWarehouses]);
 
-  const updateWarehouse = useCallback(async (warehouseId: number, data: { warehouseLocation: string; warehouseName: string }) => {
+  const updateWarehouse = useCallback(async (warehouseId: number, data: { warehouseLocation: string; warehouseName: string; maxCapacity?: number }) => {
     try {
       await warehouseService.updateWarehouse(warehouseId, data);
       toast({

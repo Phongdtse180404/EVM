@@ -693,7 +693,7 @@ export default function OrderDetails() {
                 </div>
                 <div className="flex justify-between">
                   <span>Mã số xe:</span>
-                  <span className="font-medium text-xs">#{selectedVehicle.serial.serialId}</span>
+                  <span className="font-medium text-xs">#{selectedVehicle.serial.vin}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Màu:</span>
