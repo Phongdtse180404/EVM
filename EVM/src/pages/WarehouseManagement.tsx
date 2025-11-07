@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import VehicleDetailModal from "@/components/VehicleDetailModal";
 import AddInventoryModal from "@/components/AddInventoryModal";
+import { useWarehouses } from "@/hooks/use-warehouses";
+import { useElectricVehicle } from "@/hooks/use-electric-vehicle";
+import type { WarehouseStockResponse, VehicleSerialResponse } from "@/services/api-warehouse";
+import type { VehicleStatus, ElectricVehicleResponse } from "@/services/api-electric-vehicle";
 import {
   ArrowLeft,
   Package,
@@ -25,27 +29,29 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-// Import vehicle images
-import vf8Image from "@/assets/vinfast-vf8.jpg";
-import vf9Image from "@/assets/vinfast-vf9.jpg";
-import vf6Image from "@/assets/vinfast-vf6.jpg";
-import vf7Image from "@/assets/vinfast-vf7.jpg";
+// Type for individual vehicle with serial info (similar to VehicleShowroom)
+type IndividualVehicle = WarehouseStockResponse & {
+  serial: VehicleSerialResponse;
+  status: string;
+  holdUntil?: string;
+  vin: string;
+};
 
+// Legacy interface for compatibility with existing modals
 interface WarehouseItem {
   id: string;
-  vehicleId: string;
   vehicleName: string;
   model: string;
-  image: string;
   vin: string;
   color: string;
-  price: number;
   location: string;
   zone: string;
-  status: "available" | "reserved" | "maintenance" | "shipping";
+  status: 'available' | 'reserved' | 'maintenance' | 'shipping';
   batteryLevel: number;
   lastChecked: string;
+  price: number;
   notes?: string;
+  image: string;
 }
 
 interface InventoryStats {
@@ -59,12 +65,20 @@ interface InventoryStats {
 
 export default function WarehouseManagement() {
   const navigate = useNavigate();
+  const { fetchWarehouse, loading, selectedWarehouse } = useWarehouses();
+  const { fetchElectricVehicles, electricVehicles, loading: electricVehicleLoading } = useElectricVehicle();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterZone, setFilterZone] = useState<string>("all");
   const [selectedItem, setSelectedItem] = useState<WarehouseItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // Fetch warehouse and electric vehicle data on component mount
+  useEffect(() => {
+    fetchWarehouse(1);
+    fetchElectricVehicles();
+  }, [fetchWarehouse, fetchElectricVehicles]);
 
   const handleViewDetails = (item: WarehouseItem) => {
     setSelectedItem(item);
@@ -76,133 +90,45 @@ export default function WarehouseManagement() {
     console.log("Adding new item:", newItem);
   };
 
-  const [warehouseInventory] = useState<WarehouseItem[]>([
-    {
-      id: "WH001",
-      vehicleId: "vf8",
-      vehicleName: "VinFast VF8",
-      model: "VF8 Plus",
-      image: vf8Image,
-      vin: "VF8A123456789",
-      color: "Đen",
-      price: 1200000000,
-      location: "A1-01",
-      zone: "A",
-      status: "available",
-      batteryLevel: 85,
-      lastChecked: "2024-01-20",
-      notes: "Kiểm tra định kỳ hoàn thành"
-    },
-    {
-      id: "WH002",
-      vehicleId: "vf8",
-      vehicleName: "VinFast VF8",
-      model: "VF8 Plus",
-      image: vf8Image,
-      vin: "VF8A123456790",
-      color: "Trắng",
-      price: 1200000000,
-      location: "A1-02",
-      zone: "A",
-      status: "reserved",
-      batteryLevel: 92,
-      lastChecked: "2024-01-20",
-      notes: "Đã đặt cọc - Khách hàng Nguyễn Văn A"
-    },
-    {
-      id: "WH003",
-      vehicleId: "vf9",
-      vehicleName: "VinFast VF9",
-      model: "VF9 Plus",
-      image: vf9Image,
-      vin: "VF9B987654321",
-      color: "Trắng",
-      price: 1500000000,
-      location: "B2-05",
-      zone: "B",
-      status: "available",
-      batteryLevel: 78,
-      lastChecked: "2024-01-19",
-    },
-    {
-      id: "WH004",
-      vehicleId: "vf9",
-      vehicleName: "VinFast VF9",
-      model: "VF9 Plus",
-      image: vf9Image,
-      vin: "VF9B987654322",
-      color: "Đen",
-      price: 1500000000,
-      location: "B2-06",
-      zone: "B",
-      status: "shipping",
-      batteryLevel: 95,
-      lastChecked: "2024-01-18",
-      notes: "Đang giao cho khách hàng tại TP.HCM"
-    },
-    {
-      id: "WH005",
-      vehicleId: "vf6",
-      vehicleName: "VinFast VF6",
-      model: "VF6 S",
-      image: vf6Image,
-      vin: "VF6C456789123",
-      color: "Đỏ",
-      price: 800000000,
-      location: "C3-10",
-      zone: "C",
-      status: "maintenance",
-      batteryLevel: 45,
-      lastChecked: "2024-01-15",
-      notes: "Bảo trì hệ thống pin"
-    },
-    {
-      id: "WH006",
-      vehicleId: "vf6",
-      vehicleName: "VinFast VF6",
-      model: "VF6 S",
-      image: vf6Image,
-      vin: "VF6C456789124",
-      color: "Xanh",
-      price: 800000000,
-      location: "C3-11",
-      zone: "C",
-      status: "available",
-      batteryLevel: 88,
-      lastChecked: "2024-01-20",
-    },
-    {
-      id: "WH007",
-      vehicleId: "vf7",
-      vehicleName: "VinFast VF7",
-      model: "VF7 Plus",
-      image: vf7Image,
-      vin: "VF7D789123456",
-      color: "Xanh",
-      price: 999000000,
-      location: "D4-15",
-      zone: "D",
-      status: "available",
-      batteryLevel: 91,
-      lastChecked: "2024-01-20",
-    },
-    {
-      id: "WH008",
-      vehicleId: "vf7",
-      vehicleName: "VinFast VF7",
-      model: "VF7 Plus",
-      image: vf7Image,
-      vin: "VF7D789123457",
-      color: "Trắng",
-      price: 999000000,
-      location: "D4-16",
-      zone: "D",
-      status: "reserved",
-      batteryLevel: 87,
-      lastChecked: "2024-01-19",
-      notes: "Đặt trước online"
-    }
-  ]);
+  // Convert API data to individual vehicles
+  const warehouseItems = selectedWarehouse?.items || [];
+  const individualVehicles = warehouseItems.flatMap(item => 
+    (item.serials || []).map(serial => ({
+      ...item,
+      serial: serial,
+      status: serial.status,
+      holdUntil: serial.holdUntil,
+      vin: serial.vin
+    }))
+  );
+
+  // Helper function to find electric vehicle data by model code
+  const findElectricVehicleByModelCode = (modelCode: string): ElectricVehicleResponse | undefined => {
+    return electricVehicles.find(ev => ev.modelCode === modelCode);
+  };
+
+  // Convert to legacy format for existing components
+  const warehouseInventory: WarehouseItem[] = individualVehicles.map((vehicle, index) => {
+    // Find matching electric vehicle data for image and price
+    const electricVehicle = findElectricVehicleByModelCode(vehicle.modelCode);
+    
+    return {
+      id: vehicle.vin || `vehicle-${index}`,
+      vehicleName: `${vehicle.brand} ${vehicle.modelCode}`,
+      model: vehicle.modelCode,
+      vin: vehicle.vin,
+      color: vehicle.color,
+      location: `A-${Math.floor(Math.random() * 10) + 1}`, // Mock location
+      zone: `${Math.floor(Math.random() * 5) + 1}`, // Mock zone
+      status: vehicle.status === 'AVAILABLE' ? 'available' : 
+             vehicle.status === 'HOLD' ? 'reserved' : 'maintenance',
+      batteryLevel: Math.floor(Math.random() * 100), // Mock battery level
+      lastChecked: new Date().toLocaleDateString('vi-VN'), // Mock last checked
+      price: electricVehicle?.price || 800000000, // Use real price from electric-vehicle API
+      notes: vehicle.holdUntil ? `Giữ đến ${new Date(vehicle.holdUntil).toLocaleDateString('vi-VN')}` : '',
+      image: electricVehicle?.imageUrl || "https://firebasestorage.googleapis.com/v0/b/evdealer.firebasestorage.app/o/images%2Fvehicles%2Fvf6-electric-car.png?alt=media&token=ac7891b1-f5e2-4e23-9b35-2c4d6e7f8a9b" // Use real image from electric-vehicle API
+    };
+  });
 
   const filteredInventory = warehouseInventory.filter(item => {
     const matchesSearch = item.vehicleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -283,18 +209,6 @@ export default function WarehouseManagement() {
           <p className="text-sm text-muted-foreground">Có sẵn</p>
         </Card>
         <Card className="p-4 text-center">
-          <div className="text-2xl font-bold text-warning">{stats.reservedVehicles}</div>
-          <p className="text-sm text-muted-foreground">Đã đặt</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-2xl font-bold text-destructive">{stats.maintenanceVehicles}</div>
-          <p className="text-sm text-muted-foreground">Bảo trì</p>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-2xl font-bold text-accent">{stats.shippingVehicles}</div>
-          <p className="text-sm text-muted-foreground">Đang giao</p>
-        </Card>
-        <Card className="p-4 text-center">
           <div className="text-lg font-bold text-primary">
             {(stats.totalValue / 1000000000).toFixed(1)}B₫
           </div>
@@ -326,27 +240,9 @@ export default function WarehouseManagement() {
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="available">Có sẵn</SelectItem>
-                <SelectItem value="reserved">Đã đặt</SelectItem>
+                
                 <SelectItem value="maintenance">Bảo trì</SelectItem>
-                <SelectItem value="shipping">Đang giao</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </Card>
-
-        <Card className="p-3">
-          <div className="flex items-center space-x-2">
-            <MapPin className="w-4 h-4 text-muted-foreground" />
-            <Select value={filterZone} onValueChange={setFilterZone}>
-              <SelectTrigger className="border-0 bg-transparent focus:ring-0">
-                <SelectValue placeholder="Khu vực" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả khu vực</SelectItem>
-                <SelectItem value="A">Khu A</SelectItem>
-                <SelectItem value="B">Khu B</SelectItem>
-                <SelectItem value="C">Khu C</SelectItem>
-                <SelectItem value="D">Khu D</SelectItem>
+                
               </SelectContent>
             </Select>
           </div>
@@ -370,20 +266,29 @@ export default function WarehouseManagement() {
                   <TableHead className="w-32">Xe</TableHead>
                   <TableHead className="w-32">VIN</TableHead>
                   <TableHead className="w-20">Màu</TableHead>
-                  <TableHead className="w-24">Vị trí</TableHead>
-                  <TableHead className="w-20">Khu vực</TableHead>
                   <TableHead className="w-24">Trạng thái</TableHead>
-                  <TableHead className="w-24">Pin (%)</TableHead>
-                  <TableHead className="w-28">Kiểm tra</TableHead>
                   <TableHead className="w-32">Giá</TableHead>
                   <TableHead className="w-64">Ghi chú</TableHead>
                   <TableHead className="w-24">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInventory.map((item) => {
-                  const batteryStatus = getBatteryStatus(item.batteryLevel);
-                  return (
+                {(loading || electricVehicleLoading) ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                      <p className="text-sm text-muted-foreground mt-2">Đang tải dữ liệu kho và xe điện...</p>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredInventory.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Không có xe nào trong kho</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredInventory.map((item) => (
                     <TableRow key={item.id} className="hover:bg-muted/50">
                       <TableCell>
                         <img
@@ -402,27 +307,7 @@ export default function WarehouseManagement() {
                       <TableCell>
                         <Badge variant="outline" className="text-xs">{item.color}</Badge>
                       </TableCell>
-                      <TableCell className="font-medium">{item.location}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">
-                          Khu {item.zone}
-                        </Badge>
-                      </TableCell>
                       <TableCell>{getStatusBadge(item.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-1">
-                          <batteryStatus.icon className={`w-3 h-3 ${batteryStatus.color}`} />
-                          <span className={`text-sm ${batteryStatus.color}`}>
-                            {item.batteryLevel}%
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          <span>{item.lastChecked}</span>
-                        </div>
-                      </TableCell>
                       <TableCell className="font-semibold">
                         {(item.price / 1000000).toFixed(0)}M₫
                       </TableCell>
@@ -441,8 +326,8 @@ export default function WarehouseManagement() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -453,8 +338,29 @@ export default function WarehouseManagement() {
       <VehicleDetailModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
-        vehicle={selectedItem || undefined}
-        isWarehouseItem={true}
+        vehicle={selectedItem ? (() => {
+          // Find the original warehouse vehicle data
+          const warehouseVehicle = individualVehicles.find(v => v.vin === selectedItem.id);
+          // Find matching electric vehicle data
+          const electricVehicle = warehouseVehicle ? findElectricVehicleByModelCode(warehouseVehicle.modelCode) : undefined;
+          
+          return {
+            vehicleId: parseInt(selectedItem.id),
+            modelCode: selectedItem.vehicleName,
+            color: selectedItem.color,
+            price: electricVehicle?.price || selectedItem.price,
+            cost: electricVehicle?.cost || selectedItem.price,
+            status: selectedItem.status as VehicleStatus,
+            imageUrl: electricVehicle?.imageUrl || selectedItem.image,
+            batteryCapacity: electricVehicle?.batteryCapacity || 75,
+            modelId: electricVehicle?.modelId || 1,
+            brand: warehouseVehicle?.brand || "VinFast",
+            productionYear: warehouseVehicle?.productionYear || 2024,
+            warehouseId: electricVehicle?.warehouseId || 1,
+            holdUntil: undefined,
+            selectableNow: true
+          };
+        })() : undefined}
       />
 
       {/* Add Inventory Modal */}
