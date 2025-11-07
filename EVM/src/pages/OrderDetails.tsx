@@ -13,9 +13,6 @@ import {
   ArrowLeft, 
   Car, 
   Battery, 
-  Gauge, 
-  Fuel, 
-  Users, 
   Calendar, 
   Zap,
   Timer,
@@ -23,9 +20,6 @@ import {
   ShoppingCart,
   CheckCircle,
   CreditCard,
-  Phone,
-  MapPin,
-  Clock
 } from "lucide-react";
 import { toast } from "sonner";
 import { customerService } from "@/services/api-customers";
