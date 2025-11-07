@@ -58,6 +58,13 @@ class ElectricVehicleService extends BaseApiService {
   async deleteElectricVehicle(vehicleId: number): Promise<void> {
     await this.axiosInstance.delete(`/electric-vehicles/${vehicleId}`);
   }
+
+  async searchVehiclesByModelCode(modelCode: string): Promise<ElectricVehicleResponse[]> {
+    const res = await this.axiosInstance.get<ElectricVehicleResponse[]>(
+      `/electric-vehicles/search-by-modelCode/${modelCode}`
+    );
+    return res.data;
+  }
 }
 
 export const electricVehicleService = new ElectricVehicleService();

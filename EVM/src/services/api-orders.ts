@@ -2,19 +2,16 @@ import { BaseApiService } from './api';
 
 // Enums matching the backend
 export enum OrderStatus {
-  NEW = 'NEW',
-  CONFIRMED = 'CONFIRMED',
   PROCESSING = 'PROCESSING',
-  DELIVERED = 'DELIVERED',
+  COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED'
 }
 
 export enum OrderPaymentStatus {
   UNPAID = 'UNPAID',
-  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  DEPOSIT_PAID = 'DEPOSIT_PAID',
   PAID = 'PAID',
-  OVERPAID = 'OVERPAID',
-  CANCELLED = 'CANCELLED'
+  OVERDUE = 'OVERDUE',
 }
 
 // Request type (dữ liệu gửi lên server)

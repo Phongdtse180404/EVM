@@ -9,11 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { 
-  ArrowLeft, 
-  Car, 
-  Battery, 
-  Calendar, 
+import {
+  ArrowLeft,
+  Car,
+  Battery,
+  Gauge,
+  Fuel,
+  Users,
+  Calendar,
   Zap,
   Timer,
   Shield,
@@ -138,7 +141,6 @@ export default function OrderDetails() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
-
   const [orderForm, setOrderForm] = useState({
     customerName: "",
     customerPhone: "",
@@ -186,7 +188,7 @@ export default function OrderDetails() {
         const customer = await customerService.getCustomerByPhone(phoneNumber);
         if (customer && customer.name) {
           setOrderForm(prev => ({
-            ...prev, 
+            ...prev,
             customerPhone: phoneNumber,
             customerName: customer.name
           }));
@@ -202,61 +204,59 @@ export default function OrderDetails() {
   const handleSubmitOrder = async () => {
     if (isSubmitting || !selectedVehicle) return;
     
-    console.log('🚀 ORDER SUBMISSION STARTED');
-    console.log('📋 Order Form Data:', orderForm);
-    console.log('🚗 Selected Vehicle:', selectedVehicle);
-    console.log('📦 Order Type:', orderType);
+    console.log(' ORDER SUBMISSION STARTED');
+    console.log(' Order Form Data:', orderForm);
+    console.log(' Selected Vehicle:', selectedVehicle);
+    console.log(' Order Type:', orderType);
     
     setIsSubmitting(true);
     // Validate required fields
     const errors = [];
-    
+
     if (!orderForm.customerName.trim()) {
       errors.push("Tên khách hàng");
     }
-    
+
     if (!orderForm.customerPhone.trim()) {
       errors.push("Số điện thoại");
     }
-    
+
     if (!orderForm.selectedColor) {
       errors.push("Màu xe");
     }
-    
+
     // Additional validations for non-showroom orders
     if (orderType !== 'showroom') {
       if (!orderForm.paymentMethod) {
         errors.push("Phương thức thanh toán");
       }
-      
+
       if (!orderForm.deliveryDate) {
         errors.push("Ngày giao xe mong muốn");
       }
     }
-    
+
     // Show error if any required fields are missing
     if (errors.length > 0) {
-      const errorMessage = errors.length === 1 
+      const errorMessage = errors.length === 1
         ? `Vui lòng điền ${errors[0]}`
         : `Vui lòng điền các trường bắt buộc: ${errors.join(", ")}`;
       toast.error(errorMessage);
       return;
     }
-    
-
 
     try {
         // Step 1: Find or create customer
         let customerId: number;
         
-        console.log('👤 CUSTOMER LOOKUP/CREATION');
-        console.log('📞 Looking up customer by phone:', orderForm.customerPhone.trim());
+        console.log(' CUSTOMER LOOKUP/CREATION');
+        console.log(' Looking up customer by phone:', orderForm.customerPhone.trim());
         
         try {
           // Try to find existing customer
           const existingCustomer = await customerService.getCustomerByPhone(orderForm.customerPhone.trim());
           customerId = existingCustomer.customerId;
-          console.log('✅ Found existing customer:', existingCustomer);
+          console.log(' Found existing customer:', existingCustomer);
           
           // Update customer name if it's different (in case user manually changed it)
           if (existingCustomer.name !== orderForm.customerName.trim()) {
@@ -282,19 +282,19 @@ export default function OrderDetails() {
           console.log('➕ Creating new customer with data:', newCustomerData);
           const newCustomer = await customerService.createCustomer(newCustomerData);
           customerId = newCustomer.customerId;
-          console.log('✅ Created new customer:', newCustomer);
+          console.log(' Created new customer:', newCustomer);
         }      // Step 2: Determine order status based on order type
       let orderStatus: OrderStatus;
       switch (orderType) {
         case "direct":
-          orderStatus = OrderStatus.CONFIRMED;
+          orderStatus = OrderStatus.COMPLETED;
           break;
         case "online":
-          orderStatus = OrderStatus.NEW;
+          orderStatus = OrderStatus.PROCESSING;
           break;
         case "showroom":
         default:
-          orderStatus = OrderStatus.NEW;
+          orderStatus = OrderStatus.PROCESSING;
           break;
       }
 
@@ -304,13 +304,13 @@ export default function OrderDetails() {
         const defaultPrice = 800000000; // 800M VND as example
         const depositAmount = orderType === "direct" ? defaultPrice : Math.floor(defaultPrice * 0.1); // 10% deposit for non-direct orders
         
-        console.log('💰 ORDER DEPOSIT CALCULATION');
-        console.log('💵 Default Price:', defaultPrice);
-        console.log('💸 Deposit Amount:', depositAmount);
-        console.log('📊 Order Type:', orderType);
-        console.log('🔧 Vehicle Serial Object:', selectedVehicle.serial);
-        console.log('🏷️ VIN Code:', selectedVehicle.vin);
-        console.log('🆔 VIN Type:', typeof selectedVehicle.vin);
+        console.log(' ORDER DEPOSIT CALCULATION');
+        console.log(' Default Price:', defaultPrice);
+        console.log(' Deposit Amount:', depositAmount);
+        console.log(' Order Type:', orderType);
+        console.log(' Vehicle Serial Object:', selectedVehicle.serial);
+        console.log(' VIN Code:', selectedVehicle.vin);
+        console.log(' VIN Type:', typeof selectedVehicle.vin);
         
         const orderDepositRequest: OrderDepositRequest = {
           customerId: customerId,
@@ -320,7 +320,7 @@ export default function OrderDetails() {
           orderDate: new Date().toISOString()
         };
 
-        console.log('📝 SENDING ORDER DEPOSIT REQUEST TO API:');
+        console.log(' SENDING ORDER DEPOSIT REQUEST TO API:');
         console.log('OrderDepositRequest data:', {
           customerId: orderDepositRequest.customerId,
           vehicleSerialId: orderDepositRequest.vehicleSerialId,
@@ -328,21 +328,21 @@ export default function OrderDetails() {
           userId: orderDepositRequest.userId,
           orderDate: orderDepositRequest.orderDate
         });
-        console.log('📝 Full Request Object:', orderDepositRequest);
+        console.log(' Full Request Object:', orderDepositRequest);
 
         const createdOrder = await orderService.createDeposit(orderDepositRequest);
-        console.log('✅ ORDER CREATED SUCCESSFULLY:', createdOrder);
+        console.log(' ORDER CREATED SUCCESSFULLY:', createdOrder);
 
-      const successMessage = orderType === "direct" ? 
-        "Chốt hợp đồng thành công!" : 
+      const successMessage = orderType === "direct" ?
+        "Chốt hợp đồng thành công!" :
         "Tạo đơn hàng thành công!";
-      
+
       toast.success(successMessage);
       navigate("/sales");
 
     } catch (error) {
-      console.error('❌ ERROR CREATING ORDER:', error);
-      console.error('📋 Error Details:', {
+      console.error(' ERROR CREATING ORDER:', error);
+      console.error(' Error Details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         orderForm,
         selectedVehicle: selectedVehicle ? {
@@ -355,7 +355,7 @@ export default function OrderDetails() {
       });
       toast.error("Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại.");
     } finally {
-      console.log('🏁 ORDER SUBMISSION FINISHED');
+      console.log(' ORDER SUBMISSION FINISHED');
       setIsSubmitting(false);
     }
   };
@@ -390,7 +390,7 @@ export default function OrderDetails() {
             </p>
           </div>
         </div>
-        
+
         <Badge className="bg-success/20 text-success border-success px-3 py-1">
           Đang hoạt động
         </Badge>
@@ -400,10 +400,9 @@ export default function OrderDetails() {
       <Card className="p-6 bg-gradient-card border-border/50">
         <h3 className="text-lg font-semibold mb-4">Chọn luồng đặt hàng</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card 
-            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
-              orderType === 'showroom' ? 'ring-2 ring-primary bg-primary/5' : ''
-            }`}
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${orderType === 'showroom' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
             onClick={() => setOrderType('showroom')}
           >
             <div className="text-center">
@@ -412,11 +411,10 @@ export default function OrderDetails() {
               <p className="text-sm text-muted-foreground">Tạo đơn nháp để theo dõi</p>
             </div>
           </Card>
-          
-          <Card 
-            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
-              orderType === 'online' ? 'ring-2 ring-primary bg-primary/5' : ''
-            }`}
+
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${orderType === 'online' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
             onClick={() => setOrderType('online')}
           >
             <div className="text-center">
@@ -426,10 +424,9 @@ export default function OrderDetails() {
             </div>
           </Card>
 
-          <Card 
-            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
-              orderType === 'direct' ? 'ring-2 ring-primary bg-primary/5' : ''
-            }`}
+          <Card
+            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${orderType === 'direct' ? 'ring-2 ring-primary bg-primary/5' : ''
+              }`}
             onClick={() => setOrderType('direct')}
           >
             <div className="text-center">
@@ -476,7 +473,7 @@ export default function OrderDetails() {
                   </p>
                 )}
               </div>
-              
+
               <div className="text-2xl font-bold text-primary mb-6">
                 800,000,000₫
               </div>
@@ -492,7 +489,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground">{selectedVehicle.modelCode}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Shield className="w-4 h-4 text-primary" />
                     <div>
@@ -500,7 +497,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground">{selectedVehicle.brand}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Battery className="w-4 h-4 text-primary" />
                     <div>
@@ -508,7 +505,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground">{selectedVehicle.color}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Calendar className="w-4 h-4 text-primary" />
                     <div>
@@ -516,7 +513,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground">{selectedVehicle.productionYear}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Zap className="w-4 h-4 text-primary" />
                     <div>
@@ -524,7 +521,7 @@ export default function OrderDetails() {
                       <p className="text-xs text-muted-foreground font-mono">{selectedVehicle.vin}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Timer className="w-4 h-4 text-primary" />
                     <div>
@@ -576,7 +573,7 @@ export default function OrderDetails() {
             <h3 className="text-lg font-semibold mb-4">
               {orderType === 'direct' ? 'Thông tin hợp đồng' : 'Thông tin đặt hàng'}
             </h3>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -594,20 +591,20 @@ export default function OrderDetails() {
                   <Input
                     id="customerName"
                     value={orderForm.customerName}
-                    onChange={(e) => setOrderForm({...orderForm, customerName: e.target.value})}
+                    onChange={(e) => setOrderForm({ ...orderForm, customerName: e.target.value })}
                     placeholder="Nhập tên khách hàng"
                   />
                 </div>
               </div>
 
-              
+
 
               <div className="space-y-2">
                 <Label htmlFor="customerAddress">Địa chỉ giao xe</Label>
                 <Input
                   id="customerAddress"
                   value={orderForm.customerAddress}
-                  onChange={(e) => setOrderForm({...orderForm, customerAddress: e.target.value})}
+                  onChange={(e) => setOrderForm({ ...orderForm, customerAddress: e.target.value })}
                   placeholder="Nhập địa chỉ giao xe"
                 />
               </div>
@@ -644,7 +641,7 @@ export default function OrderDetails() {
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="paymentMethod">Phương thức thanh toán</Label>
-                    <Select value={orderForm.paymentMethod} onValueChange={(value) => setOrderForm({...orderForm, paymentMethod: value})}>
+                    <Select value={orderForm.paymentMethod} onValueChange={(value) => setOrderForm({ ...orderForm, paymentMethod: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn phương thức thanh toán" />
                       </SelectTrigger>
@@ -662,7 +659,7 @@ export default function OrderDetails() {
                       id="deliveryDate"
                       type="date"
                       value={orderForm.deliveryDate}
-                      onChange={(e) => setOrderForm({...orderForm, deliveryDate: e.target.value})}
+                      onChange={(e) => setOrderForm({ ...orderForm, deliveryDate: e.target.value })}
                     />
                   </div>
                 </>
@@ -673,7 +670,7 @@ export default function OrderDetails() {
                 <Textarea
                   id="notes"
                   value={orderForm.notes}
-                  onChange={(e) => setOrderForm({...orderForm, notes: e.target.value})}
+                  onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
                   placeholder="Nhập ghi chú (tùy chọn)"
                   rows={3}
                 />
@@ -712,8 +709,8 @@ export default function OrderDetails() {
                 <div className="flex justify-between">
                   <span>Loại đơn:</span>
                   <span className="font-medium">
-                    {orderType === 'showroom' ? 'Khách tới showroom' : 
-                     orderType === 'online' ? 'Đặt hàng online' : 'Chốt trực tiếp'}
+                    {orderType === 'showroom' ? 'Khách tới showroom' :
+                      orderType === 'online' ? 'Đặt hàng online' : 'Chốt trực tiếp'}
                   </span>
                 </div>
                 <Separator />
@@ -739,8 +736,8 @@ export default function OrderDetails() {
             </div>
 
             <div className="flex space-x-3 mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => navigate(-1)}
                 className="flex-1"
               >
