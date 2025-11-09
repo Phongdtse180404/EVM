@@ -1,5 +1,5 @@
 import { ReactNode, useEffect } from "react";
-import { LayoutDashboard, Package, Users, Warehouse, Menu } from "lucide-react";
+import { LayoutDashboard, Package, Users, Warehouse, Building2, Menu } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -14,6 +14,7 @@ const navigation = [
   { name: "Đơn hàng", href: "/admin/orders", icon: Package },
   { name: "Người dùng", href: "/admin/users", icon: Users },
   { name: "Kho", href: "/admin/warehouses", icon: Warehouse },
+  { name: "Đại lý", href: "/admin/dealerships", icon: Building2 },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {

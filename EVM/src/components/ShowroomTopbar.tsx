@@ -11,7 +11,8 @@ import {
   Calendar,
   Shield,
   LogOut,
-  User
+  User,
+  Building2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -154,6 +155,14 @@ export function ShowroomTopbar() {
                 >
                   <Shield className="w-4 h-4" />
                   <span>Dashboard</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => navigate("/admin/dealerships")}
+                  className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>Quản lý đại lý</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

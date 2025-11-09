@@ -8,7 +8,12 @@ export interface WarehouseResponse {
   warehouseLocation: string;
   vehicleQuantity: number;
   warehouseName: string;
+  maxCapacity: number;
   items: WarehouseStockResponse[];
+  dealership?: {
+    dealershipId: number;
+    name: string;
+  };
 }
 
 export interface WarehouseStockResponse {
@@ -17,6 +22,7 @@ export interface WarehouseStockResponse {
   color: string;
   productionYear: number;
   quantity: number;
+  maxCapacity: number;
   serials: VehicleSerialResponse[];
 }
 
@@ -35,6 +41,7 @@ export enum VehicleStatus {
 export interface WarehouseRequest {
   warehouseName?: string;
   warehouseLocation?: string;
+  maxCapacity?: number;
 }
 
 export interface WarehouseStockRequest {

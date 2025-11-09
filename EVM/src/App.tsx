@@ -17,6 +17,7 @@ import Orders from "./pages/admin/Orders";
 import AdminSales from "./pages/admin/Sales";
 import Users from "./pages/admin/Users";
 import AdminWarehouses from "./pages/admin/Warehouses";
+import Dealerships from "./pages/admin/Dealerships";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,14 @@ const App = () => (
             element={
               <DashboardLayout>
                 <AdminWarehouses />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/admin/dealerships"
+            element={
+              <DashboardLayout>
+                <Dealerships />
               </DashboardLayout>
             }
           />

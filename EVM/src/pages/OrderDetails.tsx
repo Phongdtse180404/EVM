@@ -86,6 +86,12 @@ export default function OrderDetails() {
     return matchingEV?.imageUrl || firebaseImageUrl;
   };
 
+  const formatVnd = (amount: number) => `${amount.toLocaleString('vi-VN')}₫`;
+
+  const selectedVehiclePrice = selectedVehicle
+    ? (electricVehicles.find(ev => ev.modelCode === selectedVehicle.modelCode && ev.color === selectedVehicle.color)?.price)
+    : undefined;
+
   useEffect(() => {
     if (selectedWarehouse?.items && selectedWarehouse.items.length > 0) {
       // Flatten warehouse items into individual vehicles
@@ -147,8 +153,7 @@ export default function OrderDetails() {
     customerEmail: "",
     customerAddress: "",
     selectedColor: "",
-    paymentMethod: "",
-    deliveryDate: "",
+    depositAmount: "",
     notes: ""
   });
 
@@ -160,8 +165,7 @@ export default function OrderDetails() {
       customerEmail: "",
       customerAddress: "",
       selectedColor: selectedVehicle?.color || "",
-      paymentMethod: "",
-      deliveryDate: "",
+      depositAmount: selectedVehiclePrice ? Math.floor(selectedVehiclePrice * 0.1).toString() : "",
       notes: ""
     });
   };
@@ -176,7 +180,17 @@ export default function OrderDetails() {
     }
   }, [selectedVehicle, orderForm.selectedColor]);
 
-  const [orderType, setOrderType] = useState<"showroom" | "online" | "direct">("showroom");
+  // Update deposit amount when vehicle price is available
+  useEffect(() => {
+    if (selectedVehiclePrice && !orderForm.depositAmount) {
+      const suggestedDeposit = Math.floor(selectedVehiclePrice * 0.1);
+      setOrderForm(prev => ({
+        ...prev,
+        depositAmount: suggestedDeposit.toString()
+      }));
+    }
+  }, [selectedVehiclePrice, orderForm.depositAmount]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePhoneNumberChange = async (phoneNumber: string) => {
@@ -207,7 +221,6 @@ export default function OrderDetails() {
     console.log(' ORDER SUBMISSION STARTED');
     console.log(' Order Form Data:', orderForm);
     console.log(' Selected Vehicle:', selectedVehicle);
-    console.log(' Order Type:', orderType);
     
     setIsSubmitting(true);
     // Validate required fields
@@ -225,15 +238,14 @@ export default function OrderDetails() {
       errors.push("Màu xe");
     }
 
-    // Additional validations for non-showroom orders
-    if (orderType !== 'showroom') {
-      if (!orderForm.paymentMethod) {
-        errors.push("Phương thức thanh toán");
-      }
+    // Additional validations
+    if (!orderForm.depositAmount || parseFloat(orderForm.depositAmount) <= 0) {
+      errors.push("Số tiền đặt cọc");
+    }
 
-      if (!orderForm.deliveryDate) {
-        errors.push("Ngày giao xe mong muốn");
-      }
+    // Check if vehicle price is available
+    if (!selectedVehiclePrice) {
+      errors.push("Giá xe chưa có trong hệ thống");
     }
 
     // Show error if any required fields are missing
@@ -283,38 +295,22 @@ export default function OrderDetails() {
           const newCustomer = await customerService.createCustomer(newCustomerData);
           customerId = newCustomer.customerId;
           console.log(' Created new customer:', newCustomer);
-        }      // Step 2: Determine order status based on order type
-      let orderStatus: OrderStatus;
-      switch (orderType) {
-        case "direct":
-          orderStatus = OrderStatus.COMPLETED;
-          break;
-        case "online":
-          orderStatus = OrderStatus.PROCESSING;
-          break;
-        case "showroom":
-        default:
-          orderStatus = OrderStatus.PROCESSING;
-          break;
-      }
-
-        // Step 3: Create deposit order with specific vehicle serial
-        // For now, we'll use a default price since warehouse data doesn't include pricing
-        // This should be integrated with a pricing system in the future
-        const defaultPrice = 800000000; // 800M VND as example
-        const depositAmount = orderType === "direct" ? defaultPrice : Math.floor(defaultPrice * 0.1); // 10% deposit for non-direct orders
+        }      
+        // Step 2: Create deposit order with specific vehicle serial
+        // Get the price from the electric-vehicle data (fetched earlier).
+        const matchingEV = electricVehicles.find(ev => 
+          ev.modelCode === selectedVehicle.modelCode && ev.color === selectedVehicle.color
+        );
         
-        console.log(' ORDER DEPOSIT CALCULATION');
-        console.log(' Default Price:', defaultPrice);
-        console.log(' Deposit Amount:', depositAmount);
-        console.log(' Order Type:', orderType);
-        console.log(' Vehicle Serial Object:', selectedVehicle.serial);
-        console.log(' VIN Code:', selectedVehicle.vin);
-        console.log(' VIN Type:', typeof selectedVehicle.vin);
+        if (!matchingEV?.price) {
+          throw new Error(`Không tìm thấy giá xe cho model ${selectedVehicle.modelCode} màu ${selectedVehicle.color}`);
+        }
         
+        const vehiclePrice = matchingEV.price;
+        const depositAmount = parseFloat(orderForm.depositAmount); // Use user-entered deposit amount
         const orderDepositRequest: OrderDepositRequest = {
           customerId: customerId,
-          vehicleSerialId: selectedVehicle.vin, // Use the VIN code as vehicle serial ID
+          vin: selectedVehicle.vin, // Use the VIN code as vehicle serial ID
           depositAmount: depositAmount,
           userId: undefined, // Optional: Can be set to current sales person ID if available
           orderDate: new Date().toISOString()
@@ -323,7 +319,7 @@ export default function OrderDetails() {
         console.log(' SENDING ORDER DEPOSIT REQUEST TO API:');
         console.log('OrderDepositRequest data:', {
           customerId: orderDepositRequest.customerId,
-          vehicleSerialId: orderDepositRequest.vehicleSerialId,
+          vin: orderDepositRequest.vin,
           depositAmount: orderDepositRequest.depositAmount,
           userId: orderDepositRequest.userId,
           orderDate: orderDepositRequest.orderDate
@@ -333,11 +329,7 @@ export default function OrderDetails() {
         const createdOrder = await orderService.createDeposit(orderDepositRequest);
         console.log(' ORDER CREATED SUCCESSFULLY:', createdOrder);
 
-      const successMessage = orderType === "direct" ?
-        "Chốt hợp đồng thành công!" :
-        "Tạo đơn hàng thành công!";
-
-      toast.success(successMessage);
+      toast.success("Tạo đơn hàng thành công!");
       navigate("/sales");
 
     } catch (error) {
@@ -350,8 +342,7 @@ export default function OrderDetails() {
           vin: selectedVehicle.vin,
           serial: selectedVehicle.serial,
           status: selectedVehicle.status
-        } : null,
-        orderType
+        } : null
       });
       toast.error("Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại.");
     } finally {
@@ -386,7 +377,7 @@ export default function OrderDetails() {
               Chi tiết đặt hàng
             </h1>
             <p className="text-muted-foreground">
-              Nhập đơn khi khách tới showroom, chốt hợp đồng trực tiếp/online, chỉnh sửa/hủy đơn khi xe giao trễ
+              Tạo đơn hàng và đặt cọc cho khách hàng
             </p>
           </div>
         </div>
@@ -396,47 +387,6 @@ export default function OrderDetails() {
         </Badge>
       </div>
 
-      {/* Order Type Selection */}
-      <Card className="p-6 bg-gradient-card border-border/50">
-        <h3 className="text-lg font-semibold mb-4">Chọn luồng đặt hàng</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card
-            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${orderType === 'showroom' ? 'ring-2 ring-primary bg-primary/5' : ''
-              }`}
-            onClick={() => setOrderType('showroom')}
-          >
-            <div className="text-center">
-              <Car className="w-8 h-8 mx-auto mb-2 text-primary" />
-              <h4 className="font-medium">Khách tới showroom</h4>
-              <p className="text-sm text-muted-foreground">Tạo đơn nháp để theo dõi</p>
-            </div>
-          </Card>
-
-          <Card
-            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${orderType === 'online' ? 'ring-2 ring-primary bg-primary/5' : ''
-              }`}
-            onClick={() => setOrderType('online')}
-          >
-            <div className="text-center">
-              <CreditCard className="w-8 h-8 mx-auto mb-2 text-secondary" />
-              <h4 className="font-medium">Đặt hàng online</h4>
-              <p className="text-sm text-muted-foreground">Khách đặt qua website</p>
-            </div>
-          </Card>
-
-          <Card
-            className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${orderType === 'direct' ? 'ring-2 ring-primary bg-primary/5' : ''
-              }`}
-            onClick={() => setOrderType('direct')}
-          >
-            <div className="text-center">
-              <CheckCircle className="w-8 h-8 mx-auto mb-2 text-accent" />
-              <h4 className="font-medium">Chốt trực tiếp</h4>
-              <p className="text-sm text-muted-foreground">Ký hợp đồng ngay</p>
-            </div>
-          </Card>
-        </div>
-      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Vehicle Details */}
@@ -475,7 +425,7 @@ export default function OrderDetails() {
               </div>
 
               <div className="text-2xl font-bold text-primary mb-6">
-                800,000,000₫
+                {selectedVehiclePrice ? formatVnd(selectedVehiclePrice) : 'Giá chưa có'}
               </div>
 
               {/* Vehicle Specs */}
@@ -570,9 +520,6 @@ export default function OrderDetails() {
         {/* Order Form */}
         <div className="space-y-6">
           <Card className="p-6 bg-gradient-card border-border/50">
-            <h3 className="text-lg font-semibold mb-4">
-              {orderType === 'direct' ? 'Thông tin hợp đồng' : 'Thông tin đặt hàng'}
-            </h3>
 
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -637,33 +584,21 @@ export default function OrderDetails() {
                 </p>
               </div>
 
-              {orderType !== 'showroom' && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentMethod">Phương thức thanh toán</Label>
-                    <Select value={orderForm.paymentMethod} onValueChange={(value) => setOrderForm({ ...orderForm, paymentMethod: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn phương thức thanh toán" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Tiền mặt</SelectItem>
-                        <SelectItem value="bank_transfer">Chuyển khoản</SelectItem>
-                        <SelectItem value="installment">Trả góp</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="deliveryDate">Ngày giao xe mong muốn</Label>
-                    <Input
-                      id="deliveryDate"
-                      type="date"
-                      value={orderForm.deliveryDate}
-                      onChange={(e) => setOrderForm({ ...orderForm, deliveryDate: e.target.value })}
-                    />
-                  </div>
-                </>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="depositAmount">Số tiền đặt cọc *</Label>
+                <Input
+                  id="depositAmount"
+                  type="number"
+                  value={orderForm.depositAmount}
+                  onChange={(e) => setOrderForm({ ...orderForm, depositAmount: e.target.value })}
+                  placeholder={selectedVehiclePrice ? `Đề xuất: ${Math.floor(selectedVehiclePrice * 0.1).toLocaleString('vi-VN')} ₫` : "Nhập số tiền đặt cọc"}
+                />
+                {selectedVehiclePrice && (
+                  <p className="text-xs text-muted-foreground">
+                    Đề xuất 10%: {Math.floor(selectedVehiclePrice * 0.1).toLocaleString('vi-VN')} ₫
+                  </p>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Ghi chú</Label>
@@ -693,7 +628,7 @@ export default function OrderDetails() {
                 </div>
                 <div className="flex justify-between">
                   <span>Mã số xe:</span>
-                  <span className="font-medium text-xs">#{selectedVehicle.serial.serialId}</span>
+                  <span className="font-medium text-xs">#{selectedVehicle.serial.vin}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Màu:</span>
@@ -706,32 +641,27 @@ export default function OrderDetails() {
                      selectedVehicle.status === 'HOLD' ? 'Đang giữ' : 'Đã bán'}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Loại đơn:</span>
-                  <span className="font-medium">
-                    {orderType === 'showroom' ? 'Khách tới showroom' :
-                      orderType === 'online' ? 'Đặt hàng online' : 'Chốt trực tiếp'}
-                  </span>
-                </div>
                 <Separator />
                 <div className="flex justify-between">
                   <span>Tổng giá xe:</span>
-                  <span className="font-medium">800,000,000₫</span>
+                  <span className="font-medium">{selectedVehiclePrice ? formatVnd(selectedVehiclePrice) : 'Giá chưa có'}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold">
-                  <span>
-                    {orderType === "direct" ? "Thanh toán:" : "Đặt cọc (10%):"}
-                  </span>
+                  <span>Đặt cọc:</span>
                   <span className="text-primary">
-                    {orderType === "direct" ? "800,000,000₫" : "80,000,000₫"}
+                    {orderForm.depositAmount && parseFloat(orderForm.depositAmount) > 0 
+                      ? formatVnd(parseFloat(orderForm.depositAmount)) 
+                      : 'Chưa nhập'}
                   </span>
                 </div>
-                {orderType !== "direct" && (
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Còn lại:</span>
-                    <span>720,000,000₫</span>
-                  </div>
-                )}
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Còn lại:</span>
+                  <span>
+                    {selectedVehiclePrice && orderForm.depositAmount && parseFloat(orderForm.depositAmount) > 0
+                      ? formatVnd(selectedVehiclePrice - parseFloat(orderForm.depositAmount))
+                      : 'Chưa có'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -758,7 +688,7 @@ export default function OrderDetails() {
                 <ShoppingCart className="w-4 h-4 mr-2" />
                 {isSubmitting 
                   ? 'Đang xử lý...' 
-                  : orderType === 'direct' ? 'Chốt hợp đồng (Thanh toán đủ)' : 'Đặt cọc xe'
+                  : 'Đặt cọc xe'
                 }
               </Button>
             </div>
