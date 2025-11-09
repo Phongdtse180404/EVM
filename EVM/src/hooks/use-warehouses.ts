@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { warehouseService } from '@/services/api-warehouse';
-import type { WarehouseResponse } from '@/services/api-warehouse';
+import type { WarehouseResponse, WarehouseRequest } from '@/services/api-warehouse';
 
 export const useWarehouses = () => {
   const [allWarehouses, setAllWarehouses] = useState<WarehouseResponse[]>([]);
@@ -31,7 +31,7 @@ export const useWarehouses = () => {
     }
   }, [toast]);
 
-  const createWarehouse = useCallback(async (data: { warehouseLocation: string; warehouseName: string; maxCapacity?: number }) => {
+  const createWarehouse = useCallback(async (data: WarehouseRequest) => {
     try {
       await warehouseService.createWarehouse(data);
       toast({
@@ -50,7 +50,7 @@ export const useWarehouses = () => {
     }
   }, [toast, fetchWarehouses]);
 
-  const updateWarehouse = useCallback(async (warehouseId: number, data: { warehouseLocation: string; warehouseName: string; maxCapacity?: number }) => {
+  const updateWarehouse = useCallback(async (warehouseId: number, data: WarehouseRequest) => {
     try {
       await warehouseService.updateWarehouse(warehouseId, data);
       toast({

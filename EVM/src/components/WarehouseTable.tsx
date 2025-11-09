@@ -72,12 +72,11 @@ export default function WarehouseTable({
                 className="cursor-pointer hover:bg-accent/50"
                 onClick={() => onSelectWarehouse(warehouse.warehouseId)}
               >
-                {warehouse.dealership ? (
+                {warehouse.dealershipId ? (
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary" className="text-xs">
-                      {warehouse.dealership.name}
+                      {warehouse.dealershipId}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">#{warehouse.dealership.dealershipId}</span>
                   </div>
                 ) : (
                   <Badge variant="outline" className="text-xs text-muted-foreground">
