@@ -4,7 +4,7 @@ import { useWarehouses } from "@/hooks/use-warehouses";
 import { useWarehouseDetail } from "@/hooks/use-warehouse-detail";
 import { useModels } from "@/hooks/use-models";
 import { useToast } from "@/hooks/use-toast";
-import type { WarehouseResponse } from "@/services/api-warehouse";
+import type { WarehouseResponse, WarehouseRequest } from "@/services/api-warehouse";
 import Models from "./Models";
 import AddModelDialog from "@/components/AddModelDialog";
 import WarehouseDialog from "@/components/WarehouseDialog";
@@ -109,28 +109,16 @@ export default function Warehouses() {
     setIsStockDialogOpen(true);
   };
 
-  const handleSaveWarehouse = async (data: {
-    warehouseName: string;
-    warehouseLocation: string;
-    maxCapacity: number;
-  }) => {
+  const handleSaveWarehouse = async (data: WarehouseRequest) => {
     try {
       if (editingWarehouse) {
-        await updateWarehouse(editingWarehouse.warehouseId, {
-          warehouseLocation: data.warehouseLocation,
-          warehouseName: data.warehouseName,
-          maxCapacity: data.maxCapacity,
-        });
+        await updateWarehouse(editingWarehouse.warehouseId, data);
         toast({
           title: "Thành công",
           description: "Cập nhật kho thành công",
         });
       } else {
-        await createWarehouse({
-          warehouseLocation: data.warehouseLocation,
-          warehouseName: data.warehouseName,
-          maxCapacity: data.maxCapacity,
-        });
+        await createWarehouse(data);
         toast({
           title: "Thành công",
           description: "Thêm kho mới thành công",

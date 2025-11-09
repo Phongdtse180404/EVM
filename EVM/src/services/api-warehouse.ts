@@ -9,6 +9,7 @@ export interface WarehouseResponse {
   vehicleQuantity: number;
   warehouseName: string;
   maxCapacity: number;
+  dealershipId: number;
   items: WarehouseStockResponse[];
   dealership?: {
     dealershipId: number;
@@ -42,6 +43,7 @@ export interface WarehouseRequest {
   warehouseName?: string;
   warehouseLocation?: string;
   maxCapacity?: number;
+  dealershipId?: number;
 }
 
 export interface WarehouseStockRequest {

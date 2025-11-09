@@ -10,18 +10,15 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { WarehouseResponse } from "@/services/api-warehouse";
+import type { WarehouseResponse, WarehouseRequest } from "@/services/api-warehouse";
 
 interface WarehouseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingWarehouse: WarehouseResponse | null;
-  onSave: (data: {
-    warehouseName: string;
-    warehouseLocation: string;
-    maxCapacity: number;
-  }) => Promise<void>;
+  onSave: (data: WarehouseRequest) => Promise<void>;
 }
+
 
 export default function WarehouseDialog({
   open,
@@ -32,6 +29,7 @@ export default function WarehouseDialog({
   const [warehouseLocation, setWarehouseLocation] = useState("");
   const [warehouseName, setWarehouseName] = useState("");
   const [warehouseMaxCapacity, setWarehouseMaxCapacity] = useState<number>(0);
+  const [dealershipId, setDealershipId] = useState<number>(1);
   const [loading, setLoading] = useState(false);
 
   // Reset form when dialog opens/closes or editing warehouse changes
@@ -40,10 +38,12 @@ export default function WarehouseDialog({
       setWarehouseLocation(editingWarehouse.warehouseLocation);
       setWarehouseName(editingWarehouse.warehouseName);
       setWarehouseMaxCapacity(editingWarehouse.maxCapacity || 0);
+      setDealershipId(editingWarehouse.dealershipId || 1);
     } else {
       setWarehouseLocation("");
       setWarehouseName("");
       setWarehouseMaxCapacity(0);
+      setDealershipId(1);
     }
   }, [editingWarehouse, open]);
 
@@ -54,6 +54,7 @@ export default function WarehouseDialog({
         warehouseName,
         warehouseLocation,
         maxCapacity: warehouseMaxCapacity,
+        dealershipId,
       });
       onOpenChange(false);
     } catch (error) {
@@ -63,7 +64,7 @@ export default function WarehouseDialog({
     }
   };
 
-  const isValid = warehouseLocation.trim() && warehouseName.trim() && warehouseMaxCapacity > 0;
+  const isValid = warehouseLocation.trim() && warehouseName.trim() && warehouseMaxCapacity > 0 && dealershipId > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -104,6 +105,17 @@ export default function WarehouseDialog({
               value={warehouseMaxCapacity}
               onChange={(e) => setWarehouseMaxCapacity(Number(e.target.value))}
               placeholder="Nhập sức chứa tối đa (số xe)"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dealership-id">ID Đại lý</Label>
+            <Input
+              id="dealership-id"
+              type="number"
+              min="1"
+              value={dealershipId}
+              onChange={(e) => setDealershipId(Number(e.target.value))}
+              placeholder="Nhập ID đại lý"
             />
           </div>
         </div>
