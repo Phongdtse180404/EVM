@@ -17,6 +17,16 @@ export const useWarehouses = () => {
       console.log('Fetched warehouses:', fetchedWarehouses);
       console.log('Warehouse count:', fetchedWarehouses?.length);
       
+      // Debug: Check if warehouses have items and serials
+      fetchedWarehouses?.forEach((warehouse, index) => {
+        console.log(`Warehouse ${index + 1} (${warehouse.warehouseName}):`, {
+          warehouseId: warehouse.warehouseId,
+          itemsCount: warehouse.items?.length || 0,
+          items: warehouse.items,
+          firstItemSerials: warehouse.items?.[0]?.serials
+        });
+      });
+      
       setAllWarehouses(fetchedWarehouses || []);
     } catch (error) {
       console.error('Error fetching warehouses:', error);
