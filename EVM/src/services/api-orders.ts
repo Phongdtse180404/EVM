@@ -42,7 +42,7 @@ export interface OrderResponse {
 // New Order Deposit Request type (matching backend OrderDepositRequest)
 export interface OrderDepositRequest {
   customerId: number;
-  vehicleSerialId: string; // VIN code as string
+  vin: string; // VIN code as string
   depositAmount: number;
   userId?: number; // Optional: salesId from assigned sales
   orderDate?: string; // Optional: ISO datetime string, will use current time if not provided
