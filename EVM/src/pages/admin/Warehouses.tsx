@@ -107,6 +107,7 @@ export default function Warehouses() {
     setEditingStockModelCode(modelCode || "");
     setEditingStockQuantity(quantity || 0);
     setIsStockDialogOpen(true);
+    fetchModels();
   };
 
   const handleSaveWarehouse = async (data: WarehouseRequest) => {

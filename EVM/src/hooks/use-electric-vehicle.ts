@@ -114,12 +114,42 @@ export const useElectricVehicle = () => {
     }
   }, []);
 
+  // Delete electric vehicle by model ID
+  const deleteElectricVehicleByModelId = useCallback(async (
+    modelId: number,
+    callbacks?: { onSuccess?: () => void; onError?: (error: Error) => void }
+  ) => {
+    const { onSuccess, onError } = callbacks || {};
+    
+    try {
+      console.log('Starting electric vehicle deletion process for modelId:', modelId);
+      
+      // Find electric vehicle by modelId
+      const electricVehicle = await findElectricVehicleByModelId(modelId);
+      
+      if (electricVehicle) {
+        
+        
+        // Delete the electric vehicle
+        await electricVehicleService.deleteElectricVehicle(electricVehicle.vehicleId);
+        onSuccess?.();
+        return { success: true, deletedVehicleId: electricVehicle.vehicleId };
+      } else {
+        console.log('No electric vehicle found for modelId:', modelId);
+        return { success: true, deletedVehicleId: null }; // No vehicle to delete is still success
+      }
+    } catch (error) {
+        return { success: false };
+    }
+  }, [findElectricVehicleByModelId]);
+
   return {
     // Operations
     createElectricVehicle,
     updateElectricVehicle,
     fetchElectricVehicles,
     findElectricVehicleByModelId,
+    deleteElectricVehicleByModelId,
     
     // State
     loading,

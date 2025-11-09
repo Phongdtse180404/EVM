@@ -269,11 +269,13 @@ const CustomerManagement = () => {
                               <SelectValue placeholder="Chọn hãng xe" />
                             </SelectTrigger>
                             <SelectContent>
-                              {vehicleModels.map((model) => (
-                                <SelectItem key={model.modelId} value={model.modelCode}>
-                                  {model.brand}
-                                </SelectItem>
-                              ))}
+                              {vehicleModels
+                                .filter((model) => model.modelCode && model.modelCode.trim() !== "")
+                                .map((model) => (
+                                  <SelectItem key={model.modelId} value={model.modelCode}>
+                                    {model.brand}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -289,11 +291,13 @@ const CustomerManagement = () => {
                               <SelectValue placeholder="Chọn xe" />
                             </SelectTrigger>
                             <SelectContent>
-                              {vehiclesByModel.map((v) => (
-                                <SelectItem key={v.vehicleId} value={v.vehicleId.toString()}>
-                                  {v.vehicleId}
-                                </SelectItem>
-                              ))}
+                              {vehiclesByModel
+                                .filter((v) => v.vehicleId && v.vehicleId > 0)
+                                .map((v) => (
+                                  <SelectItem key={v.vehicleId} value={v.vehicleId.toString()}>
+                                    {v.vehicleId}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -401,11 +405,13 @@ const CustomerManagement = () => {
                       <SelectValue placeholder="Chọn hãng xe" />
                     </SelectTrigger>
                     <SelectContent>
-                      {vehicleModels.map((model) => (
-                        <SelectItem key={model.modelId} value={model.modelCode}>
-                          {model.brand}
-                        </SelectItem>
-                      ))}
+                      {vehicleModels
+                        .filter((model) => model.modelCode && model.modelCode.trim() !== "")
+                        .map((model) => (
+                          <SelectItem key={model.modelId} value={model.modelCode}>
+                            {model.brand}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -419,11 +425,13 @@ const CustomerManagement = () => {
                       <SelectValue placeholder="Chọn xe" />
                     </SelectTrigger>
                     <SelectContent>
-                      {vehiclesByModel.map((v) => (
-                        <SelectItem key={v.vehicleId} value={v.vehicleId.toString()}>
-                          {v.vehicleId}
-                        </SelectItem>
-                      ))}
+                      {vehiclesByModel
+                        .filter((v) => v.vehicleId && v.vehicleId > 0)
+                        .map((v) => (
+                          <SelectItem key={v.vehicleId} value={v.vehicleId.toString()}>
+                            {v.vehicleId}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
