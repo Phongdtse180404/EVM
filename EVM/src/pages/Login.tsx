@@ -148,19 +148,6 @@ const Login = () => {
             </form>
           </CardContent>
         </Card>
-
-        {/* Demo Notice */}
-        <Card className="bg-gradient-to-r from-warning/10 via-warning/5 to-warning/10 border-warning/20 backdrop-blur-sm">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-warning" />
-              <span className="text-sm font-medium text-warning">Demo Mode</span>
-            </div>
-            <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              Đây là giao diện demo. Chức năng đăng nhập/đăng ký sẽ được kích hoạt sau khi kết nối database.
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

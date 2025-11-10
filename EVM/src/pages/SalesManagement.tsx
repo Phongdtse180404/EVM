@@ -15,6 +15,7 @@ import {
   Calendar,
   DollarSign,
   CreditCard,
+  FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -22,8 +23,9 @@ import vinfastLogo from "@/assets/vinfast-logo.png";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { roboto } from "@/assets/fonts/Roboto-Regular";
-import { orderService, OrderResponse } from "@/services/api-orders";
+import { orderService, OrderResponse, OrderStatus, OrderPaymentStatus } from "@/services/api-orders";
 import { customerService, CustomerResponse } from "@/services/api-customers";
+import { paymentService, PaymentPurpose } from "@/services/api-payment";
 
 export default function SalesManagement() {
   const navigate = useNavigate();
@@ -33,48 +35,45 @@ export default function SalesManagement() {
 
 
   const [orders, setOrders] = useState<OrderResponse[]>([]);
+  const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState<CustomerResponse[]>([]);
   const [editingOrder, setEditingOrder] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showVehicleShowcase, setShowVehicleShowcase] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState<OrderResponse | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("transfer");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "vnpay">("vnpay");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         const [customersData, orderData] = await Promise.all([
           customerService.getCustomers(),
           orderService.getAllOrders(),
         ]);
 
+        if (!Array.isArray(customersData) || !Array.isArray(orderData)) {
+          throw new Error("Dữ liệu trả về không hợp lệ!");
+        }
+
         setCustomers(customersData);
         setOrders(orderData);
       } catch (error: any) {
         toast.error('Không tải được dữ liệu', {
-          description: error.message,
+          description: error.response?.data?.message || error.message,
         });
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchData();
   }, []);
 
+
   const filteredOrders = orders.filter(order =>
     order.customerName.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const handleDeleteOrder = async (id: number) => {
-    if (!window.confirm("Bạn có chắc muốn xoá đơn hàng này không?")) return;
-    try {
-      await orderService.deleteOrder(id);
-      setOrders((prev) => prev.filter((order) => order.orderId !== id));
-      toast.success("Xoá đơn hàng thành công!");
-    } catch (error) {
-      console.error("Lỗi khi xoá đơn hàng:", error);
-      toast.error("Không thể xoá đơn hàng!");
-    }
-  };
 
 
   const getStatusColor = (status: OrderResponse['status']) => {
@@ -87,257 +86,368 @@ export default function SalesManagement() {
 
   const getStatusText = (status: OrderResponse['status']) => {
     switch (status) {
-      case 'COMPLETED': return 'Đã chốt';
+      case 'COMPLETED': return 'Đơn hàng hoàn tất';
       case 'CANCELLED': return 'Đã hủy';
-      default: return 'Nháp';
+      default: return 'Đang xử lý';
     }
   };
 
-  const handleGenerateContractPDF = async (order: OrderResponse, customer: CustomerResponse) => {
-    const pdf = new jsPDF();
+  const getPaymentColor = (status: OrderResponse['paymentStatus']) => {
+    switch (status) {
+      case 'PAID': return 'text-success border-success';
+      case 'OVERDUE': return 'text-destructive border-destructive';
+      case 'DEPOSIT_PAID': return 'text-yellow-500 border-yellow-500';
+      default: return 'text-warning border-warning';
+    }
+  };
 
-    pdf.addFileToVFS("Roboto-Regular.ttf", roboto);
-    pdf.addFont("Roboto-Regular.ttf", "Roboto", "normal");
-    pdf.setFont("Roboto");
+  const getPaymentText = (status: OrderResponse['paymentStatus']) => {
+    switch (status) {
+      case 'PAID': return 'Đơn hàng hoàn tất';
+      case 'OVERDUE': return 'Đã quá hạn';
+      case 'DEPOSIT_PAID': return 'Đã thanh toán cọc';
+      default: return 'Chưa thanh toán';
+    }
+  };
 
-
-    // Load and add logo
+  const handleGenerateContractPDF = async (order: OrderResponse) => {
     try {
-      const logoImg = new Image();
-      logoImg.src = vinfastLogo;
-      await new Promise((resolve) => {
-        logoImg.onload = resolve;
+      const pdf = new jsPDF();
+      pdf.addFileToVFS("Roboto-Regular.ttf", roboto);
+      pdf.addFont("Roboto-Regular.ttf", "Roboto", "normal");
+      pdf.setFont("Roboto");
+
+
+      // Load and add logo
+      try {
+        const logoImg = new Image();
+        logoImg.src = vinfastLogo;
+        await new Promise((resolve) => {
+          logoImg.onload = resolve;
+        });
+
+        // Add logo
+        pdf.addImage(logoImg, 'PNG', 15, 10, 30, 30);
+      } catch (error) {
+        console.error('Error loading logo:', error);
+      }
+
+      // Company Header
+      pdf.setFontSize(16);
+      pdf.setTextColor(0, 51, 102); // VinFast blue
+      pdf.setFont("Roboto", "normal");
+      pdf.text("CONG TY TNHH SAN XUAT VA KINH DOANH VINFAST", 50, 20);
+
+      pdf.setFontSize(9);
+      pdf.setTextColor(80, 80, 80);
+      pdf.setFont("helvetica", "normal");
+      pdf.text("Dia chi: Khu Cong nghiep Dinh Vu - Cat Hai, Hai Phong", 50, 27);
+      pdf.text("Dien thoai: 1900 23 23 89 | Email: info@vinfastauto.com", 50, 32);
+
+      // Decorative line
+      pdf.setDrawColor(0, 123, 255);
+      pdf.setLineWidth(1);
+      pdf.line(15, 45, 195, 45);
+
+      // Title
+      pdf.setFontSize(22);
+      pdf.setTextColor(0, 51, 102);
+      pdf.setFont("Roboto", "normal");
+      pdf.text("HOP DONG MUA BAN XE O TO", 105, 55, { align: "center" });
+
+      // Contract info box
+      pdf.setFillColor(240, 248, 255);
+      pdf.rect(15, 60, 180, 15, 'F');
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`So hop dong: ${order.orderId}`, 105, 67, { align: "center" });
+      pdf.text(`Ngay lap: ${new Date(order.orderDate).toLocaleDateString('vi-VN')}`, 105, 72, { align: "center" });
+
+      let currentY = 85;
+
+      // Seller Information
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 51, 102);
+      pdf.setFont("Roboto", "normal");
+      pdf.text("BEN BAN (BEN A): CONG TY TNHH SAN XUAT VA KINH DOANH VINFAST", 15, currentY);
+
+      currentY += 10;
+      autoTable(pdf, {
+        startY: currentY,
+        head: [],
+        body: [
+          ['Dia chi', 'Khu Cong nghiep Dinh Vu - Cat Hai, Hai Phong, Viet Nam'],
+          ['Ma so thue', '0108926276'],
+          ['Dien thoai', '1900 23 23 89'],
+          ['Email', 'info@vinfastauto.com'],
+        ],
+        theme: 'plain',
+        styles: {
+          fontSize: 10,
+          cellPadding: 2,
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 40 },
+          1: { cellWidth: 140 }
+        },
+        margin: { left: 15 }
       });
 
-      // Add logo
-      pdf.addImage(logoImg, 'PNG', 15, 10, 30, 30);
+      currentY = (pdf as any).lastAutoTable.finalY + 10;
+
+      // Buyer Information
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 51, 102);
+      pdf.setFont("Roboto", "normal");
+      pdf.text("BEN MUA (BEN B)", 15, currentY);
+
+      currentY += 7;
+      autoTable(pdf, {
+        startY: currentY,
+        head: [],
+        body: [
+          ['Ho va ten', order.customerName],
+          ['So dien thoai',],
+          ['CMND/CCCD', '___________________________'],
+          ['Dia chi', '___________________________'],
+        ],
+        theme: 'plain',
+        styles: {
+          fontSize: 10,
+          cellPadding: 2,
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 40 },
+          1: { cellWidth: 140 }
+        },
+        margin: { left: 15 }
+      });
+
+      currentY = (pdf as any).lastAutoTable.finalY + 10;
+
+      // Vehicle Information with decorative box
+      pdf.setFillColor(0, 51, 102);
+      pdf.rect(15, currentY - 5, 180, 8, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont("Roboto", "normal");
+      pdf.text("THONG TIN XE", 105, currentY, { align: "center" });
+
+      currentY += 8;
+      autoTable(pdf, {
+        startY: currentY,
+        head: [],
+        body: [
+          ['Hang xe', 'VinFast'],
+          ['Model', order.vehicleModel],
+          ['Nam san xuat', '2024'],
+          ['Xuat xu', 'Viet Nam'],
+          ['Bao hanh', '10 nam hoac 200,000 km'],
+        ],
+        theme: 'striped',
+        headStyles: {
+          fillColor: [0, 51, 102],
+        },
+        styles: {
+          fontSize: 10,
+          cellPadding: 3,
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 50 },
+          1: { cellWidth: 130 }
+        },
+        margin: { left: 15 }
+      });
+
+      currentY = (pdf as any).lastAutoTable.finalY + 10;
+
+      // Payment Information with colors
+      pdf.setFillColor(0, 51, 102);
+      pdf.rect(15, currentY - 5, 180, 8, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont("Roboto", "normal");
+      pdf.text("THONG TIN THANH TOAN", 105, currentY, { align: "center" });
+
+      currentY += 8;
+      const totalPrice = order.totalAmount.toLocaleString('vi-VN');
+      const deposit = (order.totalAmount * 0.3).toLocaleString('vi-VN');
+      const remaining = (order.totalAmount * 0.7).toLocaleString('vi-VN');
+
+      autoTable(pdf, {
+        startY: currentY,
+        head: [],
+        body: [
+          ['Gia xe (bao gom VAT)', `${totalPrice} VND`],
+          ['Tien coc (30%)', `${deposit} VND`],
+          ['Con lai can thanh toan', `${remaining} VND`],
+          ['Phuong thuc thanh toan', 'Chuyen khoan ngan hang / Tien mat'],
+          ['Thoi han thanh toan', 'Khi nhan xe tai showroom'],
+        ],
+        theme: 'striped',
+        styles: {
+          fontSize: 10,
+          cellPadding: 3,
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 70 },
+          1: { cellWidth: 110, fontStyle: 'bold' }
+        },
+        margin: { left: 15 }
+      });
+
+      // Add new page for terms
+      pdf.addPage();
+
+      currentY = 20;
+
+      // Terms and Conditions
+      pdf.setFillColor(0, 51, 102);
+      pdf.rect(15, currentY - 5, 180, 8, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont("Roboto", "normal");
+      pdf.text("DIEU KHOAN VA DIEU KIEN", 105, currentY, { align: "center" });
+
+      currentY += 10;
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont("helvetica", "normal");
+
+      const terms = [
+        "1. Ben B da dat coc 30% gia tri xe theo thoa thuan tai hop dong nay.",
+        "2. So tien con lai (70%) se duoc Ben B thanh toan khi nhan xe tai showroom.",
+        "3. Thoi gian giao xe du kien: 30 ngay ke tu ngay ky hop dong.",
+        "4. Ben A cam ket xe giao dung model, mau sac, cau hinh nhu da thoa thuan.",
+        "5. Xe duoc bao hanh 10 nam hoac 200,000 km tuy theo dieu kien nao den truoc.",
+        "6. Ben B co quyen huy hop dong va nhan lai 100% tien coc neu Ben A khong",
+        "   giao xe dung thoi han da cam ket.",
+        "7. Neu Ben B huy hop dong vi ly do ca nhan, Ben A giu lai 20% tien coc",
+        "   de bu dap chi phi.",
+        "8. Hai ben cam ket thuc hien dung cac dieu khoan da ky ket.",
+        "9. Moi tranh chap phat sinh se duoc giai quyet thong qua thuong luong,",
+        "   hoa giai. Neu khong dat duoc thoa thuan, se giai quyet tai Toa an",
+        "   noi Ben A co tru so.",
+      ];
+
+      terms.forEach((term, index) => {
+        const lines = pdf.splitTextToSize(term, 170);
+        pdf.text(lines, 20, currentY);
+        currentY += lines.length * 5;
+      });
+
+      currentY += 15;
+
+      // Signatures
+      pdf.setFontSize(11);
+      pdf.setFont("Roboto", "normal");
+      pdf.text("DAI DIEN BEN A", 50, currentY, { align: "center" });
+      pdf.text("DAI DIEN BEN B", 150, currentY, { align: "center" });
+
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "italic");
+      pdf.text("(Ky, ghi ro ho ten va dong dau)", 50, currentY + 5, { align: "center" });
+      pdf.text("(Ky va ghi ro ho ten)", 150, currentY + 5, { align: "center" });
+
+      // Footer
+      pdf.setFontSize(8);
+      pdf.setTextColor(128, 128, 128);
+      pdf.text("Hop dong nay duoc lap thanh 02 ban, moi ben giu 01 ban co gia tri phap ly nhu nhau.", 105, 280, { align: "center" });
+
+      // Save PDF
+      pdf.save(`hop-dong-${order.orderId}-${order.customerName}.pdf`);
+      toast.success("Đã tải xuống hợp đồng PDF!");
     } catch (error) {
-      console.error('Error loading logo:', error);
+      console.error("Lỗi khi tạo PDF hợp đồng:", error);
+      toast.error("Không thể tạo PDF hợp đồng!");
+    }
+  };
+
+
+  const handleDeleteOrder = async (id: number) => {
+    if (!window.confirm("Bạn có chắc muốn xoá đơn hàng này không?")) return;
+
+    try {
+      setLoading(true);
+      await orderService.deleteOrder(id);
+      setOrders((prev) => prev.filter((order) => order.orderId !== id));
+      toast.success("Xoá đơn hàng thành công!");
+    } catch (error: any) {
+      console.error("Lỗi khi xoá đơn hàng:", error);
+      toast.error(error.response?.data?.message || "Không thể xoá đơn hàng!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectPaymentMethod = async (method: "cash" | "vnpay") => {
+    if (!paymentOrder) {
+      toast.error("Không có đơn hàng để thanh toán!");
+      return;
     }
 
-    // Company Header
-    pdf.setFontSize(16);
-    pdf.setTextColor(0, 51, 102); // VinFast blue
-    pdf.setFont("Roboto", "normal");
-    pdf.text("CONG TY TNHH SAN XUAT VA KINH DOANH VINFAST", 50, 20);
+    setPaymentMethod(method);
+    const orderId = paymentOrder.orderId;
 
-    pdf.setFontSize(9);
-    pdf.setTextColor(80, 80, 80);
-    pdf.setFont("helvetica", "normal");
-    pdf.text("Dia chi: Khu Cong nghiep Dinh Vu - Cat Hai, Hai Phong", 50, 27);
-    pdf.text("Dien thoai: 1900 23 23 89 | Email: info@vinfastauto.com", 50, 32);
+    // Xác định loại thanh toán (đặt cọc hay thanh toán đủ)
+    const isDepositPhase = paymentOrder.paymentStatus === OrderPaymentStatus.UNPAID;
 
-    // Decorative line
-    pdf.setDrawColor(0, 123, 255);
-    pdf.setLineWidth(1);
-    pdf.line(15, 45, 195, 45);
+    const amount = isDepositPhase
+      ? paymentOrder.depositAmount ?? 0
+      : paymentOrder.totalAmount - (paymentOrder.depositAmount ?? 0);
 
-    // Title
-    pdf.setFontSize(22);
-    pdf.setTextColor(0, 51, 102);
-    pdf.setFont("Roboto", "normal");
-    pdf.text("HOP DONG MUA BAN XE O TO", 105, 55, { align: "center" });
+    const purpose = isDepositPhase
+      ? PaymentPurpose.DEPOSIT
+      : PaymentPurpose.REMAINING;
 
-    // Contract info box
-    pdf.setFillColor(240, 248, 255);
-    pdf.rect(15, 60, 180, 15, 'F');
-    pdf.setFontSize(10);
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFont("helvetica", "normal");
-    pdf.text(`So hop dong: ${order.orderId}`, 105, 67, { align: "center" });
-    pdf.text(`Ngay lap: ${new Date(order.orderDate).toLocaleDateString('vi-VN')}`, 105, 72, { align: "center" });
+    if (method === "cash") {
+      try {
+        setLoading(true);
 
-    let currentY = 85;
+        const paid = await paymentService.payCash(orderId, {
+          amount,
+          applyTo: purpose,
+          note: `Thanh toán ${isDepositPhase ? "tiền cọc" : "phần còn lại"} cho đơn hàng #${orderId}`,
+        });
 
-    // Seller Information
-    pdf.setFontSize(12);
-    pdf.setTextColor(0, 51, 102);
-    pdf.setFont("Roboto", "normal");
-    pdf.text("BEN BAN (BEN A): CONG TY TNHH SAN XUAT VA KINH DOANH VINFAST", 15, currentY);
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.orderId === paid.orderId ? (paid as OrderResponse) : o
+          )
+        );
 
-    currentY += 10;
-    autoTable(pdf, {
-      startY: currentY,
-      head: [],
-      body: [
-        ['Dia chi', 'Khu Cong nghiep Dinh Vu - Cat Hai, Hai Phong, Viet Nam'],
-        ['Ma so thue', '0108926276'],
-        ['Dien thoai', '1900 23 23 89'],
-        ['Email', 'info@vinfastauto.com'],
-      ],
-      theme: 'plain',
-      styles: {
-        fontSize: 10,
-        cellPadding: 2,
-      },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 40 },
-        1: { cellWidth: 140 }
-      },
-      margin: { left: 15 }
-    });
+        toast.success(
+          isDepositPhase
+            ? "Thanh toán tiền cọc thành công!"
+            : "Thanh toán toàn bộ đơn hàng thành công!"
+        );
+        setPaymentOrder(null);
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || "Lỗi khi thanh toán tiền mặt!");
+      } finally {
+        setLoading(false);
+      }
+    }
 
-    currentY = (pdf as any).lastAutoTable.finalY + 10;
+    if (method === "vnpay") {
+      try {
+        setLoading(true);
+        const res = await paymentService.startVnpay(orderId, {
+          purpose,
+          bankCode: "NCB",
+        });
 
-    // Buyer Information
-    pdf.setFontSize(12);
-    pdf.setTextColor(0, 51, 102);
-    pdf.setFont("Roboto", "normal");
-    pdf.text("BEN MUA (BEN B)", 15, currentY);
-
-    currentY += 7;
-    autoTable(pdf, {
-      startY: currentY,
-      head: [],
-      body: [
-        ['Ho va ten', order.customerName],
-        ['So dien thoai', customer.phoneNumber],
-        ['CMND/CCCD', '___________________________'],
-        ['Dia chi', '___________________________'],
-      ],
-      theme: 'plain',
-      styles: {
-        fontSize: 10,
-        cellPadding: 2,
-      },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 40 },
-        1: { cellWidth: 140 }
-      },
-      margin: { left: 15 }
-    });
-
-    currentY = (pdf as any).lastAutoTable.finalY + 10;
-
-    // Vehicle Information with decorative box
-    pdf.setFillColor(0, 51, 102);
-    pdf.rect(15, currentY - 5, 180, 8, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont("Roboto", "normal");
-    pdf.text("THONG TIN XE", 105, currentY, { align: "center" });
-
-    currentY += 8;
-    autoTable(pdf, {
-      startY: currentY,
-      head: [],
-      body: [
-        ['Hang xe', 'VinFast'],
-        ['Model', order.vehicleModel],
-        ['Nam san xuat', '2024'],
-        ['Xuat xu', 'Viet Nam'],
-        ['Bao hanh', '10 nam hoac 200,000 km'],
-      ],
-      theme: 'striped',
-      headStyles: {
-        fillColor: [0, 51, 102],
-      },
-      styles: {
-        fontSize: 10,
-        cellPadding: 3,
-      },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 50 },
-        1: { cellWidth: 130 }
-      },
-      margin: { left: 15 }
-    });
-
-    currentY = (pdf as any).lastAutoTable.finalY + 10;
-
-    // Payment Information with colors
-    pdf.setFillColor(0, 51, 102);
-    pdf.rect(15, currentY - 5, 180, 8, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont("Roboto", "normal");
-    pdf.text("THONG TIN THANH TOAN", 105, currentY, { align: "center" });
-
-    currentY += 8;
-    const totalPrice = order.totalAmount.toLocaleString('vi-VN');
-    const deposit = (order.totalAmount * 0.3).toLocaleString('vi-VN');
-    const remaining = (order.totalAmount * 0.7).toLocaleString('vi-VN');
-
-    autoTable(pdf, {
-      startY: currentY,
-      head: [],
-      body: [
-        ['Gia xe (bao gom VAT)', `${totalPrice} VND`],
-        ['Tien coc (30%)', `${deposit} VND`],
-        ['Con lai can thanh toan', `${remaining} VND`],
-        ['Phuong thuc thanh toan', 'Chuyen khoan ngan hang / Tien mat'],
-        ['Thoi han thanh toan', 'Khi nhan xe tai showroom'],
-      ],
-      theme: 'striped',
-      styles: {
-        fontSize: 10,
-        cellPadding: 3,
-      },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 70 },
-        1: { cellWidth: 110, fontStyle: 'bold' }
-      },
-      margin: { left: 15 }
-    });
-
-    // Add new page for terms
-    pdf.addPage();
-
-    currentY = 20;
-
-    // Terms and Conditions
-    pdf.setFillColor(0, 51, 102);
-    pdf.rect(15, currentY - 5, 180, 8, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFont("Roboto", "normal");
-    pdf.text("DIEU KHOAN VA DIEU KIEN", 105, currentY, { align: "center" });
-
-    currentY += 10;
-    pdf.setFontSize(10);
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFont("helvetica", "normal");
-
-    const terms = [
-      "1. Ben B da dat coc 30% gia tri xe theo thoa thuan tai hop dong nay.",
-      "2. So tien con lai (70%) se duoc Ben B thanh toan khi nhan xe tai showroom.",
-      "3. Thoi gian giao xe du kien: 30 ngay ke tu ngay ky hop dong.",
-      "4. Ben A cam ket xe giao dung model, mau sac, cau hinh nhu da thoa thuan.",
-      "5. Xe duoc bao hanh 10 nam hoac 200,000 km tuy theo dieu kien nao den truoc.",
-      "6. Ben B co quyen huy hop dong va nhan lai 100% tien coc neu Ben A khong",
-      "   giao xe dung thoi han da cam ket.",
-      "7. Neu Ben B huy hop dong vi ly do ca nhan, Ben A giu lai 20% tien coc",
-      "   de bu dap chi phi.",
-      "8. Hai ben cam ket thuc hien dung cac dieu khoan da ky ket.",
-      "9. Moi tranh chap phat sinh se duoc giai quyet thong qua thuong luong,",
-      "   hoa giai. Neu khong dat duoc thoa thuan, se giai quyet tai Toa an",
-      "   noi Ben A co tru so.",
-    ];
-
-    terms.forEach((term, index) => {
-      const lines = pdf.splitTextToSize(term, 170);
-      pdf.text(lines, 20, currentY);
-      currentY += lines.length * 5;
-    });
-
-    currentY += 15;
-
-    // Signatures
-    pdf.setFontSize(11);
-    pdf.setFont("Roboto", "normal");
-    pdf.text("DAI DIEN BEN A", 50, currentY, { align: "center" });
-    pdf.text("DAI DIEN BEN B", 150, currentY, { align: "center" });
-
-    pdf.setFontSize(9);
-    pdf.setFont("helvetica", "italic");
-    pdf.text("(Ky, ghi ro ho ten va dong dau)", 50, currentY + 5, { align: "center" });
-    pdf.text("(Ky va ghi ro ho ten)", 150, currentY + 5, { align: "center" });
-
-    // Footer
-    pdf.setFontSize(8);
-    pdf.setTextColor(128, 128, 128);
-    pdf.text("Hop dong nay duoc lap thanh 02 ban, moi ben giu 01 ban co gia tri phap ly nhu nhau.", 105, 280, { align: "center" });
-
-    // Save PDF
-    pdf.save(`hop-dong-${order.orderId}-${order.customerName}.pdf`);
-    toast.success("Đã tải xuống hợp đồng PDF!");
+        if (res.paymentUrl) {
+          toast.success("Đang chuyển hướng đến VNPay...");
+          window.location.href = res.paymentUrl;
+        } else {
+          toast.error("Không nhận được URL thanh toán!");
+        }
+      } catch (err: any) {
+        console.error(err);
+        toast.error(err.response?.data?.message || "Không thể khởi tạo thanh toán VNPay!");
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   return (
@@ -428,20 +538,39 @@ export default function SalesManagement() {
                       <span className="font-medium">
                         {order.totalAmount.toLocaleString('vi-VN')} VND
                       </span>
+                      <Badge variant="outline" className={getPaymentColor(order.paymentStatus)}>
+                        {getPaymentText(order.paymentStatus)}
+                      </Badge>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col space-y-2 ml-4">
-                  <Button
-                    size="sm"
-                    onClick={() => setPaymentOrder(order)}
-                    className="bg-gradient-primary text-xs"
-                  >
-                    <CreditCard className="w-3 h-3 mr-1" />
-                    Thanh toán
-                  </Button>
+                  {order.status === 'PROCESSING' && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => setPaymentOrder(order)}
+                        className="bg-gradient-primary text-xs"
+                      >
+                        <CreditCard className="w-3 h-3 mr-1" />
+                        Thanh toán
+                      </Button>
+                    </>
+                  )}
 
+                  {order.paymentStatus === 'DEPOSIT_PAID' && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => handleGenerateContractPDF(order)}
+                        className="bg-secondary text-xs"
+                      >
+                        <FileText className="w-3 h-3 mr-1" />
+                        Xuất hợp đồng
+                      </Button>
+                    </>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
@@ -474,18 +603,20 @@ export default function SalesManagement() {
                   <Button
                     type="button"
                     variant={paymentMethod === "cash" ? "default" : "outline"}
-                    onClick={() => setPaymentMethod("cash")}
+                    onClick={() => handleSelectPaymentMethod("cash")}
                     className="h-12 text-base font-semibold"
+                    disabled={loading}
                   >
                     Tiền mặt
                   </Button>
                   <Button
                     type="button"
-                    variant={paymentMethod === "transfer" ? "default" : "outline"}
-                    onClick={() => setPaymentMethod("transfer")}
+                    variant={paymentMethod === "vnpay" ? "default" : "outline"}
+                    onClick={() => handleSelectPaymentMethod("vnpay")}
                     className="h-12 text-base font-semibold"
+                    disabled={loading}
                   >
-                    Chuyển khoản
+                    VNPay
                   </Button>
                 </div>
               </div>
@@ -514,7 +645,7 @@ export default function SalesManagement() {
                 <div className="flex justify-between text-lg">
                   <span className="font-semibold">Tiền cọc:</span>
                   <span className="font-bold text-primary">
-                    {(paymentOrder.totalAmount * 0.3).toLocaleString('vi-VN')} VND
+                    {(paymentOrder.depositAmount).toLocaleString('vi-VN')} VND
                   </span>
                 </div>
               </div>
