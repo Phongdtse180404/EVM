@@ -26,6 +26,7 @@ import { roboto } from "@/assets/fonts/Roboto-Regular";
 import { orderService, OrderResponse, OrderStatus, OrderPaymentStatus } from "@/services/api-orders";
 import { customerService, CustomerResponse } from "@/services/api-customers";
 import { paymentService, PaymentPurpose } from "@/services/api-payment";
+import { Input } from "@/components/ui/input";
 
 export default function SalesManagement() {
   const navigate = useNavigate();
@@ -42,6 +43,8 @@ export default function SalesManagement() {
   const [showVehicleShowcase, setShowVehicleShowcase] = useState(false);
   const [paymentOrder, setPaymentOrder] = useState<OrderResponse | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "vnpay">("vnpay");
+  const [cashAmount, setCashAmount] = useState<number>(0);
+  const [cashNote, setCashNote] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -103,7 +106,7 @@ export default function SalesManagement() {
 
   const getPaymentText = (status: OrderResponse['paymentStatus']) => {
     switch (status) {
-      case 'PAID': return 'Đơn hàng hoàn tất';
+      case 'PAID': return 'Đã thanh toán hết';
       case 'OVERDUE': return 'Đã quá hạn';
       case 'DEPOSIT_PAID': return 'Đã thanh toán cọc';
       default: return 'Chưa thanh toán';
@@ -111,6 +114,7 @@ export default function SalesManagement() {
   };
 
   const handleGenerateContractPDF = async (order: OrderResponse) => {
+
     try {
       const pdf = new jsPDF();
       pdf.addFileToVFS("Roboto-Regular.ttf", roboto);
@@ -270,15 +274,15 @@ export default function SalesManagement() {
 
       currentY += 8;
       const totalPrice = order.totalAmount.toLocaleString('vi-VN');
-      const deposit = (order.totalAmount * 0.3).toLocaleString('vi-VN');
-      const remaining = (order.totalAmount * 0.7).toLocaleString('vi-VN');
+      const planedDepositAmount = order.planedDepositAmount.toLocaleString('vi-VN');
+      const remaining = order.remainingAmount.toLocaleString('vi-VN');
 
       autoTable(pdf, {
         startY: currentY,
         head: [],
         body: [
           ['Gia xe (bao gom VAT)', `${totalPrice} VND`],
-          ['Tien coc (30%)', `${deposit} VND`],
+          ['Tien coc (30%)', `${planedDepositAmount} VND`],
           ['Con lai can thanh toan', `${remaining} VND`],
           ['Phuong thuc thanh toan', 'Chuyen khoan ngan hang / Tien mat'],
           ['Thoi han thanh toan', 'Khi nhan xe tai showroom'],
@@ -378,6 +382,61 @@ export default function SalesManagement() {
     }
   };
 
+
+  const handleCashPayment = async () => {
+    if (!paymentOrder) {
+      toast.error("Không có đơn hàng để thanh toán!");
+      return;
+    }
+
+    // Kiểm tra số tiền nhập
+    const amt = Number(cashAmount);
+    if (!amt || amt <= 0) {
+      toast.error("Số tiền thanh toán phải lớn hơn 0!");
+      return;
+    }
+
+    // Xác định phase: deposit hay remaining
+    const isDepositPhase = paymentOrder.paymentStatus === OrderPaymentStatus.UNPAID;
+    const purpose = isDepositPhase ? PaymentPurpose.DEPOSIT : PaymentPurpose.REMAINING;
+
+    // Tính tiền tối đa có thể thanh toán ở phase hiện tại (phòng trường hợp người nhập lớn hơn)
+    const remainingToPay = isDepositPhase
+      ? (paymentOrder.planedDepositAmount ?? 0)
+      : (paymentOrder.remainingAmount ?? 0);
+
+    if (amt > remainingToPay) {
+      // Không bắt buộc nhưng đề nghị cảnh báo / chặn overpay
+      toast.error(`Số tiền không được lớn hơn ${remainingToPay.toLocaleString('vi-VN')} VND`);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const paid = await paymentService.payCash(paymentOrder.orderId, {
+        amount: amt,
+        applyTo: purpose,
+        note: cashNote || (isDepositPhase ? `Thanh toán tiền cọc cho đơn #${paymentOrder.orderId}` : `Thanh toán phần còn lại cho đơn #${paymentOrder.orderId}`)
+      });
+
+      // cập nhật UI: thay order cũ bằng object trả về từ backend
+      setOrders(prev => prev.map(o => (o.orderId === paid.orderId ? (paid as OrderResponse) : o)));
+
+      toast.success(isDepositPhase ? "Thanh toán tiền cọc thành công!" : "Thanh toán phần còn lại thành công!");
+      setPaymentOrder(null);
+
+      // optional: reset cash inputs
+      setCashAmount(0);
+      setCashNote("");
+    } catch (err: any) {
+      console.error("payCash error:", err);
+      toast.error(err.response?.data?.message || "Lỗi khi thanh toán tiền mặt!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSelectPaymentMethod = async (method: "cash" | "vnpay") => {
     if (!paymentOrder) {
       toast.error("Không có đơn hàng để thanh toán!");
@@ -385,52 +444,21 @@ export default function SalesManagement() {
     }
 
     setPaymentMethod(method);
-    const orderId = paymentOrder.orderId;
-
-    // Xác định loại thanh toán (đặt cọc hay thanh toán đủ)
-    const isDepositPhase = paymentOrder.paymentStatus === OrderPaymentStatus.UNPAID;
-
-    const amount = isDepositPhase
-      ? paymentOrder.depositAmount ?? 0
-      : paymentOrder.totalAmount - (paymentOrder.depositAmount ?? 0);
-
-    const purpose = isDepositPhase
-      ? PaymentPurpose.DEPOSIT
-      : PaymentPurpose.REMAINING;
-
     if (method === "cash") {
-      try {
-        setLoading(true);
-
-        const paid = await paymentService.payCash(orderId, {
-          amount,
-          applyTo: purpose,
-          note: `Thanh toán ${isDepositPhase ? "tiền cọc" : "phần còn lại"} cho đơn hàng #${orderId}`,
-        });
-
-        setOrders((prev) =>
-          prev.map((o) =>
-            o.orderId === paid.orderId ? (paid as OrderResponse) : o
-          )
-        );
-
-        toast.success(
-          isDepositPhase
-            ? "Thanh toán tiền cọc thành công!"
-            : "Thanh toán toàn bộ đơn hàng thành công!"
-        );
-        setPaymentOrder(null);
-      } catch (err: any) {
-        toast.error(err.response?.data?.message || "Lỗi khi thanh toán tiền mặt!");
-      } finally {
-        setLoading(false);
-      }
+      return; // KHÔNG gọi API tại đây
     }
-
     if (method === "vnpay") {
       try {
         setLoading(true);
-        const res = await paymentService.startVnpay(orderId, {
+
+        const isDepositPhase =
+          paymentOrder.paymentStatus === OrderPaymentStatus.UNPAID;
+
+        const purpose = isDepositPhase
+          ? PaymentPurpose.DEPOSIT
+          : PaymentPurpose.REMAINING;
+
+        const res = await paymentService.startVnpay(paymentOrder.orderId, {
           purpose,
           bankCode: "NCB",
         });
@@ -534,6 +562,7 @@ export default function SalesManagement() {
 
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
+                      <span className="font-medium">Tổng giá </span>
                       <DollarSign className="w-4 h-4 text-accent" />
                       <span className="font-medium">
                         {order.totalAmount.toLocaleString('vi-VN')} VND
@@ -541,6 +570,13 @@ export default function SalesManagement() {
                       <Badge variant="outline" className={getPaymentColor(order.paymentStatus)}>
                         {getPaymentText(order.paymentStatus)}
                       </Badge>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">Cần Thanh Toán: </span>
+                      <DollarSign className="w-4 h-4 text-accent" />
+                      <span className="font-medium">
+                        {order.remainingAmount.toLocaleString('vi-VN')} VND
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -584,11 +620,12 @@ export default function SalesManagement() {
               </div>
             </Card>
           </div>
-        ))}
-      </div>
+        ))
+        }
+      </div >
 
       {/* Payment Dialog */}
-      <Dialog open={!!paymentOrder} onOpenChange={() => setPaymentOrder(null)}>
+      < Dialog open={!!paymentOrder} onOpenChange={() => setPaymentOrder(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-xl">Thanh toán đơn hàng</DialogTitle>
@@ -641,13 +678,22 @@ export default function SalesManagement() {
                 </div>
 
                 <Separator />
-
-                <div className="flex justify-between text-lg">
-                  <span className="font-semibold">Tiền cọc:</span>
-                  <span className="font-bold text-primary">
-                    {(paymentOrder.depositAmount).toLocaleString('vi-VN')} VND
-                  </span>
-                </div>
+                {paymentOrder.paymentStatus === 'UNPAID' && (
+                  <div className="flex justify-between text-lg">
+                    <span className="font-semibold">Tiền cọc:</span>
+                    <span className="font-bold text-primary">
+                      {(paymentOrder.planedDepositAmount).toLocaleString('vi-VN')} VND
+                    </span>
+                  </div>
+                )}
+                {paymentOrder.paymentStatus === 'DEPOSIT_PAID' && (
+                  <div className="flex justify-between text-lg">
+                    <span className="font-semibold">Khoản còn lại:</span>
+                    <span className="font-bold text-primary">
+                      {(paymentOrder.remainingAmount).toLocaleString('vi-VN')} VND
+                    </span>
+                  </div>
+                )}
               </div>
 
               <p className="text-center text-sm text-muted-foreground">
@@ -655,8 +701,36 @@ export default function SalesManagement() {
               </p>
             </div>
           )}
+
+          {paymentMethod === "cash" && (
+            <div className="space-y-3 bg-muted/50 p-4 rounded-lg">
+              <div>
+                <Label>Số tiền thanh toán (VND)</Label>
+                <Input
+                  type="number"
+                  min={1000}
+                  value={cashAmount}
+                  onChange={(e) => setCashAmount(parseFloat(e.target.value))}
+                  placeholder="Nhập số tiền..."
+                />
+              </div>
+              <div>
+                <Label>Ghi chú</Label>
+                <Input
+                  value={cashNote}
+                  onChange={(e) => setCashNote(e.target.value)}
+                  placeholder="VD: Thanh toán tiền cọc"
+                />
+              </div>
+
+              <Button onClick={handleCashPayment} disabled={loading} className="w-full h-12 font-semibold">
+                Xác nhận thanh toán
+              </Button>
+            </div>
+          )}
+
         </DialogContent>
-      </Dialog>
-    </div>
+      </Dialog >
+    </div >
   );
 }

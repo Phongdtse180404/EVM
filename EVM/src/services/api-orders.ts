@@ -19,7 +19,7 @@ export interface OrderRequest {
   customerId: number;
   vehicleId: number;
   totalAmount: number;
-  depositAmount?: number;
+  planedDepositAmount?: number;
   status: OrderStatus;
   deliveryDate?: string; // ISO date string
 }
@@ -32,7 +32,8 @@ export interface OrderResponse {
   vehicleId: number;
   vehicleModel: string;
   totalAmount: number;
-  depositAmount?: number;
+  planedDepositAmount?: number;
+  remainingAmount?: number;
   status: OrderStatus;
   paymentStatus: OrderPaymentStatus;
   deliveryDate?: string; // ISO date string
