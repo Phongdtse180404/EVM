@@ -106,14 +106,21 @@ export default function WarehouseStockDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {models && models.length > 0 ? (
-                    models.map((model) => (
-                      <SelectItem key={model.modelId} value={model.modelCode}>
-                        {model.modelCode}
-                      </SelectItem>
-                    ))
+                    models
+                      .filter((model) => model.modelCode && model.modelCode.trim() !== "")
+                      .map((model) => (
+                        <SelectItem key={model.modelId} value={model.modelCode}>
+                          {model.modelCode}
+                        </SelectItem>
+                      ))
                   ) : (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="no-models-available" disabled>
                       Không có model nào
+                    </SelectItem>
+                  )}
+                  {models && models.length > 0 && models.filter(m => m.modelCode && m.modelCode.trim() !== "").length === 0 && (
+                    <SelectItem value="no-valid-models" disabled>
+                      Không có model hợp lệ
                     </SelectItem>
                   )}
                 </SelectContent>

@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useWarehouses } from "@/hooks/use-warehouses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import type { WarehouseStockResponse, VehicleSerialResponse } from "@/services/api-warehouse";
+import type { WarehouseStockResponse, VehicleSerialResponse, WarehouseResponse } from "@/services/api-warehouse";
 import { electricVehicleService, type ElectricVehicleResponse } from "@/services/api-electric-vehicle";
 import { ShowroomTopbar } from "@/components/ShowroomTopbar";
 import { ShowroomStats } from "@/components/ShowroomStats";
@@ -37,16 +37,55 @@ const firebaseImageUrl = "https://firebasestorage.googleapis.com/v0/b/evdealer.f
 
 export default function VehicleShowroom() {
   const navigate = useNavigate();
-  const { fetchWarehouse, loading, selectedWarehouse } = useWarehouses();
+  const { fetchWarehouses, fetchWarehouse, loading, allWarehouses } = useWarehouses();
   const [selectedVehicle, setSelectedVehicle] = useState<IndividualVehicle | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [electricVehicles, setElectricVehicles] = useState<ElectricVehicleResponse[]>([]);
+  const [detailedWarehouses, setDetailedWarehouses] = useState<WarehouseResponse[]>([]);
 
-  // Fetch warehouse data on component mount (using warehouse ID 1)
+  // Fetch all warehouses data on component mount
   useEffect(() => {
-    fetchWarehouse(1);
-  }, [fetchWarehouse]);
+    const fetchAllWarehousesWithDetails = async () => {
+      try {
+        // First, get the list of all warehouses
+        await fetchWarehouses();
+      } catch (error) {
+        console.error('Error fetching warehouse list:', error);
+      }
+    };
+
+    fetchAllWarehousesWithDetails();
+  }, [fetchWarehouses]);
+
+  // Once we have the warehouse list, fetch detailed data for each warehouse
+  useEffect(() => {
+    const fetchWarehouseDetails = async () => {
+      if (allWarehouses && allWarehouses.length > 0) {
+        console.log('Fetching details for warehouses:', allWarehouses);
+        
+        const detailedWarehousePromises = allWarehouses.map(async (warehouse) => {
+          try {
+            console.log(`Fetching details for warehouse ${warehouse.warehouseId}...`);
+            const detailedWarehouse = await fetchWarehouse(warehouse.warehouseId);
+            return detailedWarehouse;
+          } catch (error) {
+            console.error(`Error fetching warehouse ${warehouse.warehouseId}:`, error);
+            return null;
+          }
+        });
+
+        const detailedResults = await Promise.all(detailedWarehousePromises);
+        const validWarehouses = detailedResults.filter(w => w !== null);
+        console.log('All detailed warehouses:', validWarehouses);
+        setDetailedWarehouses(validWarehouses);
+      }
+    };
+
+    if (allWarehouses?.length > 0) {
+      fetchWarehouseDetails();
+    }
+  }, [allWarehouses, fetchWarehouse]);
 
   // Fetch electric vehicles data for images
   useEffect(() => {
@@ -74,11 +113,20 @@ export default function VehicleShowroom() {
     return matchingEV?.imageUrl || firebaseImageUrl;
   };
 
+  // Flatten all warehouse items from all detailed warehouses
+  const warehouseItems = useMemo(() => {
+    console.log('Creating warehouseItems from detailedWarehouses:', detailedWarehouses);
+    return detailedWarehouses?.flatMap(warehouse => {
+      console.log(`Processing warehouse ${warehouse.warehouseName}:`, warehouse.items);
+      return warehouse.items || [];
+    }) || [];
+  }, [detailedWarehouses]);
+
   // Set selected vehicle when warehouse data is loaded
   useEffect(() => {
-    if (selectedWarehouse?.items && selectedWarehouse.items.length > 0 && !selectedVehicle) {
+    if (warehouseItems.length > 0 && !selectedVehicle) {
       // Get first individual vehicle from flattened list
-      const firstItem = selectedWarehouse.items[0];
+      const firstItem = warehouseItems[0];
       if (firstItem.serials && firstItem.serials.length > 0) {
         setSelectedVehicle({
           ...firstItem,
@@ -89,11 +137,7 @@ export default function VehicleShowroom() {
         });
       }
     }
-  }, [selectedWarehouse, selectedVehicle]);
-
-
-
-  const warehouseItems = selectedWarehouse?.items || [];
+  }, [warehouseItems, selectedVehicle]);
   
   // Flatten warehouse items into individual vehicle serials
   const individualVehicles = warehouseItems.flatMap(item => 
@@ -148,7 +192,7 @@ export default function VehicleShowroom() {
           totalModels={totalModels}
           totalVehicles={totalVehicles}
           availableVehicles={availableVehicles}
-          warehouseName={selectedWarehouse?.warehouseName}
+          warehouseName="Tất cả kho hàng"
         />
 
         {/* Search & Filter */}

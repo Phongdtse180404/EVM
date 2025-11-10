@@ -2,18 +2,10 @@ import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useModels } from "@/hooks/use-models";
+import { useElectricVehicle } from "@/hooks/use-electric-vehicle";
 import type { ModelResponse } from "@/services/api-model";
 import AddModelDialog from "@/components/AddModelDialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import DeleteAlert from "@/components/DeleteAlert";
 import {
   Table,
   TableBody,
@@ -41,10 +33,17 @@ export default function Models() {
     deleteModel
   } = useModels();
 
+  // Use electric vehicle hook for deleting electric vehicles
+  const {
+    deleteElectricVehicleByModelId,
+    fetchElectricVehicles
+  } = useElectricVehicle();
+
   // Initial data fetch
   useEffect(() => {
     fetchModels();
-  }, [fetchModels]);
+    fetchElectricVehicles();
+  }, [fetchModels, fetchElectricVehicles]);
 
   // Model CRUD Functions
   const openEditModelDialog = (model?: ModelResponse) => {
@@ -52,17 +51,52 @@ export default function Models() {
     setIsEditModelDialogOpen(true);
   };
 
-  const handleModelCreated = async (modelCode: string) => {
-    // Electric vehicle creation is now handled automatically in AddModelDialog
-    // Just refresh the models list to show the new model
-    fetchModels();
-  };
+
 
   const handleDeleteModel = async () => {
     if (!deleteModelId) return;
 
     try {
-      await deleteModel(deleteModelId);
+      console.log('Starting model deletion process for modelId:', deleteModelId);
+      
+      // First, delete the corresponding electric vehicle using the hook
+      const electricVehicleResult = await deleteElectricVehicleByModelId(deleteModelId, {
+        onSuccess: () => {
+          console.log('Electric vehicle deletion completed successfully');
+        },
+        onError: (error) => {
+          console.error('Electric vehicle deletion failed:', error);
+          toast({
+            title: "Lỗi",
+            description: "Không thể xóa xe điện liên quan. Hủy bỏ việc xóa model.",
+            variant: "destructive",
+          });
+        }
+      });
+      
+      // Only proceed with model deletion if electric vehicle deletion was successful
+      if (electricVehicleResult.success) {
+        console.log('Proceeding to delete model:', deleteModelId);
+        await deleteModel(deleteModelId);
+        
+        // Refresh electric vehicles list after successful deletion
+        fetchElectricVehicles();
+      } else {
+        console.log('Electric vehicle deletion failed, aborting model deletion');
+        toast({
+          title: "Hủy bỏ",
+          description: "Không thể xóa model do lỗi khi xóa xe điện liên quan",
+          variant: "destructive",
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error in delete model process:', error);
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra trong quá trình xóa model",
+        variant: "destructive",
+      });
     } finally {
       setDeleteModelId(null);
     }
@@ -149,24 +183,16 @@ export default function Models() {
         open={isEditModelDialogOpen}
         onOpenChange={setIsEditModelDialogOpen}
         editingModel={editingModel}
-        onModelCreated={handleModelCreated}
+        onModelCreated={fetchModels}
       />
 
       {/* Delete Model Alert */}
-      <AlertDialog open={!!deleteModelId} onOpenChange={() => setDeleteModelId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa model này? Hành động này không thể hoàn tác.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteModel}>Xóa</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteAlert
+        open={!!deleteModelId}
+        onOpenChange={() => setDeleteModelId(null)}
+        onConfirm={handleDeleteModel}
+        description="Bạn có chắc chắn muốn xóa model này? Hành động này sẽ xóa cả xe điện liên quan và không thể hoàn tác."
+      />
     </div>
   );
 }
