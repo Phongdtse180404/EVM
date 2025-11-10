@@ -1,22 +1,26 @@
 import { BaseApiService } from './api';
 
+export enum customerStatus {
+  LEAD = 'LEAD',
+  CUSTOMER = 'CUSTOMER'
+}
+
 export interface CustomerRequest {
-  vehicleId: number;
   name: string;
   phoneNumber: string;
-  interestVehicle: string;
-  status: string;
+  address: string;
+  note: string;
+  status: customerStatus;
 }
 
 // Response type (dữ liệu server trả về)
 export interface CustomerResponse {
   customerId: number;
-  vehicleId: number;
-  vehicleModel: string;
   name: string;
   phoneNumber: string;
-  interestVehicle: string;
-  status: string;
+  address: string;
+  note: string;
+  status: customerStatus;
   assignedSalesName: string | null;
 }
 class CustomerService extends BaseApiService {

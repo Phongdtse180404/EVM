@@ -14,8 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { CustomerResponse, CustomerRequest } from '@/services/api-customers';
 import type { ModelResponse } from '@/services/api-model';
-import { electricVehicleService } from '@/services/api-electric-vehicle';
-import { customerService } from '@/services/api-customers';
+import { customerService, customerStatus } from '@/services/api-customers';
 import { modelService } from '@/services/api-model';
 
 const CustomerManagement = () => {
@@ -28,13 +27,13 @@ const CustomerManagement = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const [customers, setCustomers] = useState<CustomerResponse[]>([]);
-  const [vehiclesByModel, setVehiclesByModel] = useState<any[]>([]);
   const [vehicleModels, setvehicleModels] = useState<ModelResponse[]>([]);
   const [newCustomer, setNewCustomer] = useState<Partial<CustomerRequest>>({
     name: '',
     phoneNumber: '',
-    vehicleId: 0,
-    status: 'LEAD',
+    address: '',
+    note: '',
+    status: customerStatus.LEAD,
   });
 
 
@@ -77,9 +76,9 @@ const CustomerManagement = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'lead':
+      case 'LEAD':
         return <Badge className="bg-muted text-muted-foreground">Lead mới</Badge>;
-      case 'purchased':
+      case 'CUSTOMER':
         return <Badge className="bg-success/20 text-success border-success">Đã mua</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
@@ -100,8 +99,9 @@ const CustomerManagement = () => {
       setNewCustomer({
         name: '',
         phoneNumber: '',
-        vehicleId: 0,
-        status: 'LEAD',
+        address: '',
+        note: '',
+        status: customerStatus.LEAD,
       });
     } catch (error: any) {
       toast.error('Thêm khách hàng thất bại', {
@@ -110,16 +110,6 @@ const CustomerManagement = () => {
     }
   };
 
-  const handleSelectModel = async (modelCode: string) => {
-    try {
-      const vehicles = await electricVehicleService.searchVehiclesByModelCode(modelCode);
-      setVehiclesByModel(vehicles); // cập nhật danh sách xe thuộc model đó
-    } catch (error: any) {
-      toast.error("Không thể tải danh sách xe", {
-        description: error.message,
-      });
-    }
-  };
 
   const handleEditCustomer = async () => {
     if (!editingCustomer) return;
@@ -147,7 +137,7 @@ const CustomerManagement = () => {
 
   const getKPIData = () => {
     const totalLeads = customers.length;
-    const converted = customers.filter(c => c.status === 'purchased').length;
+    const converted = customers.filter(c => c.status === 'CUSTOMER').length;
     const conversionRate = totalLeads > 0 ? (converted / totalLeads * 100) : 0;
 
     return {
@@ -227,8 +217,8 @@ const CustomerManagement = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                        <SelectItem value="lead">Lead mới</SelectItem>
-                        <SelectItem value="purchased">Đã mua</SelectItem>
+                        <SelectItem value="LEAD">Lead mới</SelectItem>
+                        <SelectItem value="CUSTOMER">Đã mua</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -263,43 +253,23 @@ const CustomerManagement = () => {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="vehicle">Hãng xe quan tâm</Label>
-                          <Select onValueChange={handleSelectModel}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn hãng xe" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {vehicleModels
-                                .filter((model) => model.modelCode && model.modelCode.trim() !== "")
-                                .map((model) => (
-                                  <SelectItem key={model.modelId} value={model.modelCode}>
-                                    {model.brand}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
+                          <Label htmlFor="phone">Địa chỉ *</Label>
+                          <Input
+                            id="phone"
+                            value={newCustomer.address}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                            placeholder="Ho Chi Minh City"
+                          />
                         </div>
-                        <div>
-                          <Label htmlFor="vehicle">Xe quan tâm</Label>
-                          <Select
-                            value={String(newCustomer.vehicleId)}
-                            onValueChange={(value) =>
-                              setNewCustomer({ ...newCustomer, vehicleId: Number(value) })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn xe" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {vehiclesByModel
-                                .filter((v) => v.vehicleId && v.vehicleId > 0)
-                                .map((v) => (
-                                  <SelectItem key={v.vehicleId} value={v.vehicleId.toString()}>
-                                    {v.vehicleId}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
+                        <div className="space-y-2">
+                          <Label htmlFor="notes">Ghi chú</Label>
+                          <Textarea
+                            id="notes"
+                            value={newCustomer.note}
+                            onChange={(e) => setNewCustomer({ ...newCustomer, note: e.target.value })}
+                            placeholder="Nhập ghi chú (tùy chọn)"
+                            rows={1}
+                          />
                         </div>
                       </div>
                       <DialogFooter>
@@ -329,7 +299,8 @@ const CustomerManagement = () => {
                       <TableRow>
                         <TableHead>Khách hàng</TableHead>
                         <TableHead>Liên hệ</TableHead>
-                        <TableHead>Xe quan tâm</TableHead>
+                        <TableHead>Địa chỉ</TableHead>
+                        <TableHead>Ghi chú</TableHead>
                         <TableHead>Trạng thái</TableHead>
                         <TableHead>Thao tác</TableHead>
                       </TableRow>
@@ -350,7 +321,8 @@ const CustomerManagement = () => {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>{customer.vehicleModel || 'Chưa xác định'}</TableCell>
+                          <TableCell>{customer.address || 'Chưa xác định'}</TableCell>
+                          <TableCell>{customer.note || 'Chưa xác định'}</TableCell>
                           <TableCell>{getStatusBadge(customer.status)}</TableCell>
                           <TableCell>
                             <Button
@@ -399,41 +371,23 @@ const CustomerManagement = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="vehicle">Hãng xe quan tâm</Label>
-                  <Select onValueChange={handleSelectModel}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn hãng xe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicleModels
-                        .filter((model) => model.modelCode && model.modelCode.trim() !== "")
-                        .map((model) => (
-                          <SelectItem key={model.modelId} value={model.modelCode}>
-                            {model.brand}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="phone">Địa chỉ *</Label>
+                  <Input
+                    id="phone"
+                    value={editingCustomer.address}
+                    onChange={(e) => setNewCustomer({ ...editingCustomer, address: e.target.value })}
+                    placeholder="Ho Chi Minh City"
+                  />
                 </div>
-                <div>
-                  <Label htmlFor="edit-vehicle">Xe quan tâm</Label>
-                  <Select
-                    value={String(editingCustomer.vehicleId)}
-                    onValueChange={(value) => setEditingCustomer({ ...editingCustomer, vehicleId: Number(value) })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn xe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehiclesByModel
-                        .filter((v) => v.vehicleId && v.vehicleId > 0)
-                        .map((v) => (
-                          <SelectItem key={v.vehicleId} value={v.vehicleId.toString()}>
-                            {v.vehicleId}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Ghi chú</Label>
+                  <Textarea
+                    id="notes"
+                    value={editingCustomer.note}
+                    onChange={(e) => setNewCustomer({ ...editingCustomer, note: e.target.value })}
+                    placeholder="Nhập ghi chú (tùy chọn)"
+                    rows={1}
+                  />
                 </div>
               </div>
             )}
