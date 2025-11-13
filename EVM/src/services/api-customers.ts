@@ -11,6 +11,7 @@ export interface CustomerRequest {
   address: string;
   note: string;
   status: customerStatus;
+  assignedSalesId?: number;
 }
 
 // Response type (dữ liệu server trả về)

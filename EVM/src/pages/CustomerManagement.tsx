@@ -16,6 +16,7 @@ import type { CustomerResponse, CustomerRequest } from '@/services/api-customers
 import type { ModelResponse } from '@/services/api-model';
 import { customerService, customerStatus } from '@/services/api-customers';
 import { modelService } from '@/services/api-model';
+import { UserResponse, userService } from '@/services/api-user';
 
 const CustomerManagement = () => {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ const CustomerManagement = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const [customers, setCustomers] = useState<CustomerResponse[]>([]);
+  const [users, setUsers] = useState<UserResponse[]>([]); // Để lưu danh sách nhân viên
   const [vehicleModels, setvehicleModels] = useState<ModelResponse[]>([]);
   const [newCustomer, setNewCustomer] = useState<Partial<CustomerRequest>>({
     name: '',
@@ -36,6 +38,22 @@ const CustomerManagement = () => {
     status: customerStatus.LEAD,
   });
 
+  const [selectedSales, setSelectedSales] = useState<number | null>(null); // Để lưu ID nhân viên được chọn
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const fetchedUsers = await userService.getUsers();
+        // Chỉ lấy nhân viên có role EV_STAFF
+        const evStaffUsers = fetchedUsers.filter(user => user.roleName === 'ROLE_EVMSTAFF');
+        setUsers(evStaffUsers);
+      } catch (error) {
+        toast.error('Không thể tải danh sách nhân viên');
+      }
+    };
+
+    fetchUsers();
+  }, [toast]);
 
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch =
@@ -93,6 +111,11 @@ const CustomerManagement = () => {
 
     try {
       const created = await customerService.createCustomer(newCustomer);
+
+      if (selectedSales) {
+        await customerService.assignSalesToCustomer(created.customerId, selectedSales); // Gán nhân viên cho khách hàng
+      }
+
       setCustomers(prev => [...prev, created]);
       toast.success('Đã thêm khách hàng mới');
       setIsAddDialogOpen(false);
@@ -117,6 +140,9 @@ const CustomerManagement = () => {
     try {
       const updated = await customerService.updateCustomer(editingCustomer.customerId, editingCustomer);
 
+      if (selectedSales) {
+        await customerService.assignSalesToCustomer(updated.customerId, selectedSales); // Cập nhật nhân viên
+      }
       // Cập nhật lại danh sách khách hàng trên UI
       setCustomers(prev =>
         prev.map(c => (c.customerId === updated.customerId ? updated : c))
@@ -261,6 +287,22 @@ const CustomerManagement = () => {
                             placeholder="Ho Chi Minh City"
                           />
                         </div>
+                        <div>
+                          <Label htmlFor="sales">Quản lý khách hàng *</Label>
+                          <Select value={selectedSales?.toString()} onValueChange={(value) => setSelectedSales(Number(value))}>
+                            <SelectTrigger className="mt-2 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                              <SelectValue placeholder="Chọn nhân viên" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {users.map((user) => (
+                                <SelectItem key={user.userId} value={user.userId.toString()}>
+                                  {user.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
                         <div className="space-y-2">
                           <Label htmlFor="notes">Ghi chú</Label>
                           <Textarea
@@ -300,6 +342,7 @@ const CustomerManagement = () => {
                         <TableHead>Khách hàng</TableHead>
                         <TableHead>Liên hệ</TableHead>
                         <TableHead>Địa chỉ</TableHead>
+                        <TableHead>Sales</TableHead>
                         <TableHead>Ghi chú</TableHead>
                         <TableHead>Trạng thái</TableHead>
                         <TableHead>Thao tác</TableHead>
@@ -322,6 +365,7 @@ const CustomerManagement = () => {
                             </div>
                           </TableCell>
                           <TableCell>{customer.address || 'Chưa xác định'}</TableCell>
+                          <TableCell>{customer.assignedSalesName || 'Chưa xác định'}</TableCell>
                           <TableCell>{customer.note || 'Chưa xác định'}</TableCell>
                           <TableCell>{getStatusBadge(customer.status)}</TableCell>
                           <TableCell>
