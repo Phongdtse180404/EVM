@@ -128,9 +128,44 @@ export default function OrderDetails() {
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
 
-  const handlePhoneNumberChange = (phone: string) => {
+  const handlePhoneNumberChange = async (phone: string) => {
+    // Update phone number immediately
     setOrderForm({ ...orderForm, customerPhone: phone });
+    
+    // Only lookup customer if phone number is complete (at least 10 digits)
+    if (phone.length >= 10) {
+      setIsLookingUpCustomer(true);
+      
+      try {
+        console.log('Auto-looking up customer with phone:', phone);
+        const existingCustomer = await customerService.getCustomerByPhone(phone);
+        
+        if (existingCustomer) {
+          console.log('Found existing customer, auto-filling form:', existingCustomer);
+          
+          // Auto-fill the form with existing customer data
+          setOrderForm(prev => ({
+            ...prev,
+            customerPhone: phone,
+            customerName: existingCustomer.name || prev.customerName,
+            customerEmail: '', // Don't auto-fill email as it's not in CustomerResponse
+            customerAddress: existingCustomer.address || prev.customerAddress
+          }));
+          
+          toast.success(`Đã tìm thấy khách hàng: ${existingCustomer.name}`, {
+            description: "Thông tin đã được điền tự động",
+            duration: 3000,
+          });
+        }
+      } catch (error) {
+        // Customer not found - this is normal, don't show error
+        console.log('Customer not found for phone:', phone, '- user can enter new customer info');
+      } finally {
+        setIsLookingUpCustomer(false);
+      }
+    }
   };
 
   const handleSubmitOrder = async () => {
@@ -152,23 +187,22 @@ export default function OrderDetails() {
     setIsSubmitting(true);
 
     try {
-      // Step 1: Create or find customer
-      const customerData = {
-        name: orderForm.customerName,
-        phone: orderForm.customerPhone,
-        email: orderForm.customerEmail || undefined,
-        address: orderForm.customerAddress || undefined
-      };
-
-      console.log('Creating customer with data:', customerData);
-      const newCustomer = await customerService.createCustomer(customerData);
-      const customerId = newCustomer.customerId;
+      // Step 1: Find existing customer by phone
+      console.log('=== CUSTOMER LOOKUP ===');
+      console.log('Searching for customer with phone:', orderForm.customerPhone);
       
-      if (!customerId) {
-        throw new Error('Customer ID not returned from API');
+      let customer;
+      let customerId;
+      
+      try {
+        // Try to find existing customer by phone number
+        customer = await customerService.getCustomerByPhone(orderForm.customerPhone);
+        customerId = customer.customerId;
+        console.log('Found existing customer:', customer);
+        console.log('Using existing customer ID:', customerId);
+      } catch (error) {
+        console.log('Customer not found by phone');
       }
-
-      console.log('Created new customer:', newCustomer);
         
       // Step 2: Create deposit order with specific vehicle serial
         // Get the price from the electric-vehicle data (fetched earlier).
@@ -186,15 +220,16 @@ export default function OrderDetails() {
           orderDate: new Date().toISOString()
         };
 
-        console.log(' SENDING ORDER DEPOSIT REQUEST TO API:');
-        console.log('OrderDepositRequest data:', {
-          customerId: orderDepositRequest.customerId,
-          vin: orderDepositRequest.vin,
-          depositAmount: orderDepositRequest.depositAmount,
-          userId: orderDepositRequest.userId,
-          orderDate: orderDepositRequest.orderDate
-        });
-        console.log(' Full Request Object:', orderDepositRequest);
+        console.log('=== ORDER REQUEST CREATION ===');
+        console.log('Order Request Object:', orderDepositRequest);
+        console.log('Order Request Details:');
+        console.log('  - Customer ID:', orderDepositRequest.customerId, '(type:', typeof orderDepositRequest.customerId, ')');
+        console.log('  - Vehicle VIN:', orderDepositRequest.vin, '(type:', typeof orderDepositRequest.vin, ')');
+        console.log('  - Deposit Amount:', orderDepositRequest.depositAmount, '(type:', typeof orderDepositRequest.depositAmount, ')');
+        console.log('  - User ID:', orderDepositRequest.userId, '(type:', typeof orderDepositRequest.userId, ')');
+        console.log('  - Order Date:', orderDepositRequest.orderDate, '(type:', typeof orderDepositRequest.orderDate, ')');
+        console.log('Order Request JSON:', JSON.stringify(orderDepositRequest, null, 2));
+        console.log('=== SENDING TO API ===');
 
         const createdOrder = await orderService.createDeposit(orderDepositRequest);
         console.log(' ORDER CREATED SUCCESSFULLY:', createdOrder);
@@ -415,12 +450,23 @@ export default function OrderDetails() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="customerPhone">Số điện thoại *</Label>
-                  <Input
-                    id="customerPhone"
-                    value={orderForm.customerPhone}
-                    onChange={(e) => handlePhoneNumberChange(e.target.value)}
-                    placeholder="Nhập số điện thoại"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="customerPhone"
+                      value={orderForm.customerPhone}
+                      onChange={(e) => handlePhoneNumberChange(e.target.value)}
+                      placeholder="Nhập số điện thoại"
+                      disabled={isLookingUpCustomer}
+                    />
+                    {isLookingUpCustomer && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      </div>
+                    )}
+                  </div>
+                  {isLookingUpCustomer && (
+                    <p className="text-xs text-muted-foreground">Đang tìm kiếm thông tin khách hàng...</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
