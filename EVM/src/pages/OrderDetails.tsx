@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useWarehouses } from "@/hooks/use-warehouses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,8 @@ import { toast } from "sonner";
 import { customerService } from "@/services/api-customers";
 import { orderService, OrderStatus, type OrderDepositRequest } from "@/services/api-orders";
 import type { WarehouseStockResponse, VehicleSerialResponse } from "@/services/api-warehouse";
-import { electricVehicleService, type ElectricVehicleResponse } from "@/services/api-electric-vehicle";
+import { type ElectricVehicleResponse } from "@/services/api-electric-vehicle";
+import { useElectricVehicle } from "@/hooks/use-electric-vehicle";
 
 // Type for individual vehicle with serial info
 type IndividualVehicle = WarehouseStockResponse & {
@@ -46,94 +46,51 @@ export default function OrderDetails() {
   const modelCode = searchParams.get('model');
   const color = searchParams.get('color');
   const vin = searchParams.get('vin');
+  const warehouseName = searchParams.get('warehouseName');
   
-  // Use the warehouse hook to get API data
-  const { fetchWarehouse, loading, selectedWarehouse } = useWarehouses();
-  const [selectedVehicle, setSelectedVehicle] = useState<IndividualVehicle | null>(null);
-  const [electricVehicles, setElectricVehicles] = useState<ElectricVehicleResponse[]>([]);
+  // Create vehicle object from URL params
+  const [selectedVehicle] = useState<IndividualVehicle | null>(() => {
+    if (!modelCode || !color || !vin) return null;
+    return {
+      modelCode,
+      color,
+      vin,
+      brand: '', // Brand will come from electric vehicle data
+      productionYear: new Date().getFullYear(), // Default to current year
+      quantity: 1,
+      serial: {
+        vin,
+        status: 'AVAILABLE', // Assume available for ordering
+        holdUntil: undefined
+      },
+      status: 'AVAILABLE',
+      holdUntil: undefined
+    } as IndividualVehicle;
+  });
+  
+  // Use the electric vehicle hook
+  const { findElectricVehiclesByModelCode, loading: electricVehicleLoading } = useElectricVehicle();
+  const [electricVehicle, setElectricVehicle] = useState<ElectricVehicleResponse | null>(null);
 
   // Firebase fallback image URL
   const firebaseImageUrl = "https://firebasestorage.googleapis.com/v0/b/evdealer.firebasestorage.app/o/images%2Fvehicles%2Fvf6-electric-car.png?alt=media&token=ac7891b1-f5e2-4e23-9b35-2c4d6e7f8a9b";
 
-  // Fetch warehouse data and set selected vehicle
+  // Fetch electric vehicle data for pricing and images by model code
   useEffect(() => {
-    fetchWarehouse(1); // Fetch warehouse ID 1
-  }, [fetchWarehouse]);
+    if (modelCode) {
+      findElectricVehiclesByModelCode(modelCode).then(vehicles => {
+        setElectricVehicle(vehicles[0] || null);
+      });
+    }
+  }, [findElectricVehiclesByModelCode, modelCode]);
 
-  // Fetch electric vehicles data for images
-  useEffect(() => {
-    const fetchElectricVehicles = async () => {
-      try {
-        const vehicles = await electricVehicleService.getAllElectricVehicles();
-        setElectricVehicles(vehicles);
-      } catch (error) {
-        console.error('Error fetching electric vehicles:', error);
-      }
-    };
-
-    fetchElectricVehicles();
-  }, []);
-
-  // Function to get the correct image for a vehicle based on model code and color
-  const getVehicleImage = (vehicle: IndividualVehicle): string => {
-    // Find matching electric vehicle by model code and color
-    const matchingEV = electricVehicles.find(ev => 
-      ev.modelCode === vehicle.modelCode && 
-      ev.color === vehicle.color
-    );
-    
-    // Return the image URL from electric vehicle data, or fallback to firebase image
-    return matchingEV?.imageUrl || firebaseImageUrl;
+  // Function to get the correct image for a vehicle based on electric vehicle data
+  const getVehicleImage = (): string => {
+    return electricVehicle?.imageUrl || firebaseImageUrl;
   };
 
   const formatVnd = (amount: number) => `${amount.toLocaleString('vi-VN')}₫`;
 
-  const selectedVehiclePrice = selectedVehicle
-    ? (electricVehicles.find(ev => ev.modelCode === selectedVehicle.modelCode && ev.color === selectedVehicle.color)?.price)
-    : undefined;
-
-  useEffect(() => {
-    if (selectedWarehouse?.items && selectedWarehouse.items.length > 0) {
-      // Flatten warehouse items into individual vehicles
-      const individualVehicles = selectedWarehouse.items.flatMap(item => 
-        (item.serials || []).map(serial => ({
-          ...item,
-          serial: serial,
-          status: serial.status,
-          holdUntil: serial.holdUntil,
-          vin: serial.vin
-        }))
-      );
-
-      if (vin) {
-        // First priority: Find exact vehicle by VIN
-        const foundVehicle = individualVehicles.find(v => v.vin === vin);
-        setSelectedVehicle(foundVehicle);
-        
-        if (!foundVehicle) {
-          console.warn(`Vehicle with VIN ${vin} not found`);
-          // Fallback to model and color if VIN not found
-          if (modelCode && color) {
-            const fallbackVehicle = individualVehicles.find(v => 
-              v.modelCode === modelCode && v.color === color && v.status === 'AVAILABLE'
-            );
-            setSelectedVehicle(fallbackVehicle || individualVehicles.find(v => v.status === 'AVAILABLE') || individualVehicles[0]);
-          } else {
-            setSelectedVehicle(individualVehicles.find(v => v.status === 'AVAILABLE') || individualVehicles[0]);
-          }
-        }
-      } else if (modelCode && color) {
-        // Second priority: Find by model and color
-        const foundVehicle = individualVehicles.find(v => 
-          v.modelCode === modelCode && v.color === color && v.status === 'AVAILABLE'
-        );
-        setSelectedVehicle(foundVehicle || individualVehicles.find(v => v.status === 'AVAILABLE') || individualVehicles[0]);
-      } else {
-        // Default: First available vehicle
-        setSelectedVehicle(individualVehicles.find(v => v.status === 'AVAILABLE') || individualVehicles[0]);
-      }
-    }
-  }, [selectedWarehouse, modelCode, color, vin]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -165,148 +122,61 @@ export default function OrderDetails() {
       customerEmail: "",
       customerAddress: "",
       selectedColor: selectedVehicle?.color || "",
-      depositAmount: selectedVehiclePrice ? Math.floor(selectedVehiclePrice * 0.1).toString() : "",
+      depositAmount: electricVehicle?.price ? Math.floor(electricVehicle.price * 0.1).toString() : "",
       notes: ""
     });
   };
 
-  // Update order form when vehicle is loaded
-  useEffect(() => {
-    if (selectedVehicle && selectedVehicle.color && !orderForm.selectedColor) {
-      setOrderForm(prev => ({
-        ...prev,
-        selectedColor: selectedVehicle.color
-      }));
-    }
-  }, [selectedVehicle, orderForm.selectedColor]);
-
-  // Update deposit amount when vehicle price is available
-  useEffect(() => {
-    if (selectedVehiclePrice && !orderForm.depositAmount) {
-      const suggestedDeposit = Math.floor(selectedVehiclePrice * 0.1);
-      setOrderForm(prev => ({
-        ...prev,
-        depositAmount: suggestedDeposit.toString()
-      }));
-    }
-  }, [selectedVehiclePrice, orderForm.depositAmount]);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handlePhoneNumberChange = async (phoneNumber: string) => {
-    setOrderForm({...orderForm, customerPhone: phoneNumber});
-    
-    // If phone number has reasonable length, try to fetch customer
-    if (phoneNumber.length >= 10) {
-      try {
-        const customer = await customerService.getCustomerByPhone(phoneNumber);
-        if (customer && customer.name) {
-          setOrderForm(prev => ({
-            ...prev,
-            customerPhone: phoneNumber,
-            customerName: customer.name
-          }));
-          toast.success(`Tìm thấy khách hàng: ${customer.name}`);
-        }
-      } catch (error) {
-        // Customer not found, don't show error as this is expected for new customers
-        console.log('Customer not found for phone number:', phoneNumber);
-      }
-    }
+  const handlePhoneNumberChange = (phone: string) => {
+    setOrderForm({ ...orderForm, customerPhone: phone });
   };
 
   const handleSubmitOrder = async () => {
-    if (isSubmitting || !selectedVehicle) return;
-    
-    console.log(' ORDER SUBMISSION STARTED');
-    console.log(' Order Form Data:', orderForm);
-    console.log(' Selected Vehicle:', selectedVehicle);
-    
-    setIsSubmitting(true);
-    // Validate required fields
-    const errors = [];
-
-    if (!orderForm.customerName.trim()) {
-      errors.push("Tên khách hàng");
-    }
-
-    if (!orderForm.customerPhone.trim()) {
-      errors.push("Số điện thoại");
-    }
-
-    if (!orderForm.selectedColor) {
-      errors.push("Màu xe");
-    }
-
-    // Additional validations
-    if (!orderForm.depositAmount || parseFloat(orderForm.depositAmount) <= 0) {
-      errors.push("Số tiền đặt cọc");
-    }
-
-    // Check if vehicle price is available
-    if (!selectedVehiclePrice) {
-      errors.push("Giá xe chưa có trong hệ thống");
-    }
-
-    // Show error if any required fields are missing
-    if (errors.length > 0) {
-      const errorMessage = errors.length === 1
-        ? `Vui lòng điền ${errors[0]}`
-        : `Vui lòng điền các trường bắt buộc: ${errors.join(", ")}`;
-      toast.error(errorMessage);
+    if (!selectedVehicle) {
+      toast.error("Không có thông tin xe được chọn");
       return;
     }
 
+    if (!orderForm.customerName || !orderForm.customerPhone) {
+      toast.error("Vui lòng nhập đầy đủ thông tin khách hàng");
+      return;
+    }
+
+    if (!orderForm.depositAmount || parseFloat(orderForm.depositAmount) <= 0) {
+      toast.error("Vui lòng nhập số tiền đặt cọc hợp lệ");
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
-        // Step 1: Find or create customer
-        let customerId: number;
+      // Step 1: Create or find customer
+      const customerData = {
+        name: orderForm.customerName,
+        phone: orderForm.customerPhone,
+        email: orderForm.customerEmail || undefined,
+        address: orderForm.customerAddress || undefined
+      };
+
+      console.log('Creating customer with data:', customerData);
+      const newCustomer = await customerService.createCustomer(customerData);
+      const customerId = newCustomer.customerId;
+      
+      if (!customerId) {
+        throw new Error('Customer ID not returned from API');
+      }
+
+      console.log('Created new customer:', newCustomer);
         
-        console.log(' CUSTOMER LOOKUP/CREATION');
-        console.log(' Looking up customer by phone:', orderForm.customerPhone.trim());
-        
-        try {
-          // Try to find existing customer
-          const existingCustomer = await customerService.getCustomerByPhone(orderForm.customerPhone.trim());
-          customerId = existingCustomer.customerId;
-          console.log(' Found existing customer:', existingCustomer);
-          
-          // Update customer name if it's different (in case user manually changed it)
-          if (existingCustomer.name !== orderForm.customerName.trim()) {
-            const updateData = {
-              vehicleId: 1, // Default vehicle ID since we're using warehouse system
-              name: orderForm.customerName.trim(),
-              phoneNumber: orderForm.customerPhone.trim(),
-              interestVehicle: selectedVehicle.modelCode || 'Electric Vehicle',
-              status: "CUSTOMER"
-            };
-            console.log('🔄 Updating customer with data:', updateData);
-            await customerService.updateCustomer(customerId, updateData);
-          }
-        } catch (error) {
-          // Customer doesn't exist, create new one
-          const newCustomerData = {
-            vehicleId: 1, // Default vehicle ID since we're using warehouse system
-            name: orderForm.customerName.trim(),
-            phoneNumber: orderForm.customerPhone.trim(),
-            interestVehicle: selectedVehicle.modelCode || 'Electric Vehicle',
-            status: "CUSTOMER"
-          };
-          console.log('➕ Creating new customer with data:', newCustomerData);
-          const newCustomer = await customerService.createCustomer(newCustomerData);
-          customerId = newCustomer.customerId;
-          console.log(' Created new customer:', newCustomer);
-        }      
-        // Step 2: Create deposit order with specific vehicle serial
+      // Step 2: Create deposit order with specific vehicle serial
         // Get the price from the electric-vehicle data (fetched earlier).
-        const matchingEV = electricVehicles.find(ev => 
-          ev.modelCode === selectedVehicle.modelCode && ev.color === selectedVehicle.color
-        );
-        
-        if (!matchingEV?.price) {
+        if (!electricVehicle?.price) {
           throw new Error(`Không tìm thấy giá xe cho model ${selectedVehicle.modelCode} màu ${selectedVehicle.color}`);
         }
         
-        const vehiclePrice = matchingEV.price;
+        const vehiclePrice = electricVehicle.price;
         const depositAmount = parseFloat(orderForm.depositAmount); // Use user-entered deposit amount
         const orderDepositRequest: OrderDepositRequest = {
           customerId: customerId,
@@ -352,12 +222,27 @@ export default function OrderDetails() {
   };
 
   // Return loading state if data is not ready
-  if (loading || !selectedVehicle) {
+  if (electricVehicleLoading) {
     return (
       <div className="min-h-screen p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Đang tải thông tin xe...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Return error state if required vehicle data is missing
+  if (!selectedVehicle) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Không tìm thấy thông tin xe</p>
+          <Button onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Quay lại
+          </Button>
         </div>
       </div>
     );
@@ -394,7 +279,7 @@ export default function OrderDetails() {
           <Card className="overflow-hidden">
             <div className="relative">
               <img 
-                src={getVehicleImage(selectedVehicle)} 
+                src={getVehicleImage()} 
                 alt={`${selectedVehicle.modelCode || 'Electric Vehicle'} - ${selectedVehicle.color}`}
                 className="w-full h-64 object-cover"
                 onError={(e) => {
@@ -410,13 +295,18 @@ export default function OrderDetails() {
             <CardContent className="p-6">
               <div className="mb-4">
                 <h2 className="text-2xl font-bold">{selectedVehicle.modelCode || 'Electric Vehicle'}</h2>
-                <p className="text-muted-foreground">{selectedVehicle.brand || ''}</p>
+                <p className="text-muted-foreground">{electricVehicle?.brand || ''}</p>
                 <p className="text-sm text-muted-foreground mt-2">
                   {selectedVehicle.color} - Năm sản xuất {selectedVehicle.productionYear}
                 </p>
                 <p className="text-xs text-muted-foreground font-mono mt-1">
                   VIN: {selectedVehicle.vin}
                 </p>
+                {warehouseName && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Kho: {warehouseName}
+                  </p>
+                )}
                 {selectedVehicle.holdUntil && (
                   <p className="text-xs text-yellow-600 mt-1">
                     Giữ đến: {new Date(selectedVehicle.holdUntil).toLocaleDateString('vi-VN')}
@@ -425,7 +315,7 @@ export default function OrderDetails() {
               </div>
 
               <div className="text-2xl font-bold text-primary mb-6">
-                {selectedVehiclePrice ? formatVnd(selectedVehiclePrice) : 'Giá chưa có'}
+                {electricVehicle?.price ? formatVnd(electricVehicle.price) : 'Giá chưa có'}
               </div>
 
               {/* Vehicle Specs */}
@@ -444,7 +334,7 @@ export default function OrderDetails() {
                     <Shield className="w-4 h-4 text-primary" />
                     <div>
                       <p className="text-xs font-medium">Thương hiệu</p>
-                      <p className="text-xs text-muted-foreground">{selectedVehicle.brand}</p>
+                      <p className="text-xs text-muted-foreground">{electricVehicle?.brand || ''}</p>
                     </div>
                   </div>
 
@@ -501,7 +391,7 @@ export default function OrderDetails() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">Thương hiệu {selectedVehicle.brand}</span>
+                    <span className="text-sm text-muted-foreground">Thương hiệu {electricVehicle?.brand || ''}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
@@ -591,11 +481,11 @@ export default function OrderDetails() {
                   type="number"
                   value={orderForm.depositAmount}
                   onChange={(e) => setOrderForm({ ...orderForm, depositAmount: e.target.value })}
-                  placeholder={selectedVehiclePrice ? `Đề xuất: ${Math.floor(selectedVehiclePrice * 0.1).toLocaleString('vi-VN')} ₫` : "Nhập số tiền đặt cọc"}
+                  placeholder={electricVehicle?.price ? `Đề xuất: ${Math.floor(electricVehicle.price * 0.1).toLocaleString('vi-VN')} ₫` : "Nhập số tiền đặt cọc"}
                 />
-                {selectedVehiclePrice && (
+                {electricVehicle?.price && (
                   <p className="text-xs text-muted-foreground">
-                    Đề xuất 10%: {Math.floor(selectedVehiclePrice * 0.1).toLocaleString('vi-VN')} ₫
+                    Đề xuất 10%: {Math.floor(electricVehicle.price * 0.1).toLocaleString('vi-VN')} ₫
                   </p>
                 )}
               </div>
@@ -644,7 +534,7 @@ export default function OrderDetails() {
                 <Separator />
                 <div className="flex justify-between">
                   <span>Tổng giá xe:</span>
-                  <span className="font-medium">{selectedVehiclePrice ? formatVnd(selectedVehiclePrice) : 'Giá chưa có'}</span>
+                  <span className="font-medium">{electricVehicle?.price ? formatVnd(electricVehicle.price) : 'Giá chưa có'}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold">
                   <span>Đặt cọc:</span>
@@ -657,8 +547,8 @@ export default function OrderDetails() {
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Còn lại:</span>
                   <span>
-                    {selectedVehiclePrice && orderForm.depositAmount && parseFloat(orderForm.depositAmount) > 0
-                      ? formatVnd(selectedVehiclePrice - parseFloat(orderForm.depositAmount))
+                    {electricVehicle?.price && orderForm.depositAmount && parseFloat(orderForm.depositAmount) > 0
+                      ? formatVnd(electricVehicle.price - parseFloat(orderForm.depositAmount))
                       : 'Chưa có'}
                   </span>
                 </div>

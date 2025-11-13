@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { WarehouseStockResponse, VehicleSerialResponse, WarehouseResponse } from "@/services/api-warehouse";
-import { electricVehicleService, type ElectricVehicleResponse } from "@/services/api-electric-vehicle";
+import { type ElectricVehicleResponse } from "@/services/api-electric-vehicle";
+import { useElectricVehicle } from "@/hooks/use-electric-vehicle";
 import { ShowroomTopbar } from "@/components/ShowroomTopbar";
 import { ShowroomStats } from "@/components/ShowroomStats";
 import { ShowroomSearchFilter } from "@/components/ShowroomSearchFilter";
@@ -25,6 +26,8 @@ type IndividualVehicle = WarehouseStockResponse & {
   holdUntil?: string;
   vin: string;
   imageUrl?: string;
+  warehouseId?: number;
+  warehouseName?: string;
 };
 import {
   Car,
@@ -41,7 +44,9 @@ export default function VehicleShowroom() {
   const [selectedVehicle, setSelectedVehicle] = useState<IndividualVehicle | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [electricVehicles, setElectricVehicles] = useState<ElectricVehicleResponse[]>([]);
+  
+  // Use the electric vehicle hook
+  const { electricVehicles, fetchElectricVehicles, loading: electricVehicleLoading } = useElectricVehicle();
   const [detailedWarehouses, setDetailedWarehouses] = useState<WarehouseResponse[]>([]);
 
   // Fetch all warehouses data on component mount
@@ -89,17 +94,8 @@ export default function VehicleShowroom() {
 
   // Fetch electric vehicles data for images
   useEffect(() => {
-    const fetchElectricVehicles = async () => {
-      try {
-        const vehicles = await electricVehicleService.getAllElectricVehicles();
-        setElectricVehicles(vehicles);
-      } catch (error) {
-        console.error('Error fetching electric vehicles:', error);
-      }
-    };
-
     fetchElectricVehicles();
-  }, []);
+  }, [fetchElectricVehicles]);
 
   // Function to get the correct image for a vehicle based on model code and color
   const getVehicleImage = (vehicle: IndividualVehicle): string => {
@@ -118,7 +114,11 @@ export default function VehicleShowroom() {
     console.log('Creating warehouseItems from detailedWarehouses:', detailedWarehouses);
     return detailedWarehouses?.flatMap(warehouse => {
       console.log(`Processing warehouse ${warehouse.warehouseName}:`, warehouse.items);
-      return warehouse.items || [];
+      return (warehouse.items || []).map(item => ({
+        ...item,
+        warehouseId: warehouse.warehouseId,
+        warehouseName: warehouse.warehouseName
+      }));
     }) || [];
   }, [detailedWarehouses]);
 
@@ -133,7 +133,9 @@ export default function VehicleShowroom() {
           serial: firstItem.serials[0],
           status: firstItem.serials[0].status,
           holdUntil: firstItem.serials[0].holdUntil,
-          vin: firstItem.serials[0].vin
+          vin: firstItem.serials[0].vin,
+          warehouseId: firstItem.warehouseId,
+          warehouseName: firstItem.warehouseName
         });
       }
     }
@@ -146,7 +148,9 @@ export default function VehicleShowroom() {
       serial: serial,
       status: serial.status,
       holdUntil: serial.holdUntil,
-      vin: serial.vin
+      vin: serial.vin,
+      warehouseId: item.warehouseId,
+      warehouseName: item.warehouseName
     }))
   );
   
