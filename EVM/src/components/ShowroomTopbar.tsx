@@ -19,7 +19,7 @@ import { toast } from "sonner";
 
 export function ShowroomTopbar() {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState<{ email?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ email?: string; role?: string; roleId?: number } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -35,7 +35,7 @@ export function ShowroomTopbar() {
         localStorage.removeItem("user"); // Xoá dữ liệu lỗi để tránh lặp lại
       }
     } else {
-      console.warn("⚠️ Không có user hợp lệ trong localStorage");
+      console.warn("Không có user hợp lệ trong localStorage");
     }
   }, []);
 
@@ -45,6 +45,82 @@ export function ShowroomTopbar() {
     setCurrentUser(null);
     toast.success("Đăng xuất thành công!");
     navigate("/login");
+  };
+
+  // Define menu items based on user role
+  const getMenuItems = () => {
+    const role = currentUser?.role;
+    
+    // Common menu items for ROLE_EVMSTAFF
+    const evmStaffItems = [
+      {
+        icon: ShoppingCart,
+        label: "Quản lý bán hàng",
+        path: "/sales"
+      },
+      {
+        icon: Users,
+        label: "Quản lý khách hàng", 
+        path: "/customers"
+      },
+      {
+        icon: Calendar,
+        label: "Báo cáo",
+        path: "/reports"
+      }
+    ];
+
+    // Admin gets all menu items
+    const adminItems = [
+      ...evmStaffItems,
+      {
+        icon: Car,
+        label: "Quản lý tồn kho",
+        path: "/inventory"
+      },
+      {
+        icon: Shield,
+        label: "Dịch vụ",
+        path: "/service"
+      },
+      {
+        icon: Shield,
+        label: "Dashboard",
+        path: "/admin/users"
+      },
+      {
+        icon: Building2,
+        label: "Quản lý đại lý",
+        path: "/admin/dealerships"
+      }
+    ];
+
+        // Admin gets all menu items
+    const evmManagerItems = [
+      ...evmStaffItems,
+      {
+        icon: Car,
+        label: "Quản lý tồn kho",
+        path: "/inventory"
+      },
+      {
+        icon: Shield,
+        label: "Dịch vụ",
+        path: "/service"
+      }
+    ];
+
+    // Return menu items based on role
+    if (role === 'ROLE_ADMIN') {
+      return adminItems;
+    } else if (role === 'ROLE_EVMSTAFF') {
+      return evmStaffItems;
+    } else if (role === 'ROLE_EVMMANAGER') {
+      return evmManagerItems;
+    } else {
+      // Default for other roles (ROLE_USER, etc.)
+      return evmStaffItems;
+    }
   };
 
   return (
@@ -61,13 +137,7 @@ export function ShowroomTopbar() {
           </div>
 
           <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              className="transition-all duration-200 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg"
-            >
-              <Phone className="w-4 h-4 mr-2" />
-              Liên hệ tư vấn
-            </Button>
+            
 
             {/* User Dropdown */}
             {currentUser ? (
@@ -109,61 +179,16 @@ export function ShowroomTopbar() {
                 className="w-56 z-50 bg-background border border-border shadow-lg"
                 align="end"
               >
-                <DropdownMenuItem
-                  onClick={() => navigate("/sales")}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  <span>Quản lý bán hàng</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => navigate("/inventory")}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <Car className="w-4 h-4" />
-                  <span>Quản lý tồn kho</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => navigate("/customers")}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>Quản lý khách hàng</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => navigate("/reports")}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <Calendar className="w-4 h-4" />
-                  <span>Báo cáo</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => navigate("/service")}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <Shield className="w-4 h-4" />
-                  <span>Dịch vụ</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => navigate("/admin/users")}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <Shield className="w-4 h-4" />
-                  <span>Dashboard</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => navigate("/admin/dealerships")}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <Building2 className="w-4 h-4" />
-                  <span>Quản lý đại lý</span>
-                </DropdownMenuItem>
+                {getMenuItems().map((item, index) => (
+                  <DropdownMenuItem
+                    key={index}
+                    onClick={() => navigate(item.path)}
+                    className="flex items-center space-x-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <item.icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

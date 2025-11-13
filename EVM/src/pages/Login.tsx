@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { authService } from "@/services/api-auth";
+import { getUserRoleFromToken } from "@/lib/jwt-utils";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -29,9 +30,15 @@ const Login = () => {
       console.log("Token nhận được từ server:", token);
       console.log("Email nhận được từ server:", email);
 
+      // Decode token to get role information
+      const { roleId, roleName, role } = getUserRoleFromToken(token);
+      console.log("Role từ token:", role);
+      console.log("Role ID từ token:", roleId);
+      console.log("Role Name từ token:", roleName);
+
       // Lưu token vào localStorage để các request khác dùng
       localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify({ email }));
+      localStorage.setItem("user", JSON.stringify({ email, roleId, roleName, role }));
 
       console.log("Token đã lưu trong localStorage:", localStorage.getItem("token"));
       console.log("User đã lưu trong localStorage:", localStorage.getItem("user"));
@@ -41,7 +48,12 @@ const Login = () => {
         duration: 3000,
       });
 
-      navigate("/showroom");
+      // Redirect based on role - Admin (roleId: 2) goes to admin page, others to showroom
+      if (roleId === 2) {
+        navigate("/admin/dealerships");
+      } else {
+        navigate("/showroom");
+      }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Sai email hoặc mật khẩu";
       toast.error("Đăng nhập thất bại!", {
