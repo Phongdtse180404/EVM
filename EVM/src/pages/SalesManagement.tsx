@@ -19,14 +19,12 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import vinfastLogo from "@/assets/vinfast-logo.png";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import { roboto } from "@/assets/fonts/Roboto-Regular";
 import { orderService, OrderResponse, OrderStatus, OrderPaymentStatus } from "@/services/api-orders";
 import { customerService, CustomerResponse } from "@/services/api-customers";
 import { paymentService, PaymentPurpose } from "@/services/api-payment";
 import { Input } from "@/components/ui/input";
+import { contractService } from "@/services/api-contact-delivery";
+import { fi } from "date-fns/locale";
 
 export default function SalesManagement() {
   const navigate = useNavigate();
@@ -45,6 +43,7 @@ export default function SalesManagement() {
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "vnpay">("vnpay");
   const [cashAmount, setCashAmount] = useState<number>(0);
   const [cashNote, setCashNote] = useState<string>("");
+  const [deliveryDate, setDeliveryDate] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -113,259 +112,6 @@ export default function SalesManagement() {
     }
   };
 
-  const handleGenerateContractPDF = async (order: OrderResponse) => {
-
-    try {
-      const pdf = new jsPDF();
-      pdf.addFileToVFS("Roboto-Regular.ttf", roboto);
-      pdf.addFont("Roboto-Regular.ttf", "Roboto", "normal");
-      pdf.setFont("Roboto");
-
-
-      // Load and add logo
-      try {
-        const logoImg = new Image();
-        logoImg.src = vinfastLogo;
-        await new Promise((resolve) => {
-          logoImg.onload = resolve;
-        });
-
-        // Add logo
-        pdf.addImage(logoImg, 'PNG', 15, 10, 30, 30);
-      } catch (error) {
-        console.error('Error loading logo:', error);
-      }
-
-      // Company Header
-      pdf.setFontSize(16);
-      pdf.setTextColor(0, 51, 102); // VinFast blue
-      pdf.setFont("Roboto", "normal");
-      pdf.text("CONG TY TNHH SAN XUAT VA KINH DOANH VINFAST", 50, 20);
-
-      pdf.setFontSize(9);
-      pdf.setTextColor(80, 80, 80);
-      pdf.setFont("helvetica", "normal");
-      pdf.text("Dia chi: Khu Cong nghiep Dinh Vu - Cat Hai, Hai Phong", 50, 27);
-      pdf.text("Dien thoai: 1900 23 23 89 | Email: info@vinfastauto.com", 50, 32);
-
-      // Decorative line
-      pdf.setDrawColor(0, 123, 255);
-      pdf.setLineWidth(1);
-      pdf.line(15, 45, 195, 45);
-
-      // Title
-      pdf.setFontSize(22);
-      pdf.setTextColor(0, 51, 102);
-      pdf.setFont("Roboto", "normal");
-      pdf.text("HOP DONG MUA BAN XE O TO", 105, 55, { align: "center" });
-
-      // Contract info box
-      pdf.setFillColor(240, 248, 255);
-      pdf.rect(15, 60, 180, 15, 'F');
-      pdf.setFontSize(10);
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFont("helvetica", "normal");
-      pdf.text(`So hop dong: ${order.orderId}`, 105, 67, { align: "center" });
-      pdf.text(`Ngay lap: ${new Date(order.orderDate).toLocaleDateString('vi-VN')}`, 105, 72, { align: "center" });
-
-      let currentY = 85;
-
-      // Seller Information
-      pdf.setFontSize(12);
-      pdf.setTextColor(0, 51, 102);
-      pdf.setFont("Roboto", "normal");
-      pdf.text("BEN BAN (BEN A): CONG TY TNHH SAN XUAT VA KINH DOANH VINFAST", 15, currentY);
-
-      currentY += 10;
-      autoTable(pdf, {
-        startY: currentY,
-        head: [],
-        body: [
-          ['Dia chi', 'Khu Cong nghiep Dinh Vu - Cat Hai, Hai Phong, Viet Nam'],
-          ['Ma so thue', '0108926276'],
-          ['Dien thoai', '1900 23 23 89'],
-          ['Email', 'info@vinfastauto.com'],
-        ],
-        theme: 'plain',
-        styles: {
-          fontSize: 10,
-          cellPadding: 2,
-        },
-        columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 40 },
-          1: { cellWidth: 140 }
-        },
-        margin: { left: 15 }
-      });
-
-      currentY = (pdf as any).lastAutoTable.finalY + 10;
-
-      // Buyer Information
-      pdf.setFontSize(12);
-      pdf.setTextColor(0, 51, 102);
-      pdf.setFont("Roboto", "normal");
-      pdf.text("BEN MUA (BEN B)", 15, currentY);
-
-      currentY += 7;
-      autoTable(pdf, {
-        startY: currentY,
-        head: [],
-        body: [
-          ['Ho va ten', order.customerName],
-          ['So dien thoai',],
-          ['CMND/CCCD', '___________________________'],
-          ['Dia chi', '___________________________'],
-        ],
-        theme: 'plain',
-        styles: {
-          fontSize: 10,
-          cellPadding: 2,
-        },
-        columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 40 },
-          1: { cellWidth: 140 }
-        },
-        margin: { left: 15 }
-      });
-
-      currentY = (pdf as any).lastAutoTable.finalY + 10;
-
-      // Vehicle Information with decorative box
-      pdf.setFillColor(0, 51, 102);
-      pdf.rect(15, currentY - 5, 180, 8, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont("Roboto", "normal");
-      pdf.text("THONG TIN XE", 105, currentY, { align: "center" });
-
-      currentY += 8;
-      autoTable(pdf, {
-        startY: currentY,
-        head: [],
-        body: [
-          ['Hang xe', 'VinFast'],
-          ['Model', order.vehicleModel],
-          ['Nam san xuat', '2024'],
-          ['Xuat xu', 'Viet Nam'],
-          ['Bao hanh', '10 nam hoac 200,000 km'],
-        ],
-        theme: 'striped',
-        headStyles: {
-          fillColor: [0, 51, 102],
-        },
-        styles: {
-          fontSize: 10,
-          cellPadding: 3,
-        },
-        columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 50 },
-          1: { cellWidth: 130 }
-        },
-        margin: { left: 15 }
-      });
-
-      currentY = (pdf as any).lastAutoTable.finalY + 10;
-
-      // Payment Information with colors
-      pdf.setFillColor(0, 51, 102);
-      pdf.rect(15, currentY - 5, 180, 8, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont("Roboto", "normal");
-      pdf.text("THONG TIN THANH TOAN", 105, currentY, { align: "center" });
-
-      currentY += 8;
-      const totalPrice = order.totalAmount.toLocaleString('vi-VN');
-      const planedDepositAmount = order.planedDepositAmount.toLocaleString('vi-VN');
-      const remaining = order.remainingAmount.toLocaleString('vi-VN');
-
-      autoTable(pdf, {
-        startY: currentY,
-        head: [],
-        body: [
-          ['Gia xe (bao gom VAT)', `${totalPrice} VND`],
-          ['Tien coc (30%)', `${planedDepositAmount} VND`],
-          ['Con lai can thanh toan', `${remaining} VND`],
-          ['Phuong thuc thanh toan', 'Chuyen khoan ngan hang / Tien mat'],
-          ['Thoi han thanh toan', 'Khi nhan xe tai showroom'],
-        ],
-        theme: 'striped',
-        styles: {
-          fontSize: 10,
-          cellPadding: 3,
-        },
-        columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 70 },
-          1: { cellWidth: 110, fontStyle: 'bold' }
-        },
-        margin: { left: 15 }
-      });
-
-      // Add new page for terms
-      pdf.addPage();
-
-      currentY = 20;
-
-      // Terms and Conditions
-      pdf.setFillColor(0, 51, 102);
-      pdf.rect(15, currentY - 5, 180, 8, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont("Roboto", "normal");
-      pdf.text("DIEU KHOAN VA DIEU KIEN", 105, currentY, { align: "center" });
-
-      currentY += 10;
-      pdf.setFontSize(10);
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFont("helvetica", "normal");
-
-      const terms = [
-        "1. Ben B da dat coc 30% gia tri xe theo thoa thuan tai hop dong nay.",
-        "2. So tien con lai (70%) se duoc Ben B thanh toan khi nhan xe tai showroom.",
-        "3. Thoi gian giao xe du kien: 30 ngay ke tu ngay ky hop dong.",
-        "4. Ben A cam ket xe giao dung model, mau sac, cau hinh nhu da thoa thuan.",
-        "5. Xe duoc bao hanh 10 nam hoac 200,000 km tuy theo dieu kien nao den truoc.",
-        "6. Ben B co quyen huy hop dong va nhan lai 100% tien coc neu Ben A khong",
-        "   giao xe dung thoi han da cam ket.",
-        "7. Neu Ben B huy hop dong vi ly do ca nhan, Ben A giu lai 20% tien coc",
-        "   de bu dap chi phi.",
-        "8. Hai ben cam ket thuc hien dung cac dieu khoan da ky ket.",
-        "9. Moi tranh chap phat sinh se duoc giai quyet thong qua thuong luong,",
-        "   hoa giai. Neu khong dat duoc thoa thuan, se giai quyet tai Toa an",
-        "   noi Ben A co tru so.",
-      ];
-
-      terms.forEach((term, index) => {
-        const lines = pdf.splitTextToSize(term, 170);
-        pdf.text(lines, 20, currentY);
-        currentY += lines.length * 5;
-      });
-
-      currentY += 15;
-
-      // Signatures
-      pdf.setFontSize(11);
-      pdf.setFont("Roboto", "normal");
-      pdf.text("DAI DIEN BEN A", 50, currentY, { align: "center" });
-      pdf.text("DAI DIEN BEN B", 150, currentY, { align: "center" });
-
-      pdf.setFontSize(9);
-      pdf.setFont("helvetica", "italic");
-      pdf.text("(Ky, ghi ro ho ten va dong dau)", 50, currentY + 5, { align: "center" });
-      pdf.text("(Ky va ghi ro ho ten)", 150, currentY + 5, { align: "center" });
-
-      // Footer
-      pdf.setFontSize(8);
-      pdf.setTextColor(128, 128, 128);
-      pdf.text("Hop dong nay duoc lap thanh 02 ban, moi ben giu 01 ban co gia tri phap ly nhu nhau.", 105, 280, { align: "center" });
-
-      // Save PDF
-      pdf.save(`hop-dong-${order.orderId}-${order.customerName}.pdf`);
-      toast.success("Đã tải xuống hợp đồng PDF!");
-    } catch (error) {
-      console.error("Lỗi khi tạo PDF hợp đồng:", error);
-      toast.error("Không thể tạo PDF hợp đồng!");
-    }
-  };
-
-
   const handleDeleteOrder = async (id: number) => {
     if (!window.confirm("Bạn có chắc muốn xoá đơn hàng này không?")) return;
 
@@ -381,7 +127,6 @@ export default function SalesManagement() {
       setLoading(false);
     }
   };
-
 
   const handleCashPayment = async () => {
     if (!paymentOrder) {
@@ -477,6 +222,56 @@ export default function SalesManagement() {
       }
     }
   };
+
+  const handleViewDepositContract = async (orderId: number) => {
+    try {
+      setLoading(true);
+
+      const pdfBlob = await contractService.getDepositContract(orderId);
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, "_blank"); // mở file PDF trong tab mới
+    } catch (error) {
+      toast.error("Không thể tải hợp đồng đặt cọc!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewDeliverySlip = async (orderId: number) => {
+    try {
+      setLoading(true);
+      const pdfBlob = await contractService.getDeliverySlip(orderId);
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, "_blank");
+    } catch (error) {
+      toast.error("Không thể tải phiếu giao xe!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateDeliveryDate = async (orderId: number) => {
+    if (!deliveryDate) {
+      toast.warning("Vui lòng nhập ngày giao xe!");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const res = await contractService.updateDeliveryDate(orderId, {
+        deliveryDate: deliveryDate, // format: YYYY-MM-DD
+      });
+
+      toast.success("Cập nhật ngày giao xe thành công!");
+      console.log("Updated order:", res);
+
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Lỗi khi cập nhật ngày giao xe!");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen p-6 space-y-6">
@@ -599,7 +394,7 @@ export default function SalesManagement() {
                     <>
                       <Button
                         size="sm"
-                        onClick={() => handleGenerateContractPDF(order)}
+                        onClick={() => handleViewDepositContract(order.orderId)}
                         className="bg-secondary text-xs"
                       >
                         <FileText className="w-3 h-3 mr-1" />
@@ -607,6 +402,36 @@ export default function SalesManagement() {
                       </Button>
                     </>
                   )}
+
+                  {order.paymentStatus === 'PAID' && (
+                    <>
+                      {order.deliveryDate === null && (
+                        <>
+                          <Input
+                            type="date"
+                            value={deliveryDate}
+                            onChange={(e) => setDeliveryDate(e.target.value)}
+                          />
+                          <Button onClick={() => handleUpdateDeliveryDate(order.orderId)}>
+                            Lưu ngày giao
+                          </Button>
+                        </>
+                      )}
+                      {order.deliveryDate !== null && (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleViewDeliverySlip(order.orderId)}
+                            className="bg-secondary text-xs"
+                          >
+                            <FileText className="w-3 h-3 mr-1" />
+                            Xuất hợp đồng
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
+
                   <Button
                     size="sm"
                     variant="outline"
