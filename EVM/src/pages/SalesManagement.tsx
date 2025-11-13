@@ -425,7 +425,7 @@ export default function SalesManagement() {
                             className="bg-secondary text-xs"
                           >
                             <FileText className="w-3 h-3 mr-1" />
-                            Xuất hợp đồng
+                            Xuất phiếu giao xe
                           </Button>
                         </>
                       )}

@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Eye, EyeOff, User, Mail, Lock, Sparkles, Shield } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { authService } from "@/services/api-auth";
@@ -11,6 +12,8 @@ import { authService } from "@/services/api-auth";
 const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -47,7 +50,16 @@ const Login = () => {
     }
   };
 
-
+  const handleForgotPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Chỉ UI demo - không có logic thực tế
+    toast.success("Email đã được gửi!", {
+      description: "Vui lòng kiểm tra email để đặt lại mật khẩu",
+      duration: 3000,
+    });
+    setShowForgotPassword(false);
+    setForgotPasswordEmail("");
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4 relative overflow-hidden">
@@ -141,13 +153,66 @@ const Login = () => {
               </Button>
 
               <div className="text-center">
-                <Button variant="link" className="text-sm text-primary hover:text-primary/80 transition-colors">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="text-sm text-primary hover:text-primary/80 transition-colors"
+                  onClick={() => setShowForgotPassword(true)}
+                >
                   Quên mật khẩu?
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
+
+        {/* Forgot Password Dialog */}
+        <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+          <DialogContent className="sm:max-w-md bg-background/95 backdrop-blur-xl border-border/50">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                <Mail className="w-6 h-6 text-primary" />
+                Quên mật khẩu
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                Nhập email đã đăng ký để nhận hướng dẫn đặt lại mật khẩu
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleForgotPassword} className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email" className="text-sm font-medium">
+                  Email đã đăng ký
+                </Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="example@vinfast.vn"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  required
+                  className="h-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowForgotPassword(false)}
+                  className="flex-1"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90 text-white"
+                >
+                  Gửi email
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   );

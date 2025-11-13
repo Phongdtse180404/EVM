@@ -176,7 +176,7 @@ const ServiceManagement = () => {
         };
 
         await serviceEntityService.createService(payload);
-        sonnerToast.success("🚗 Đã tạo lịch lái thử thành công!");
+        sonnerToast.success(" Đã tạo lịch lái thử thành công!");
       }
 
       setIsScheduleDialogOpen(false);
@@ -225,7 +225,7 @@ const ServiceManagement = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/showroom')}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Quay lại
