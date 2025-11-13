@@ -99,16 +99,15 @@ export const useElectricVehicle = () => {
     }
   }, [toast]);
 
-  // Find electric vehicle by model ID
-  const findElectricVehicleByModelId = useCallback(async (modelId: number): Promise<ElectricVehicleResponse | null> => {
+  // Find electric vehicles by model code
+  const findElectricVehiclesByModelCode = useCallback(async (modelCode: string): Promise<ElectricVehicleResponse[]> => {
     setLoading(true);
     try {
-      const electricVehicles = await electricVehicleService.getAllElectricVehicles();
-      const found = electricVehicles.find(ev => ev.modelId === modelId);
-      return found || null;
+      const electricVehicles = await electricVehicleService.searchVehiclesByModelCode(modelCode);
+      return electricVehicles || [];
     } catch (error) {
-      console.error('Error finding electric vehicle:', error);
-      return null;
+      console.error('Error finding electric vehicles by model code:', error);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -124,8 +123,9 @@ export const useElectricVehicle = () => {
     try {
       console.log('Starting electric vehicle deletion process for modelId:', modelId);
       
-      // Find electric vehicle by modelId
-      const electricVehicle = await findElectricVehicleByModelId(modelId);
+      // Find electric vehicle by modelId (using getAllElectricVehicles for backward compatibility)
+      const allElectricVehicles = await electricVehicleService.getAllElectricVehicles();
+      const electricVehicle = allElectricVehicles.find(ev => ev.modelId === modelId);
       
       if (electricVehicle) {
         
@@ -141,14 +141,14 @@ export const useElectricVehicle = () => {
     } catch (error) {
         return { success: false };
     }
-  }, [findElectricVehicleByModelId]);
+  }, []);
 
   return {
     // Operations
     createElectricVehicle,
     updateElectricVehicle,
     fetchElectricVehicles,
-    findElectricVehicleByModelId,
+    findElectricVehiclesByModelCode,
     deleteElectricVehicleByModelId,
     
     // State

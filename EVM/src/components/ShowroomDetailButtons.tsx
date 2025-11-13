@@ -7,6 +7,8 @@ type IndividualVehicle = {
   modelCode: string;
   color: string;
   vin: string;
+  warehouseId?: number;
+  warehouseName?: string;
 };
 
 interface ShowroomDetailButtonsProps {
@@ -20,7 +22,21 @@ export function ShowroomDetailButtons({ selectedVehicle }: ShowroomDetailButtons
     e.preventDefault();
     e.stopPropagation();
     console.log("Tạo đơn hàng clicked", selectedVehicle.vin);
-    navigate(`/order-details?model=${selectedVehicle.modelCode}&color=${selectedVehicle.color}&vin=${selectedVehicle.vin}`);
+    const params = new URLSearchParams({
+      model: selectedVehicle.modelCode,
+      color: selectedVehicle.color,
+      vin: selectedVehicle.vin
+    });
+    
+    if (selectedVehicle.warehouseId) {
+      params.append('warehouseId', selectedVehicle.warehouseId.toString());
+    }
+    
+    if (selectedVehicle.warehouseName) {
+      params.append('warehouseName', selectedVehicle.warehouseName);
+    }
+    
+    navigate(`/order-details?${params.toString()}`);
   };
 
   const handleViewWarehouse = () => {

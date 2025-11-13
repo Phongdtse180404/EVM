@@ -6,6 +6,8 @@ type IndividualVehicle = {
   productionYear: number;
   vin: string;
   holdUntil?: string;
+  warehouseId?: number;
+  warehouseName?: string;
 };
 
 interface ShowroomDetailVehicleInformationProps {
@@ -21,6 +23,11 @@ export function ShowroomDetailVehicleInformation({ selectedVehicle }: ShowroomDe
         <p className="text-sm text-muted-foreground mt-2">
           Màu: {selectedVehicle.color} | Năm sản xuất: {selectedVehicle.productionYear}
         </p>
+        {selectedVehicle.warehouseName && (
+          <p className="text-sm text-muted-foreground mt-1">
+            Kho: {selectedVehicle.warehouseName}
+          </p>
+        )}
       </div>
       <div className="text-right">
         <div className="text-2xl font-bold text-primary">
