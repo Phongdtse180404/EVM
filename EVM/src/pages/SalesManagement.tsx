@@ -25,6 +25,7 @@ import { paymentService, PaymentPurpose } from "@/services/api-payment";
 import { Input } from "@/components/ui/input";
 import { contractService } from "@/services/api-contact-delivery";
 import { fi } from "date-fns/locale";
+import { Search } from "lucide-react";
 
 export default function SalesManagement() {
   const navigate = useNavigate();
@@ -73,9 +74,33 @@ export default function SalesManagement() {
   }, []);
 
 
-  const filteredOrders = orders.filter(order =>
-    order.customerName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOrders = orders.filter(order => {
+    const searchTerm_clean = searchTerm.trim();
+    if (!searchTerm_clean) return true; // Show all if no search term
+    
+    const searchLower = searchTerm_clean.toLowerCase();
+    
+    // Search by customer name
+    if (order.customerName.toLowerCase().includes(searchLower)) {
+      return true;
+    }
+    
+    // Search by customer phone - find matching customer
+    const matchingCustomer = customers.find(customer => {
+      const phoneMatch = customer.customerId === order.customerId && 
+                        customer.phoneNumber && 
+                        customer.phoneNumber.includes(searchTerm_clean);
+      
+      // Debug logging
+      if (searchTerm_clean && customer.customerId === order.customerId) {
+        console.log(`Order ${order.orderId} - Customer ${customer.customerId}: ${customer.phoneNumber} vs search "${searchTerm_clean}" = ${phoneMatch}`);
+      }
+      
+      return phoneMatch;
+    });
+    
+    return !!matchingCustomer;
+  });
 
 
   const getStatusColor = (status: OrderResponse['status']) => {
@@ -271,7 +296,7 @@ export default function SalesManagement() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen p-6 space-y-6">
@@ -293,7 +318,7 @@ export default function SalesManagement() {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions */
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
           <div className="text-3xl font-bold text-primary mb-2">
@@ -315,6 +340,28 @@ export default function SalesManagement() {
           </div>
           <p className="text-muted-foreground">Doanh thu</p>
         </Card>
+      </div>
+}
+      {/* Search Bar */}
+      <div className="flex items-center space-x-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm kiếm theo tên khách hàng hoặc số điện thoại..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 h-11"
+          />
+        </div>
+        {searchTerm && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSearchTerm("")}
+          >
+            Xóa bộ lọc
+          </Button>
+        )}
       </div>
 
       {/* Vehicle Showcase Dialog */}
@@ -555,7 +602,7 @@ export default function SalesManagement() {
           )}
 
         </DialogContent>
-      </Dialog >
-    </div >
+      </Dialog>
+    </div>
   );
 }

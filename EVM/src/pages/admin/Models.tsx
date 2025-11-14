@@ -50,7 +50,7 @@ export default function Models() {
     setEditingModel(model || null);
     setIsEditModelDialogOpen(true);
   };
-
+  
 
 
   const handleDeleteModel = async () => {
