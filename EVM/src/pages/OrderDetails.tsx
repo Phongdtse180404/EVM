@@ -6,22 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft,
   Car,
   Battery,
-  Gauge,
-  Fuel,
-  Users,
   Calendar,
   Zap,
   Timer,
   Shield,
   ShoppingCart,
   CheckCircle,
-  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { customerService } from "@/services/api-customers";
@@ -75,6 +70,17 @@ export default function OrderDetails() {
   // Firebase fallback image URL
   const firebaseImageUrl = "https://firebasestorage.googleapis.com/v0/b/evdealer.firebasestorage.app/o/images%2Fvehicles%2Fvf6-electric-car.png?alt=media&token=ac7891b1-f5e2-4e23-9b35-2c4d6e7f8a9b";
 
+  // Order form state - Initialize first before using in useEffect
+  const [orderForm, setOrderForm] = useState({
+    customerName: "",
+    customerPhone: "",
+    customerEmail: "",
+    customerAddress: "",
+    selectedColor: "",
+    depositAmount: "",
+    notes: ""
+  });
+
   // Fetch electric vehicle data for pricing and images by model code
   useEffect(() => {
     if (modelCode) {
@@ -83,6 +89,18 @@ export default function OrderDetails() {
       });
     }
   }, [findElectricVehiclesByModelCode, modelCode]);
+
+  // Automatically set deposit amount when electric vehicle data loads
+  useEffect(() => {
+    if (electricVehicle?.price) {
+      const suggestedDeposit = Math.floor(electricVehicle.price * 0.1);
+      setOrderForm(prev => ({
+        ...prev,
+        depositAmount: prev.depositAmount || suggestedDeposit.toString(),
+        selectedColor: prev.selectedColor || selectedVehicle?.color || ""
+      }));
+    }
+  }, [electricVehicle?.price, selectedVehicle?.color]);
 
   // Function to get the correct image for a vehicle based on electric vehicle data
   const getVehicleImage = (): string => {
@@ -104,25 +122,17 @@ export default function OrderDetails() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
-  const [orderForm, setOrderForm] = useState({
-    customerName: "",
-    customerPhone: "",
-    customerEmail: "",
-    customerAddress: "",
-    selectedColor: "",
-    depositAmount: "",
-    notes: ""
-  });
 
   // Reset form function to clear any corrupted data
   const resetForm = () => {
+    const suggestedDeposit = electricVehicle?.price ? Math.floor(electricVehicle.price * 0.1).toString() : "";
     setOrderForm({
       customerName: "",
       customerPhone: "",
       customerEmail: "",
       customerAddress: "",
       selectedColor: selectedVehicle?.color || "",
-      depositAmount: electricVehicle?.price ? Math.floor(electricVehicle.price * 0.1).toString() : "",
+      depositAmount: suggestedDeposit,
       notes: ""
     });
   };
