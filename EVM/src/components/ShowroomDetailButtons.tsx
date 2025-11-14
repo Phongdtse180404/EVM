@@ -1,12 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Warehouse } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 // Type for individual vehicle (matches parent component)
 type IndividualVehicle = {
   modelCode: string;
   color: string;
   vin: string;
+  status: string;
   warehouseId?: number;
   warehouseName?: string;
 };
@@ -21,6 +23,19 @@ export function ShowroomDetailButtons({ selectedVehicle }: ShowroomDetailButtons
   const handleCreateOrder = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Check if vehicle is available for ordering
+    if (selectedVehicle.status !== 'AVAILABLE') {
+      if (selectedVehicle.status === 'HOLD') {
+        toast.error("Xe này đang được giữ và không thể đặt hàng");
+      } else if (selectedVehicle.status === 'SOLD_OUT') {
+        toast.error("Xe này đã được bán và không thể đặt hàng");
+      } else {
+        toast.error("Xe này hiện không khả dụng để đặt hàng");
+      }
+      return;
+    }
+    
     console.log("Tạo đơn hàng clicked", selectedVehicle.vin);
     const params = new URLSearchParams({
       model: selectedVehicle.modelCode,
@@ -43,11 +58,18 @@ export function ShowroomDetailButtons({ selectedVehicle }: ShowroomDetailButtons
     navigate('/inventory');
   };
 
+  const isAvailable = selectedVehicle.status === 'AVAILABLE';
+  
   return (
     <div className="flex space-x-2">
       <Button
-        className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90 transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+        className={`flex-1 transition-all duration-200 shadow-lg ${
+          isAvailable 
+            ? "bg-gradient-primary hover:bg-gradient-primary/90 hover:scale-105 active:scale-95 hover:shadow-xl" 
+            : "bg-gray-400 cursor-not-allowed opacity-60"
+        }`}
         onClick={handleCreateOrder}
+        
       >
         <ShoppingCart className="w-4 h-4 mr-2" />
         Tạo đơn hàng
