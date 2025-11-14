@@ -1,4 +1,5 @@
 import { BaseApiService } from './api';
+import { OrderResponse } from './api-orders';
 
 export enum customerStatus {
   LEAD = 'LEAD',
@@ -24,6 +25,16 @@ export interface CustomerResponse {
   status: customerStatus;
   assignedSalesName: string | null;
 }
+
+export interface CustomerWithOrdersResponse {
+  customerId: number;
+  name: string;
+  phoneNumber: string;
+  address: string;
+  orders: OrderResponse[];
+}
+
+
 class CustomerService extends BaseApiService {
   async getCustomers(): Promise<CustomerResponse[]> {
     const res = await this.axiosInstance.get<CustomerResponse[]>('/customers');
@@ -52,6 +63,11 @@ class CustomerService extends BaseApiService {
 
   async deleteCustomer(id: number): Promise<void> {
     await this.axiosInstance.delete(`/customers/${id}`);
+  }
+
+  async getCustomerWithOrders(customerId: number): Promise<CustomerWithOrdersResponse> {
+    const res = await this.axiosInstance.get<CustomerWithOrdersResponse>(`/customers/${customerId}/orders`);
+    return res.data;
   }
 
   async assignSalesToCustomer(customerId: number, userId: number): Promise<CustomerResponse> {

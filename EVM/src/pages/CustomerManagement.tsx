@@ -39,6 +39,8 @@ const CustomerManagement = () => {
   });
 
   const [selectedSales, setSelectedSales] = useState<number | null>(null); // Để lưu ID nhân viên được chọn
+  const [selectedCustomerOrders, setSelectedCustomerOrders] = useState<any | null>(null);
+  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -346,6 +348,7 @@ const CustomerManagement = () => {
                         <TableHead>Ghi chú</TableHead>
                         <TableHead>Trạng thái</TableHead>
                         <TableHead>Thao tác</TableHead>
+
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -379,6 +382,23 @@ const CustomerManagement = () => {
                             >
                               <Edit className="w-3 h-3" />
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="ml-2"
+                              onClick={async () => {
+                                try {
+                                  const data = await customerService.getCustomerWithOrders(customer.customerId);
+                                  setSelectedCustomerOrders(data);
+                                  setIsOrderDialogOpen(true);
+                                } catch (err) {
+                                  toast.error("Không tải được đơn hàng của khách này");
+                                }
+                              }}
+                            >
+                              Xem đơn
+                            </Button>
+
                           </TableCell>
                         </TableRow>
                       ))}
@@ -443,6 +463,56 @@ const CustomerManagement = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* View Orders Dialog */}
+        <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Đơn hàng của khách: {selectedCustomerOrders?.name}</DialogTitle>
+            </DialogHeader>
+
+            {selectedCustomerOrders ? (
+              <div className="mt-4">
+                {selectedCustomerOrders.orders.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">
+                    Khách hàng này chưa có đơn hàng nào.
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Mã đơn</TableHead>
+                        <TableHead>Trạng thái</TableHead>
+                        <TableHead>Thanh toán</TableHead>
+                        <TableHead>Tổng tiền</TableHead>
+                        <TableHead>Ngày tạo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                      {selectedCustomerOrders.orders.map((order: any) => (
+                        <TableRow key={order.orderId}>
+                          <TableCell>{order.orderCode}</TableCell>
+                          <TableCell>{order.status}</TableCell>
+                          <TableCell>{order.paymentStatus}</TableCell>
+                          <TableCell>{order.totalAmount?.toLocaleString()}₫</TableCell>
+                          <TableCell>{order.createdAt?.replace("T", " ")}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            ) : null}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsOrderDialogOpen(false)}>
+                Đóng
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   );

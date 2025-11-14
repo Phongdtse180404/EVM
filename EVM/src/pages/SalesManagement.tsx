@@ -160,11 +160,10 @@ export default function SalesManagement() {
     }
 
     // Kiểm tra số tiền nhập
-    const amt = Number(cashAmount);
-    if (!amt || amt <= 0) {
-      toast.error("Số tiền thanh toán phải lớn hơn 0!");
-      return;
-    }
+    const amt =
+      paymentOrder.paymentStatus === OrderPaymentStatus.UNPAID
+        ? paymentOrder.planedDepositAmount
+        : paymentOrder.remainingAmount;
 
     // Xác định phase: deposit hay remaining
     const isDepositPhase = paymentOrder.paymentStatus === OrderPaymentStatus.UNPAID;
@@ -174,12 +173,6 @@ export default function SalesManagement() {
     const remainingToPay = isDepositPhase
       ? (paymentOrder.planedDepositAmount ?? 0)
       : (paymentOrder.remainingAmount ?? 0);
-
-    if (amt > remainingToPay) {
-      // Không bắt buộc nhưng đề nghị cảnh báo / chặn overpay
-      toast.error(`Số tiền không được lớn hơn ${remainingToPay.toLocaleString('vi-VN')} VND`);
-      return;
-    }
 
     try {
       setLoading(true);
