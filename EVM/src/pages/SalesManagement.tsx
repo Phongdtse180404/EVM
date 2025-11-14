@@ -256,6 +256,18 @@ export default function SalesManagement() {
       return;
     }
 
+    // Validate: ngày giao không được nhỏ hơn hôm nay
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // reset giờ phút giây
+
+    const inputDate = new Date(deliveryDate);
+    inputDate.setHours(0, 0, 0, 0);
+
+    if (inputDate < today) {
+      toast.error("Không được chọn ngày đã qua!");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -271,7 +283,8 @@ export default function SalesManagement() {
     } finally {
       setLoading(false);
     }
-  }
+  };
+
 
   return (
     <div className="min-h-screen p-6 space-y-6">
@@ -366,13 +379,24 @@ export default function SalesManagement() {
                         {getPaymentText(order.paymentStatus)}
                       </Badge>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">Cần Thanh Toán: </span>
-                      <DollarSign className="w-4 h-4 text-accent" />
-                      <span className="font-medium">
-                        {order.remainingAmount.toLocaleString('vi-VN')} VND
-                      </span>
-                    </div>
+                    {order.paymentStatus !== 'UNPAID' && order.paymentStatus !== 'PAID' && (
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">Cần Thanh Toán: </span>
+                        <DollarSign className="w-4 h-4 text-accent" />
+                        <span className="font-medium">
+                          {order.remainingAmount.toLocaleString('vi-VN')} VND
+                        </span>
+                      </div>
+                    )}
+                    {order.paymentStatus !== 'UNPAID' && order.paymentStatus !== 'PAID' && (
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">Tiền đã cọc: </span>
+                        <DollarSign className="w-4 h-4 text-accent" />
+                        <span className="font-medium">
+                          {order.planedDepositAmount.toLocaleString('vi-VN')} VND
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -532,11 +556,13 @@ export default function SalesManagement() {
               <div>
                 <Label>Số tiền thanh toán (VND)</Label>
                 <Input
-                  type="number"
-                  min={1000}
-                  value={cashAmount}
-                  onChange={(e) => setCashAmount(parseFloat(e.target.value))}
-                  placeholder="Nhập số tiền..."
+                  type="text"
+                  value={
+                    paymentOrder.paymentStatus === "UNPAID"
+                      ? paymentOrder.planedDepositAmount.toLocaleString("vi-VN") + " VND"
+                      : paymentOrder.remainingAmount.toLocaleString("vi-VN") + " VND"
+                  }
+                  readOnly
                 />
               </div>
               <div>
