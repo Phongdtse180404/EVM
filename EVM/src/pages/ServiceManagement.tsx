@@ -29,29 +29,32 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { ScheduleCalendar, type ScheduleItem } from "@/components/ScheduleCalendar";
 import { getScheduleStatusBadge } from "@/lib/scheduleUtils";
-import { serviceEntityService } from "@/services/api-service-entity";
 import { serviceRecordService } from "@/services/api-service-record";
+import { appointmentService } from "@/services/api-appointments";
+import { serviceEntityService, type ServiceResponse } from "@/services/api-service-entity";
+import { CustomerResponse, customerService } from "@/services/api-customers";
+
 
 const ServiceManagement = () => {
   const navigate = useNavigate();
 
   const [isTypeSelectionOpen, setIsTypeSelectionOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
-  const [scheduleType, setScheduleType] = useState<'service' | 'test-drive'>('service');
   const [isAutoMonitoring, setIsAutoMonitoring] = useState(true);
+  const [scheduleType, setScheduleType] = useState<"service" | "test-drive">("service");
+  const [serviceEntities, setServiceEntities] = useState<ServiceResponse[]>([]);
+  const [selectedService, setSelectedService] = useState<ServiceResponse | null>(null);
+
 
   // Unified schedule form state
   const [newSchedule, setNewSchedule] = useState({
-    vehicleId: "",
-    vehicleModel: "",
-    serviceId: "",
-    serviceType: "",
-    customerName: "",
     customerPhone: "",
+    customerName: "",
     scheduledDate: "",
     scheduledTime: "",
     notes: "",
   });
+
 
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>();
   const [isDateDrawerOpen, setIsDateDrawerOpen] = useState(false);
@@ -67,29 +70,94 @@ const ServiceManagement = () => {
   // Fetch schedules list
   const fetchSchedules = async () => {
     try {
-      const res = await serviceRecordService.list();
-      const items: ScheduleItem[] = res.content.map((record) => ({
-        id: record.id.toString(),
-        type: "service",
-        status: "scheduled",
-        scheduledDate: record.createdAt.split("T")[0],
-        scheduledTime: record.createdAt.split("T")[1]?.substring(0, 5),
-        serviceType: record.content,
-        notes: record.note,
-        customerId: record.customerId,
-        userId: record.userId,
-      }));
-      setSchedules(items);
-    } catch (error) {
-      console.error("Lỗi khi tải danh sách lịch:", error);
+      // 1) Lấy danh sách service_record
+      const recordsPage = await serviceRecordService.list(0, 50);
+      const records = recordsPage.content;
+
+      // 2) Lấy danh sách customerId duy nhất
+      const uniqueCustomerIds = Array.from(
+        new Set(records.map((r) => r.customerId))
+      );
+
+      // 3) Gọi getCustomerById cho từng customer
+      const customerResults = await Promise.all(
+        uniqueCustomerIds.map(async (id) => {
+          try {
+            const c = await customerService.getCustomerById(id);
+            return c;
+          } catch (err) {
+            console.error("Lỗi load customerId =", id, err);
+            return null;
+          }
+        })
+      );
+
+      const customerMap = new Map<number, CustomerResponse>();
+      customerResults.forEach((c) => {
+        if (c) customerMap.set(c.customerId, c);
+      });
+
+      // 4) Lấy danh sách ServiceEntity để biết tên dịch vụ
+      const servicesPage = await serviceEntityService.listServices(0, 50);
+      const serviceMap = new Map<number, ServiceResponse>();
+      servicesPage.content.forEach((svc) => serviceMap.set(svc.id, svc));
+
+      // 5) Map về ScheduleItem cho UI
+      const mapped: ScheduleItem[] = records.map((r) => {
+        const svc = serviceMap.get(r.serviceId);
+        const serviceName = svc?.name ?? "Dịch vụ";
+
+        const isTestDrive =
+          serviceName.toLowerCase().includes("lai thu") ||
+          svc?.description?.toLowerCase().includes("lai thu");
+
+        const customer = customerMap.get(r.customerId);
+
+        // tạm dùng createdAt làm ngày hẹn (sau này có startAt thì đổi lại ở đây)
+        const dateStr = r.createdAt.slice(0, 10);
+
+        const item: ScheduleItem = {
+          id: r.id,
+          type: isTestDrive ? "test-drive" : "service",
+          status: "scheduled",
+          scheduledDate: dateStr,
+          scheduledTime: undefined,
+          serviceType: serviceName,
+          vehicleName: undefined,
+          customerName: customer?.name,
+          customerPhone: customer?.phoneNumber,
+          vehicleModel: undefined,
+          notes: r.note,
+          feedback: undefined,
+          rating: undefined,
+        };
+
+        return item;
+      });
+
+      setSchedules(mapped);
+    } catch (err) {
+      console.error("Lỗi fetchSchedules:", err);
+      sonnerToast.error("Không tải được danh sách lịch");
+    }
+  };
+
+
+  const fetchServiceEntities = async () => {
+    try {
+      const res = await serviceEntityService.listServices(0, 20);
+      setServiceEntities(res.content);
+    } catch (err) {
+      console.error(err);
+      sonnerToast.error("Không tải được danh sách dịch vụ");
     }
   };
 
   useEffect(() => {
     fetchSchedules();
+    fetchServiceEntities();
   }, []);
 
-  const vehicleModels = ['Tesla Model 3', 'VinFast VF8', 'VinFast VF9', 'BYD Atto 3', 'Hyundai IONIQ 5'];
   const timeSlots = [
     '08:00-09:00',
     '09:00-10:00',
@@ -100,13 +168,6 @@ const ServiceManagement = () => {
     '16:00-17:00',
     '17:00-18:00'
   ];
-
-  const serviceTypeNames = {
-    battery: "Bảo trì pin",
-    sensor: "Kiểm tra sensor",
-    maintenance: "Bảo trì định kỳ",
-    repair: "Sửa chữa"
-  };
 
   // KPI Stats
   const serviceSchedules = schedules.filter(s => s.type === 'service');
@@ -141,63 +202,84 @@ const ServiceManagement = () => {
 
   const handleCreateSchedule = async () => {
     try {
+      if (!selectedService) {
+        sonnerToast.error("Vui lòng chọn loại dịch vụ ở bước trước");
+        return;
+      }
+
+      if (!newSchedule.customerPhone.trim()) {
+        sonnerToast.error("Vui lòng nhập số điện thoại khách hàng");
+        return;
+      }
+
       if (!newSchedule.scheduledDate || !newSchedule.scheduledTime) {
         sonnerToast.error("Vui lòng chọn ngày và khung giờ!");
         return;
       }
 
-      if (scheduleType === "service") {
-        if (!newSchedule.vehicleId || !newSchedule.serviceType) {
-          sonnerToast.error("Vui lòng chọn xe và loại dịch vụ!");
-          return;
-        }
-
-        const payload = {
-          userId: 1, // TODO: thay bằng userId thực tế (ví dụ lấy từ localStorage)
-          customerId: 1, // TODO: thay bằng customerId thật
-          serviceId: 1, // ID dịch vụ thật nếu có
-          content: newSchedule.serviceType, // lưu loại dịch vụ vào content
-          note: newSchedule.notes,
-        };
-
-        await serviceRecordService.create(payload);
-        sonnerToast.success(" Đã tạo lịch bảo trì thành công!");
+      // 1) Lấy customer theo SĐT
+      let customer;
+      try {
+        customer = await customerService.getCustomerByPhone(
+          newSchedule.customerPhone.trim()
+        );
+      } catch (err) {
+        sonnerToast.error("Không tìm thấy khách hàng với số điện thoại này");
+        console.error(err);
+        return;
       }
 
-      if (scheduleType === "test-drive") {
-        if (!newSchedule.vehicleModel || !newSchedule.customerName || !newSchedule.customerPhone) {
-          sonnerToast.error("Vui lòng nhập đầy đủ thông tin khách hàng!");
-          return;
-        }
+      // 2) Từ "08:00-09:00" -> start/end
+      const [startTime, endTime] = newSchedule.scheduledTime.split("-");
+      const startAt = `${newSchedule.scheduledDate}T${startTime}:00`;
+      const endAt = `${newSchedule.scheduledDate}T${endTime}:00`;
 
-        const payload = {
-          name: `Lái thử xe ${newSchedule.vehicleModel}`,
-          description: `Khách hàng ${newSchedule.customerName} (${newSchedule.customerPhone}) - Ngày ${newSchedule.scheduledDate} lúc ${newSchedule.scheduledTime}`,
-        };
+      // 3) Gọi API tạo appointment
+      const appointment = await appointmentService.create({
+        customerId: customer.customerId,
+        serviceId: selectedService.id,
+        startAt,
+        endAt,
+      });
 
-        await serviceEntityService.createService(payload);
-        sonnerToast.success(" Đã tạo lịch lái thử thành công!");
-      }
+      // 4) Push vào state "schedules" để tab "Tất cả lịch" hiển thị
+      const isTestDrive =
+        selectedService.name.toLowerCase().includes("lai thu") ||
+        selectedService.description?.toLowerCase().includes("lai thu");
+
+      const newItem: ScheduleItem = {
+        id: appointment.appointmentId,
+        type: isTestDrive ? "test-drive" : "service",
+        serviceType: selectedService.name,
+        vehicleName: undefined,
+        vehicleModel: undefined,
+        customerName: newSchedule.customerName || customer.name,
+        customerPhone: customer.phoneNumber,
+        scheduledDate: newSchedule.scheduledDate,
+        scheduledTime: newSchedule.scheduledTime,
+        status: "scheduled",
+        notes: newSchedule.notes,
+        feedback: undefined,
+        rating: undefined,
+      };
+
+      setSchedules((prev) => [...prev, newItem]);
+
+      sonnerToast.success("Đã tạo lịch thành công!");
 
       setIsScheduleDialogOpen(false);
       setNewSchedule({
-        vehicleId: "",
-        vehicleModel: "",
-        serviceId: "",
-        serviceType: "",
-        customerName: "",
         customerPhone: "",
+        customerName: "",
         scheduledDate: "",
         scheduledTime: "",
         notes: "",
       });
     } catch (error) {
       console.error(error);
-      sonnerToast.error(" Có lỗi xảy ra khi tạo lịch!");
+      sonnerToast.error("Có lỗi xảy ra khi tạo lịch!");
     }
   };
-
-
 
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) return;
@@ -331,40 +413,40 @@ const ServiceManagement = () => {
                 </DialogHeader>
 
                 <div className="space-y-4 py-6">
-                  <RadioGroup value={scheduleType} onValueChange={(v) => setScheduleType(v as 'service' | 'test-drive')}>
+                  {serviceEntities.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Chưa có dịch vụ nào, hãy tạo ServiceEntity trước.
+                    </p>
+                  ) : (
                     <div className="grid grid-cols-1 gap-4">
-                      <div
-                        className={`flex items-center space-x-3 border-2 rounded-lg p-6 cursor-pointer transition-all ${scheduleType === 'service' ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'}`}
-                        onClick={() => setScheduleType('service')}
-                      >
-                        <RadioGroupItem value="service" id="service" />
-                        <Label htmlFor="service" className="flex items-center gap-3 cursor-pointer flex-1">
-                          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                            <Wrench className="w-5 h-5 text-primary" />
+                      {serviceEntities.map((svc) => {
+                        const isSelected = selectedService?.id === svc.id;
+                        return (
+                          <div
+                            key={svc.id}
+                            className={`flex items-center space-x-3 border-2 rounded-lg p-4 cursor-pointer transition-all ${isSelected ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
+                              }`}
+                            onClick={() => setSelectedService(svc)}
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                              {/* icon đổi theo tên dịch vụ cho vui */}
+                              {svc.name.toLowerCase().includes("lai") ? (
+                                <Car className="w-5 h-5 text-primary" />
+                              ) : (
+                                <Wrench className="w-5 h-5 text-primary" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-semibold">{svc.name}</p>
+                              {svc.description && (
+                                <p className="text-sm text-muted-foreground">{svc.description}</p>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold">Lịch bảo trì</p>
-                            <p className="text-sm text-muted-foreground">Tạo lịch bảo trì, sửa chữa xe</p>
-                          </div>
-                        </Label>
-                      </div>
-                      <div
-                        className={`flex items-center space-x-3 border-2 rounded-lg p-6 cursor-pointer transition-all ${scheduleType === 'test-drive' ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'}`}
-                        onClick={() => setScheduleType('test-drive')}
-                      >
-                        <RadioGroupItem value="test-drive" id="test-drive" />
-                        <Label htmlFor="test-drive" className="flex items-center gap-3 cursor-pointer flex-1">
-                          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                            <Car className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-semibold">Lịch lái thử</p>
-                            <p className="text-sm text-muted-foreground">Đặt lịch lái thử cho khách hàng</p>
-                          </div>
-                        </Label>
-                      </div>
+                        );
+                      })}
                     </div>
-                  </RadioGroup>
+                  )}
                 </div>
 
                 <DialogFooter>
@@ -392,104 +474,60 @@ const ServiceManagement = () => {
               <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                   <DialogTitle>
-                    {scheduleType === 'service' ? 'Tạo lịch bảo trì' : 'Tạo lịch lái thử'}
+                    {selectedService
+                      ? `Tạo lịch: ${selectedService.name}`
+                      : "Tạo lịch dịch vụ"}
                   </DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
-                  {/* Service Schedule Fields */}
-                  {scheduleType === 'service' && (
-                    <>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Chọn xe *</Label>
-                          <Select value={newSchedule.vehicleId} onValueChange={(v) => setNewSchedule({ ...newSchedule, vehicleId: v })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn xe cần bảo trì" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="VH001">Tesla Model 3 - BKS 30A-123.45</SelectItem>
-                              <SelectItem value="VH002">VinFast VF8 - BKS 51G-567.89</SelectItem>
-                              <SelectItem value="VH003">BMW iX - BKS 29B-901.23</SelectItem>
-                              <SelectItem value="VH004">Audi e-tron - BKS 50H-345.67</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                  {/* KH - SĐT */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Số điện thoại khách hàng *</Label>
+                      <Input
+                        placeholder="Ví dụ: 0901234567"
+                        value={newSchedule.customerPhone}
+                        onChange={(e) =>
+                          setNewSchedule((prev) => ({ ...prev, customerPhone: e.target.value }))
+                        }
+                      />
+                    </div>
 
-                        <div className="space-y-2">
-                          <Label>Loại dịch vụ *</Label>
-                          <Select value={newSchedule.serviceType} onValueChange={(v) => setNewSchedule({ ...newSchedule, serviceType: v })}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="battery">Bảo trì pin</SelectItem>
-                              <SelectItem value="sensor">Kiểm tra sensor</SelectItem>
-                              <SelectItem value="maintenance">Bảo trì định kỳ</SelectItem>
-                              <SelectItem value="repair">Sửa chữa</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+                    <div className="space-y-2">
+                      <Label>Tên khách hàng (tuỳ chọn)</Label>
+                      <Input
+                        placeholder="Nếu để trống sẽ lấy tên từ hệ thống"
+                        value={newSchedule.customerName}
+                        onChange={(e) =>
+                          setNewSchedule((prev) => ({ ...prev, customerName: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label>Ghi chú</Label>
-                        <Input
-                          placeholder="Mô tả chi tiết dịch vụ cần thực hiện..."
-                          value={newSchedule.notes}
-                          onChange={(e) => setNewSchedule({ ...newSchedule, notes: e.target.value })}
-                        />
-                      </div>
-                    </>
-                  )}
+                  {/* Ghi chú */}
+                  <div className="space-y-2">
+                    <Label>Ghi chú</Label>
+                    <Input
+                      placeholder="Mô tả chi tiết dịch vụ cần thực hiện..."
+                      value={newSchedule.notes}
+                      onChange={(e) =>
+                        setNewSchedule((prev) => ({ ...prev, notes: e.target.value }))
+                      }
+                    />
+                  </div>
 
-                  {/* Test Drive Fields */}
-                  {scheduleType === 'test-drive' && (
-                    <>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Tên khách hàng *</Label>
-                          <Input
-                            placeholder="Nhập họ tên"
-                            value={newSchedule.customerName}
-                            onChange={(e) => setNewSchedule({ ...newSchedule, customerName: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Số điện thoại *</Label>
-                          <Input
-                            placeholder="0901234567"
-                            value={newSchedule.customerPhone}
-                            onChange={(e) => setNewSchedule({ ...newSchedule, customerPhone: e.target.value })}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Chọn xe *</Label>
-                        <Select value={newSchedule.vehicleModel} onValueChange={(v) => setNewSchedule({ ...newSchedule, vehicleModel: v })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Chọn mẫu xe" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {vehicleModels.map(model => (
-                              <SelectItem key={model} value={model}>{model}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Common Fields */}
+                  {/* Ngày & khung giờ */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Ngày *</Label>
                       <Input
                         type="date"
                         value={newSchedule.scheduledDate}
-                        onChange={(e) => setNewSchedule({ ...newSchedule, scheduledDate: e.target.value })}
+                        onChange={(e) =>
+                          setNewSchedule((prev) => ({ ...prev, scheduledDate: e.target.value }))
+                        }
                       />
                     </div>
 
@@ -497,25 +535,24 @@ const ServiceManagement = () => {
                       <Label>Khung giờ *</Label>
                       <Select
                         value={newSchedule.scheduledTime}
-                        onValueChange={(v) => setNewSchedule({ ...newSchedule, scheduledTime: v })}
+                        onValueChange={(v) =>
+                          setNewSchedule((prev) => ({ ...prev, scheduledTime: v }))
+                        }
                       >
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder="Chọn khung giờ" />
                         </SelectTrigger>
                         <SelectContent>
                           {timeSlots.map((slot) => {
-                            const bookedSlots = newSchedule.scheduledDate
-                              ? getBookedTimeSlotsForDate(newSchedule.scheduledDate)
-                              : [];
+                            const bookedSlots =
+                              newSchedule.scheduledDate !== ""
+                                ? getBookedTimeSlotsForDate(newSchedule.scheduledDate)
+                                : [];
                             const isBooked = bookedSlots.includes(slot);
 
                             return (
-                              <SelectItem
-                                key={slot}
-                                value={slot}
-                                disabled={isBooked}
-                              >
-                                {slot} {isBooked && '(Đã đặt)'}
+                              <SelectItem key={slot} value={slot} disabled={isBooked}>
+                                {slot} {isBooked && "(Đã đặt)"}
                               </SelectItem>
                             );
                           })}
@@ -524,6 +561,7 @@ const ServiceManagement = () => {
                     </div>
                   </div>
                 </div>
+
 
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsScheduleDialogOpen(false)}>
@@ -547,6 +585,7 @@ const ServiceManagement = () => {
           <TabsTrigger value="test-drive">Lái thử ({testDriveSchedules.length})</TabsTrigger>
         </TabsList>
 
+        {/* TẤT CẢ LỊCH */}
         <TabsContent value="all">
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-6">Tất cả lịch</h3>
@@ -554,7 +593,7 @@ const ServiceManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Loại</TableHead>
-                  <TableHead>Thông tin</TableHead>
+                  <TableHead>Khách hàng</TableHead> {/* đổi tên cột */}
                   <TableHead>Ngày</TableHead>
                   <TableHead>Khung giờ</TableHead>
                   <TableHead>Trạng thái</TableHead>
@@ -563,8 +602,9 @@ const ServiceManagement = () => {
               <TableBody>
                 {schedules.map((schedule) => (
                   <TableRow key={schedule.id}>
+                    {/* Loại lịch */}
                     <TableCell>
-                      {schedule.type === 'service' ? (
+                      {schedule.type === "service" ? (
                         <div className="flex items-center gap-2">
                           <Wrench className="w-4 h-4 text-primary" />
                           <span>Bảo trì</span>
@@ -576,28 +616,39 @@ const ServiceManagement = () => {
                         </div>
                       )}
                     </TableCell>
+
+                    {/* Thông tin khách: TÊN + SĐT */}
                     <TableCell>
-                      {schedule.type === 'service' ? (
-                        <div>
-                          <div className="font-medium">{schedule.serviceType}</div>
-                          <div className="text-sm text-muted-foreground">{schedule.vehicleName}</div>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="font-medium">{schedule.customerName}</div>
-                          <div className="text-sm text-muted-foreground">{schedule.vehicleModel}</div>
+                      <div className="font-medium">
+                        {schedule.customerName || "Khách chưa rõ tên"}
+                      </div>
+                      {schedule.customerPhone && (
+                        <div className="text-sm text-muted-foreground">
+                          {schedule.customerPhone}
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>{format(new Date(schedule.scheduledDate), 'dd/MM/yyyy')}</TableCell>
+
+                    {/* Ngày HẸN (không phải ngày tạo) */}
                     <TableCell>
-                      {schedule.scheduledTime && (
+                      {schedule.scheduledDate
+                        ? format(new Date(schedule.scheduledDate), "dd/MM/yyyy")
+                        : "-"}
+                    </TableCell>
+
+                    {/* Khung giờ đã hẹn / slot */}
+                    <TableCell>
+                      {schedule.scheduledTime ? (
                         <div className="flex items-center gap-1 text-sm">
                           <Clock className="w-3 h-3" />
                           {schedule.scheduledTime}
                         </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
                       )}
                     </TableCell>
+
+                    {/* Trạng thái */}
                     <TableCell>{getScheduleStatusBadge(schedule.status)}</TableCell>
                   </TableRow>
                 ))}
@@ -612,29 +663,37 @@ const ServiceManagement = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Dịch vụ</TableHead>
-                  <TableHead>Xe</TableHead>
+                  <TableHead>Khách hàng</TableHead>
+                  <TableHead>Số điện thoại</TableHead>
                   <TableHead>Ngày</TableHead>
                   <TableHead>Khung giờ</TableHead>
-                  <TableHead>Kỹ thuật viên</TableHead>
                   <TableHead>Trạng thái</TableHead>
+                  <TableHead>Đánh giá</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {serviceSchedules.map((schedule) => (
                   <TableRow key={schedule.id}>
-                    <TableCell className="font-medium">{schedule.serviceType}</TableCell>
-                    <TableCell>{schedule.vehicleName}</TableCell>
+                    <TableCell className="font-medium">{schedule.customerName}</TableCell>
+                    <TableCell>{schedule.customerPhone}</TableCell>
                     <TableCell>{format(new Date(schedule.scheduledDate), 'dd/MM/yyyy')}</TableCell>
                     <TableCell>
-                      {schedule.scheduledTime && (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Clock className="w-3 h-3" />
-                          {schedule.scheduledTime}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1 text-sm">
+                        <Clock className="w-3 h-3" />
+                        {schedule.scheduledTime}
+                      </div>
                     </TableCell>
                     <TableCell>{getScheduleStatusBadge(schedule.status)}</TableCell>
+                    <TableCell>
+                      {schedule.rating ? (
+                        <div className="flex items-center gap-1">
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <span>{schedule.rating}/5</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -650,7 +709,6 @@ const ServiceManagement = () => {
                 <TableRow>
                   <TableHead>Khách hàng</TableHead>
                   <TableHead>Số điện thoại</TableHead>
-                  <TableHead>Xe</TableHead>
                   <TableHead>Ngày</TableHead>
                   <TableHead>Khung giờ</TableHead>
                   <TableHead>Trạng thái</TableHead>
@@ -662,12 +720,6 @@ const ServiceManagement = () => {
                   <TableRow key={schedule.id}>
                     <TableCell className="font-medium">{schedule.customerName}</TableCell>
                     <TableCell>{schedule.customerPhone}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Car className="w-4 h-4 text-muted-foreground" />
-                        {schedule.vehicleModel}
-                      </div>
-                    </TableCell>
                     <TableCell>{format(new Date(schedule.scheduledDate), 'dd/MM/yyyy')}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm">
@@ -693,6 +745,7 @@ const ServiceManagement = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
 
       {/* Date Details Drawer */}
       <Sheet open={isDateDrawerOpen} onOpenChange={setIsDateDrawerOpen}>
