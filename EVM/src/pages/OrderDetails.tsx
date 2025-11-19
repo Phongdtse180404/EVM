@@ -140,6 +140,19 @@ export default function OrderDetails() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLookingUpCustomer, setIsLookingUpCustomer] = useState(false);
 
+  // Helper function to format number with Vietnamese thousands separators
+  const formatNumberInput = (value: string): string => {
+    // Remove all non-digit characters
+    const numericValue = value.replace(/\D/g, '');
+    // Add thousands separators (dots)
+    return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  // Helper function to parse formatted number back to plain number
+  const parseFormattedNumber = (value: string): string => {
+    return value.replace(/\./g, '');
+  };
+
   const handlePhoneNumberChange = async (phone: string) => {
     // Update phone number immediately
     setOrderForm({ ...orderForm, customerPhone: phone });
@@ -534,9 +547,12 @@ export default function OrderDetails() {
                 <Label htmlFor="depositAmount">Số tiền đặt cọc *</Label>
                 <Input
                   id="depositAmount"
-                  type="number"
-                  value={orderForm.depositAmount}
-                  onChange={(e) => setOrderForm({ ...orderForm, depositAmount: e.target.value })}
+                  type="text"
+                  value={formatNumberInput(orderForm.depositAmount)}
+                  onChange={(e) => {
+                    const rawValue = parseFormattedNumber(e.target.value);
+                    setOrderForm({ ...orderForm, depositAmount: rawValue });
+                  }}
                   placeholder={electricVehicle?.price ? `Đề xuất: ${Math.floor(electricVehicle.price * 0.1).toLocaleString('vi-VN')} ₫` : "Nhập số tiền đặt cọc"}
                 />
                 {electricVehicle?.price && (

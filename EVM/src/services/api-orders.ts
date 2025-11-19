@@ -37,7 +37,7 @@ export interface OrderResponse {
   status: OrderStatus;
   paymentStatus: OrderPaymentStatus;
   deliveryDate?: string; // ISO date string
-  orderDate: string; // ISO datetime string
+  orderDate: Date; // ISO datetime string
 }
 
 // New Order Deposit Request type (matching backend OrderDepositRequest)

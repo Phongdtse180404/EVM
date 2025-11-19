@@ -492,11 +492,11 @@ const CustomerManagement = () => {
                     <TableBody>
                       {selectedCustomerOrders.orders.map((order: any) => (
                         <TableRow key={order.orderId}>
-                          <TableCell>{order.orderCode}</TableCell>
+                          <TableCell>{order.orderId}</TableCell>
                           <TableCell>{order.status}</TableCell>
                           <TableCell>{order.paymentStatus}</TableCell>
                           <TableCell>{order.totalAmount?.toLocaleString()}₫</TableCell>
-                          <TableCell>{order.createdAt?.replace("T", " ")}</TableCell>
+                          <TableCell>{order.orderDate.toLocaleString()}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
