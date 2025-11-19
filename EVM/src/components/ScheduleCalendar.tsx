@@ -3,7 +3,7 @@ import { vi } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 interface ScheduleItem {
-    id: string;
+    id: number;
     type: 'service' | 'test-drive';
     status: 'scheduled' | 'completed' | 'cancelled' | 'in_progress' | 'no_show';
     scheduledDate: string;

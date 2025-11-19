@@ -496,7 +496,7 @@ const CustomerManagement = () => {
                           <TableCell>{order.status}</TableCell>
                           <TableCell>{order.paymentStatus}</TableCell>
                           <TableCell>{order.totalAmount?.toLocaleString()}₫</TableCell>
-                          <TableCell>{order.orderDate.toLocaleString()}</TableCell>
+                          <TableCell>{order.orderDate?.replace("T", " ")}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
