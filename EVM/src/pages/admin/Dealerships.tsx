@@ -165,7 +165,7 @@ export default function Dealerships() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -206,19 +206,7 @@ export default function Dealerships() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Đang hoạt động
-            </CardTitle>
-            <Badge className="bg-success/20 text-success border-success">
-              {dealerships.length}
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">100%</div>
-          </CardContent>
-        </Card>
+        
       </div>
 
       {/* Search */}

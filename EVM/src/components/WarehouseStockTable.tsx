@@ -42,7 +42,7 @@ export default function WarehouseStockTable({
           <TableHead>Năm SX</TableHead>
           <TableHead className="text-right">Tổng SL</TableHead>
           <TableHead className="text-right">Xe có sẵn</TableHead>
-          <TableHead className="text-right">Thao tác</TableHead>
+        
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -112,17 +112,7 @@ export default function WarehouseStockTable({
                 <TableCell className="text-right">
                   <WarehouseStatusBadge count={availableCount} />
                 </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDeleteStock(item.modelCode)}
-                    title="Xóa tồn kho"
-                    className="h-8 w-8"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
+                
               </Folder>
             );
           })
