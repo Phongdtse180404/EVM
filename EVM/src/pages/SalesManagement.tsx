@@ -107,6 +107,8 @@ export default function SalesManagement() {
     switch (status) {
       case 'COMPLETED': return 'text-success border-success';
       case 'CANCELLED': return 'text-destructive border-destructive';
+      case 'DELIVERING': return 'text-warning border-warning';
+      case 'ORDER_PAID': return 'text-success border-success';
       default: return 'text-warning border-warning';
     }
   };
@@ -115,6 +117,8 @@ export default function SalesManagement() {
     switch (status) {
       case 'COMPLETED': return 'Đơn hàng hoàn tất';
       case 'CANCELLED': return 'Đã hủy';
+      case 'DELIVERING': return 'Đang giao hàng';
+      case 'ORDER_PAID': return 'Đã thanh toán';
       default: return 'Đang xử lý';
     }
   };
@@ -274,9 +278,8 @@ export default function SalesManagement() {
       return;
     }
 
-    // Validate: ngày giao không được nhỏ hơn hôm nay
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // reset giờ phút giây
+    today.setHours(0, 0, 0, 0);
 
     const inputDate = new Date(deliveryDate);
     inputDate.setHours(0, 0, 0, 0);
@@ -289,12 +292,24 @@ export default function SalesManagement() {
     try {
       setLoading(true);
 
-      const res = await contractService.updateDeliveryDate(orderId, {
-        deliveryDate: deliveryDate, // format: YYYY-MM-DD
+      const updated = await contractService.updateDeliveryDate(orderId, {
+        deliveryDate,
       });
 
+      setOrders(prev =>
+        prev.map(o => (o.orderId === orderId ? (updated as OrderResponse) : o))
+      );
+
       toast.success("Cập nhật ngày giao xe thành công!");
-      console.log("Updated order:", res);
+      setDeliveryDate("");
+
+      setOrders(prev =>
+        prev.map(o =>
+          o.orderId === orderId
+            ? { ...o, deliveryDate: deliveryDate }
+            : o
+        )
+      );
 
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Lỗi khi cập nhật ngày giao xe!");
@@ -302,6 +317,7 @@ export default function SalesManagement() {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen p-6 space-y-6">
@@ -323,30 +339,30 @@ export default function SalesManagement() {
         </div>
       </div>
 
-      {/* Quick Actions */
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
-            <div className="text-3xl font-bold text-primary mb-2">
-              {orders.filter(o => o.status === 'COMPLETED').length}
-            </div>
-            <p className="text-muted-foreground">Đơn đã chốt</p>
-          </Card>
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
+          <div className="text-3xl font-bold text-primary mb-2">
+            {orders.filter(o => o.status === 'ORDER_PAID').length}
+          </div>
+          <p className="text-muted-foreground">Đơn đã chốt</p>
+        </Card>
 
-          <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
-            <div className="text-3xl font-bold text-warning mb-2">
-              {orders.filter(o => o.status === 'PROCESSING').length}
-            </div>
-            <p className="text-muted-foreground">Đang xử lý</p>
-          </Card>
+        <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
+          <div className="text-3xl font-bold text-warning mb-2">
+            {orders.filter(o => o.status === 'PROCESSING').length}
+          </div>
+          <p className="text-muted-foreground">Đang xử lý</p>
+        </Card>
 
-          <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
-            <div className="text-3xl font-bold text-accent mb-2">
-              {(orders.filter(o => o.status === 'COMPLETED').reduce((sum, o) => sum + o.totalAmount, 0) / 1000000000).toFixed(1)}B₫
-            </div>
-            <p className="text-muted-foreground">Doanh thu</p>
-          </Card>
-        </div>
-      }
+        <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
+          <div className="text-3xl font-bold text-accent mb-2">
+            {(orders.filter(o => o.status === 'ORDER_PAID').reduce((sum, o) => sum + (o.totalAmount ?? 0), 0) / 1_000_000_000).toFixed(1)}B₫
+          </div>
+          <p className="text-muted-foreground">Doanh thu</p>
+        </Card>
+      </div>
+
       {/* Search Bar */}
       <div className="flex items-center space-x-4">
         <div className="relative flex-1 max-w-md">
@@ -403,7 +419,9 @@ export default function SalesManagement() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">{order.deliveryDate}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ""}
+                      </span>
                     </div>
                   </div>
 
@@ -590,7 +608,7 @@ export default function SalesManagement() {
             </div>
           )}
 
-          {paymentMethod === "cash" && (
+          {paymentOrder && paymentMethod === "cash" && (
             <div className="space-y-3 bg-muted/50 p-4 rounded-lg">
               <div>
                 <Label>Số tiền thanh toán (VND)</Label>
@@ -598,12 +616,13 @@ export default function SalesManagement() {
                   type="text"
                   value={
                     paymentOrder.paymentStatus === "UNPAID"
-                      ? paymentOrder.planedDepositAmount.toLocaleString("vi-VN") + " VND"
-                      : paymentOrder.remainingAmount.toLocaleString("vi-VN") + " VND"
+                      ? `${(paymentOrder.planedDepositAmount ?? 0).toLocaleString("vi-VN")} VND`
+                      : `${(paymentOrder.remainingAmount ?? 0).toLocaleString("vi-VN")} VND`
                   }
                   readOnly
                 />
               </div>
+
               <div>
                 <Label>Ghi chú</Label>
                 <Input
@@ -613,11 +632,16 @@ export default function SalesManagement() {
                 />
               </div>
 
-              <Button onClick={handleCashPayment} disabled={loading} className="w-full h-12 font-semibold">
+              <Button
+                onClick={handleCashPayment}
+                disabled={loading}
+                className="w-full h-12 font-semibold"
+              >
                 Xác nhận thanh toán
               </Button>
             </div>
           )}
+
 
         </DialogContent>
       </Dialog>

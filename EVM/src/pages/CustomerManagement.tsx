@@ -292,7 +292,7 @@ const CustomerManagement = () => {
                         <div>
                           <Label htmlFor="sales">Quản lý khách hàng *</Label>
                           <Select value={selectedSales?.toString()} onValueChange={(value) => setSelectedSales(Number(value))}>
-                            <SelectTrigger className="mt-2 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <SelectTrigger className="mt-2 block w-full px-3 py-2   border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                               <SelectValue placeholder="Chọn nhân viên" />
                             </SelectTrigger>
                             <SelectContent>
@@ -486,6 +486,8 @@ const CustomerManagement = () => {
                         <TableHead>Thanh toán</TableHead>
                         <TableHead>Tổng tiền</TableHead>
                         <TableHead>Ngày tạo</TableHead>
+                        <TableHead>Ngày thanh toán cọc</TableHead>
+                        <TableHead>Ngày thanh toán hoàn tất</TableHead>
                       </TableRow>
                     </TableHeader>
 
@@ -497,6 +499,8 @@ const CustomerManagement = () => {
                           <TableCell>{order.paymentStatus}</TableCell>
                           <TableCell>{order.totalAmount?.toLocaleString()}₫</TableCell>
                           <TableCell>{order.orderDate?.replace("T", " ")}</TableCell>
+                          <TableCell>{order.depositPaidAt?.replace("T", " ")}</TableCell>
+                          <TableCell>{order.fullyPaidAt?.replace("T", " ")}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
