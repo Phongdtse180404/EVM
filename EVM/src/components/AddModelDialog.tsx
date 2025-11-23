@@ -48,16 +48,17 @@ export default function AddModelDialog({
 
   const { toast } = useToast();
   const { createModel, updateModel } = useModels();
-  const { createElectricVehicle, updateElectricVehicle, findElectricVehicleByModelId, loading: electricVehicleLoading } = useElectricVehicle();
+  const { createElectricVehicle, updateElectricVehicle, findElectricVehiclesByModelCode, loading: electricVehicleLoading } = useElectricVehicle();
 
   // Fetch electric vehicle data when editing a model
   useEffect(() => {
     const fetchElectricVehicleData = async () => {
       if (editingModel && open) {
         try {
-          const existingEV = await findElectricVehicleByModelId(editingModel.modelId);
+          const existingEVArray = await findElectricVehiclesByModelCode(editingModel.modelCode);
           
-          if (existingEV) {
+          if (existingEVArray && existingEVArray.length > 0) {
+            const existingEV = existingEVArray[0]; // Get the first electric vehicle
             setExistingElectricVehicle(existingEV);
             setElectricVehicleFormData({
               cost: existingEV.cost,
@@ -95,7 +96,7 @@ export default function AddModelDialog({
         setExistingElectricVehicle(null);
       }
     }
-  }, [open, editingModel, findElectricVehicleByModelId]);
+  }, [open, editingModel, findElectricVehiclesByModelCode]);
 
   const handleSave = async () => {
     if (!modelFormData.modelCode?.trim() || !modelFormData.brand?.trim()) {
