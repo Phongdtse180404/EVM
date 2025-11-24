@@ -237,6 +237,7 @@ export default function Dealerships() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>ID</TableHead>
                   <TableHead>Tên đại lý</TableHead>
                   <TableHead>Địa chỉ</TableHead>
                   <TableHead>Điện thoại</TableHead>
@@ -263,6 +264,9 @@ export default function Dealerships() {
                 ) : (
                   filteredDealerships.map((dealership) => (
                     <TableRow key={dealership.dealershipId}>
+                      <TableCell>
+                        <div className="font-medium">{dealership.dealershipId}</div>
+                      </TableCell>
                       <TableCell>
                         <div className="font-medium">{dealership.name}</div>
                       </TableCell>

@@ -10,6 +10,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useDealerships } from "@/hooks/use-dealerships";
 import type { WarehouseResponse, WarehouseRequest } from "@/services/api-warehouse";
 
 interface WarehouseDialogProps {
@@ -29,8 +31,17 @@ export default function WarehouseDialog({
   const [warehouseLocation, setWarehouseLocation] = useState("");
   const [warehouseName, setWarehouseName] = useState("");
   const [warehouseMaxCapacity, setWarehouseMaxCapacity] = useState<number>(0);
-  const [dealershipId, setDealershipId] = useState<number>(1);
+  const [dealershipId, setDealershipId] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+
+  const { dealerships, fetchDealerships } = useDealerships();
+
+  // Fetch dealerships when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchDealerships();
+    }
+  }, [open, fetchDealerships]);
 
   // Reset form when dialog opens/closes or editing warehouse changes
   useEffect(() => {
@@ -38,12 +49,12 @@ export default function WarehouseDialog({
       setWarehouseLocation(editingWarehouse.warehouseLocation);
       setWarehouseName(editingWarehouse.warehouseName);
       setWarehouseMaxCapacity(editingWarehouse.maxCapacity || 0);
-      setDealershipId(editingWarehouse.dealershipId || 1);
+      setDealershipId(editingWarehouse.dealershipId || 0);
     } else {
       setWarehouseLocation("");
       setWarehouseName("");
       setWarehouseMaxCapacity(0);
-      setDealershipId(1);
+      setDealershipId(0);
     }
   }, [editingWarehouse, open]);
 
@@ -108,15 +119,25 @@ export default function WarehouseDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="dealership-id">ID Đại lý</Label>
-            <Input
-              id="dealership-id"
-              type="number"
-              min="1"
-              value={dealershipId}
-              onChange={(e) => setDealershipId(Number(e.target.value))}
-              placeholder="Nhập ID đại lý"
-            />
+            <Label htmlFor="dealership-select">Đại lý</Label>
+            <Select 
+              value={dealershipId.toString()} 
+              onValueChange={(value) => setDealershipId(Number(value))}
+            >
+              <SelectTrigger id="dealership-select">
+                <SelectValue placeholder="Chọn đại lý" />
+              </SelectTrigger>
+              <SelectContent>
+                {dealerships.map((dealership) => (
+                  <SelectItem 
+                    key={dealership.dealershipId} 
+                    value={dealership.dealershipId.toString()}
+                  >
+                    {dealership.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter>

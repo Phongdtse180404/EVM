@@ -15,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import FirebaseImageSelector from "@/components/FirebaseImageSelector";
 
 interface AddModelDialogProps {
   open: boolean;
@@ -48,14 +49,15 @@ export default function AddModelDialog({
 
   const { toast } = useToast();
   const { createModel, updateModel } = useModels();
-  const { createElectricVehicle, updateElectricVehicle, findElectricVehicleByModelId, loading: electricVehicleLoading } = useElectricVehicle();
+  const { createElectricVehicle, updateElectricVehicle, findElectricVehiclesByModelCode, loading: electricVehicleLoading } = useElectricVehicle();
 
   // Fetch electric vehicle data when editing a model
   useEffect(() => {
     const fetchElectricVehicleData = async () => {
       if (editingModel && open) {
         try {
-          const existingEV = await findElectricVehicleByModelId(editingModel.modelId);
+          const existingEVArray = await findElectricVehiclesByModelCode(editingModel.modelCode);
+          const existingEV = existingEVArray && existingEVArray.length > 0 ? existingEVArray[0] : null;
           
           if (existingEV) {
             setExistingElectricVehicle(existingEV);
@@ -95,7 +97,7 @@ export default function AddModelDialog({
         setExistingElectricVehicle(null);
       }
     }
-  }, [open, editingModel, findElectricVehicleByModelId]);
+  }, [open, editingModel, findElectricVehiclesByModelCode]);
 
   const handleSave = async () => {
     if (!modelFormData.modelCode?.trim() || !modelFormData.brand?.trim()) {
@@ -269,19 +271,18 @@ export default function AddModelDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="image-url">URL hình ảnh</Label>
-                <Input
-                  id="image-url"
+                <Label htmlFor="image-url">Hình ảnh xe</Label>
+                <FirebaseImageSelector
                   value={electricVehicleFormData.imageUrl}
-                  onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
-                  placeholder="Nhập URL hình ảnh"
+                  onChange={(url) => setElectricVehicleFormData(prev => ({ ...prev, imageUrl: url }))}
                   disabled={electricVehicleLoading}
+                  storagePath="images/vehicles"
                 />
               </div>
             </div>
             {editingModel && !existingElectricVehicle && !electricVehicleLoading && (
               <p className="text-sm text-yellow-600 mt-2">
-                ⚠️ Không tìm thấy thông tin xe điện cho model này.
+                Không tìm thấy thông tin xe điện cho model này.
               </p>
             )}
           </div>
