@@ -13,6 +13,11 @@ export enum DealershipStatus {
   INACTIVE = 'INACTIVE',
 }
 
+export interface TransferWarehouseRequest {
+  //target Dealership ID to transfer warehouses to
+  targetDealershipId: number;
+}
+
 export interface WarehouseSummaryDTO {
   warehouseId: number;
   warehouseName: string;
@@ -29,9 +34,9 @@ export interface DealershipResponse {
   warehouses: WarehouseSummaryDTO[];
 }
 
+
 // Dealership Service
 class DealershipService extends BaseApiService {
-  
   // CREATE - Create new dealership
   async createDealership(data: DealershipRequest): Promise<DealershipResponse> {
     const res = await this.axiosInstance.post<DealershipResponse>('/dealerships', data);
@@ -56,6 +61,16 @@ class DealershipService extends BaseApiService {
     return res.data;
   }
 
+  // PATCH - Update dealership status
+  async updateDealershipStatus(dealershipId: number, status: DealershipStatus): Promise<DealershipResponse> {
+    const res = await this.axiosInstance.patch<DealershipResponse>(
+      `/dealerships/${dealershipId}/status`,
+      null,
+      { params: { status } }
+    );
+    return res.data;
+  }
+
   // DELETE - Delete dealership
   async deleteDealership(dealershipId: number): Promise<void> {
     await this.axiosInstance.delete(`/dealerships/${dealershipId}`);
@@ -64,6 +79,12 @@ class DealershipService extends BaseApiService {
   // DELETE - Remove warehouse from dealership
   async deleteWarehouseFromDealership(dealershipId: number, warehouseId: number): Promise<void> {
     await this.axiosInstance.delete(`/dealerships/${dealershipId}/warehouses/${warehouseId}`);
+  }
+
+  // POST - Transfer all warehouses from one dealership to another
+  async transferWarehouses(sourceId: number, transferWarehouseRequest: TransferWarehouseRequest): Promise<string> {
+    const res = await this.axiosInstance.post(`/dealerships/${sourceId}/transfer-warehouses`, transferWarehouseRequest);
+    return res.data.message;
   }
 }
 

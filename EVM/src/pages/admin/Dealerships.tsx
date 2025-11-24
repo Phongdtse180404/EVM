@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useDealerships } from "@/hooks/use-dealerships";
-import type { DealershipResponse } from "@/services/api-dealership";
+import type { DealershipResponse, DealershipStatus } from "@/services/api-dealership";
+import { useToast } from "@/hooks/use-toast";
+
 import {
   Building2,
   Plus,
@@ -22,8 +24,11 @@ import {
   Phone,
   Warehouse,
   Users,
-  Eye
+  Eye,
+  ArrowRight
 } from "lucide-react";
+import { set } from "date-fns";
+
 
 
 interface DealershipForm {
@@ -43,18 +48,50 @@ export default function Dealerships() {
     createDealership,
     updateDealership,
     deleteDealership,
+    transferWarehouses,
+    updateDealershipStatus,
   } = useDealerships();
+  const { toast } = useToast();
+
+  // Update status handler
+  const handleUpdateStatus = async (dealership: DealershipResponse) => {
+    await updateDealershipStatus(dealership);
+  };
 
   // Local State
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [formData, setFormData] = useState<DealershipForm>({
     name: "",
     address: "",
     phoneNumber: ""
   });
+  // State for transfer target dealership (DealershipResponse object)
+  const [targetDealership, setTargetDealership] = useState<DealershipResponse | null>(null);
+
+  // Handle transfer warehouses
+  const handleTransferWarehouses = async () => {
+    if (!selectedDealership || !targetDealership) return;
+    await transferWarehouses(
+      selectedDealership.dealershipId,
+      targetDealership.dealershipId,
+      {
+        onSuccess: () => {
+          setIsTransferDialogOpen(false);
+          setTargetDealership(null);
+          setSelectedDealership(null);
+        },
+        onError: () => {
+          setIsTransferDialogOpen(false);
+          setTargetDealership(null);
+          setSelectedDealership(null);
+        }
+      }
+    );
+  };
 
   // Load dealerships on mount
   useEffect(() => {
@@ -108,9 +145,9 @@ export default function Dealerships() {
     });
   };
 
-  const handleDeleteDealership = async (dealershipId: number) => {
-    await deleteDealership(dealershipId);
-  };
+  // const handleDeleteDealership = async (dealershipId: number) => {
+  //   await deleteDealership(dealershipId);
+  // };
 
   const openCreateDialog = () => {
     resetForm();
@@ -131,6 +168,12 @@ export default function Dealerships() {
     setSelectedDealership(dealership);
     setIsViewDialogOpen(true);
   };
+
+  const openTransferDialog = (dealership: DealershipResponse) => {
+    setSelectedDealership(dealership);
+    setTargetDealership(null);
+    setIsTransferDialogOpen(true);
+  }
 
   const resetForm = () => {
     setFormData({
@@ -313,6 +356,14 @@ export default function Dealerships() {
                             <DropdownMenuItem onClick={() => openEditDialog(dealership)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Chỉnh sửa
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openTransferDialog(dealership)}>
+                              <ArrowRight className="mr-2 h-4 w-4" />
+                              Transfer
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(dealership)}>
+                              <ArrowRight className="mr-2 h-4 w-4" />
+                              Update Status
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -498,6 +549,45 @@ export default function Dealerships() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
               Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Transfer Warehouses Dialog */}
+      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Chuyển kho cho đại lý</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="target-dealership">Chọn đại lý nhận kho</Label>
+            <select
+              id="target-dealership"
+              className="w-full mt-2 border rounded px-3 py-2"
+              value={targetDealership ? targetDealership.dealershipId : ""}
+              onChange={e => {
+                const selected = dealerships.find(d => d.dealershipId === Number(e.target.value));
+                console.log('Selected dealership object for transfer:', selected);
+                setTargetDealership(selected || null);
+              }}
+            >
+              <option value="" disabled>Chọn đại lý</option>
+              {dealerships
+                .filter(d => !selectedDealership || d.dealershipId !== selectedDealership.dealershipId)
+                .map(d => (
+                  <option key={d.dealershipId} value={d.dealershipId}>
+                    {d.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleTransferWarehouses}
+              disabled={!targetDealership || loading}
+              className="bg-gradient-primary"
+            >
+              {loading ? "Đang chuyển..." : "Chuyển kho"}
             </Button>
           </DialogFooter>
         </DialogContent>
