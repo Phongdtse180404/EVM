@@ -1,3 +1,4 @@
+
 import { BaseApiService } from './api';
 
 // Dealership types based on backend DTOs
@@ -5,6 +6,11 @@ export interface DealershipRequest {
   name: string;
   address: string;
   phoneNumber?: string;
+}
+
+export enum DealershipStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
 }
 
 export interface WarehouseSummaryDTO {
@@ -19,6 +25,7 @@ export interface DealershipResponse {
   name: string;
   address: string;
   phoneNumber?: string;
+  status: DealershipStatus;
   warehouses: WarehouseSummaryDTO[];
 }
 

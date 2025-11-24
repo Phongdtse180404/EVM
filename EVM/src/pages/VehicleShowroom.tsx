@@ -20,14 +20,14 @@ import { ShowroomVehicleSpecifications } from "@/components/ShowroomVehicleSpeci
 import { ShowroomVehicleFeatures } from "@/components/ShowroomVehicleFeatures";
 
 // Type for individual vehicle with serial info
-type IndividualVehicle = WarehouseStockResponse & {
+export type IndividualVehicle = WarehouseStockResponse & {
   serial: VehicleSerialResponse;
   status: string;
   holdUntil?: string;
   vin: string;
-  imageUrl?: string;
   warehouseId?: number;
   warehouseName?: string;
+  // imageUrl and price are from ElectricVehicleResponse
 };
 import {
   Car,
@@ -99,27 +99,33 @@ export default function VehicleShowroom() {
 
   // Function to get the correct image for a vehicle based on model code and color
   const getVehicleImage = (vehicle: IndividualVehicle): string => {
-    // Find matching electric vehicle by model code and color
     const matchingEV = electricVehicles.find(ev => 
       ev.modelCode === vehicle.modelCode && 
       ev.color === vehicle.color
     );
-    
-    // Return the image URL from electric vehicle data, or fallback to firebase image
     return matchingEV?.imageUrl || firebaseImageUrl;
+  };
+
+  // Function to get the correct price for a vehicle based on model code and color
+  const getVehiclePrice = (vehicle: IndividualVehicle): number | undefined => {
+    const matchingEV = electricVehicles.find(ev => 
+      ev.modelCode === vehicle.modelCode && 
+      ev.color === vehicle.color
+    );
+    return matchingEV?.price;
   };
 
   // Flatten all warehouse items from all detailed warehouses
   const warehouseItems = useMemo(() => {
-    console.log('Creating warehouseItems from detailedWarehouses:', detailedWarehouses);
-    return detailedWarehouses?.flatMap(warehouse => {
-      console.log(`Processing warehouse ${warehouse.warehouseName}:`, warehouse.items);
+    const items = detailedWarehouses?.flatMap(warehouse => {
       return (warehouse.items || []).map(item => ({
         ...item,
         warehouseId: warehouse.warehouseId,
         warehouseName: warehouse.warehouseName
       }));
     }) || [];
+    console.log('warehouseItems:', items);
+    return items;
   }, [detailedWarehouses]);
 
   // Set selected vehicle when warehouse data is loaded
@@ -210,17 +216,17 @@ export default function VehicleShowroom() {
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
 
-          {/* Vehicle List */}
+          {/* Model List */}
           <ShowroomVehicleList
-            loading={loading}
             filteredVehicles={filteredVehicles}
             selectedVehicle={selectedVehicle}
             onVehicleSelect={setSelectedVehicle}
             getVehicleImage={getVehicleImage}
             getStatusBadge={getStatusBadge}
+            loading={loading || electricVehicleLoading}
             firebaseImageUrl={firebaseImageUrl}
           />
-
+          
           {/* Vehicle Details */}
           <div className="lg:col-span-2 overflow-y-auto">
             {selectedVehicle ? (
@@ -235,7 +241,7 @@ export default function VehicleShowroom() {
                     firebaseImageUrl={firebaseImageUrl}
                   />
                   <CardContent className="p-6">
-                    {/* Vehicle Information Header */}
+                    {/* Vehicle Information*/}
                     <ShowroomDetailVehicleInformation selectedVehicle={selectedVehicle} />
 
                     {/* Color Display */}
@@ -251,7 +257,7 @@ export default function VehicleShowroom() {
 
                   <TabsContent value="specs">
                     <Card>
-                      <ShowroomVehicleSpecifications selectedVehicle={selectedVehicle} />
+                      <ShowroomVehicleSpecifications selectedVehicle={selectedVehicle} getVehiclePrice={getVehiclePrice} />
                     </Card>
                   </TabsContent>
 

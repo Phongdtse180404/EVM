@@ -30,7 +30,7 @@ export function ShowroomSearchFilter({
         </div>
       </Card>
 
-      <Card className="p-3">
+      {/* <Card className="p-3">
         <div className="flex items-center space-x-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <Select value={filterStatus} onValueChange={onFilterChange}>
@@ -44,7 +44,7 @@ export function ShowroomSearchFilter({
             </SelectContent>
           </Select>
         </div>
-      </Card>
+      </Card> */}
     </div>
   );
 }

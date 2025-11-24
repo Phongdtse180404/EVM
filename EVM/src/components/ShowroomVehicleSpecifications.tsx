@@ -9,21 +9,16 @@ import {
   Shield,
 } from "lucide-react";
 
-// Type for individual vehicle (interface for specifications display)
-type IndividualVehicle = {
-  modelCode: string;
-  brand: string;
-  color: string;
-  productionYear: number;
-  vin: string;
-  status: string;
-};
+import type { IndividualVehicle } from "@/pages/VehicleShowroom";
+
 
 interface ShowroomVehicleSpecificationsProps {
   selectedVehicle: IndividualVehicle;
+  getVehiclePrice: (vehicle: IndividualVehicle) => number | undefined;
 }
 
-export function ShowroomVehicleSpecifications({ selectedVehicle }: ShowroomVehicleSpecificationsProps) {
+export function ShowroomVehicleSpecifications({ selectedVehicle, getVehiclePrice }: ShowroomVehicleSpecificationsProps) {
+  const price = getVehiclePrice(selectedVehicle);
   return (
     <>
       <CardHeader>
@@ -67,11 +62,19 @@ export function ShowroomVehicleSpecifications({ selectedVehicle }: ShowroomVehic
           </div>
 
           <div className="flex items-center space-x-3">
-            <Zap className="w-4 h-4 text-primary" />
-            <div>
-              <p className="text-sm font-medium">VIN</p>
-              <p className="text-sm text-muted-foreground font-mono">{selectedVehicle.vin}</p>
-            </div>
+            {price != null && !isNaN(Number(price)) ? (
+              <>
+                <Gauge className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="text-sm font-medium">Giá</p>
+                  <p className="text-sm text-green-700 font-semibold">
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price))}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">Giá: Không có dữ liệu</div>
+            )}
           </div>
 
           <div className="flex items-center space-x-3">

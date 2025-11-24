@@ -227,7 +227,6 @@ export default function AddModelDialog({
           {/* Electric Vehicle Information - Show for both create and update */}
           <div>
             <h3 className="text-lg font-medium mb-4">
-              Thông tin Xe điện
               {editingModel && electricVehicleLoading && (
                 <span className="text-sm text-muted-foreground ml-2">(Đang tải...)</span>
               )}

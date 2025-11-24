@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import OrderDetailsSummary from "@/components/OrderDetailsSummary";
+import OrderDetailsButton from "@/components/OrderDetailsButton";
+import OrderDetailsForm from "@/components/OrderDetailsForm";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -354,112 +357,11 @@ export default function OrderDetails() {
               <div className="mb-4">
                 <h2 className="text-2xl font-bold">{selectedVehicle.modelCode || 'Electric Vehicle'}</h2>
                 <p className="text-muted-foreground">{electricVehicle?.brand || ''}</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {selectedVehicle.color} - Năm sản xuất {selectedVehicle.productionYear}
-                </p>
-                <p className="text-xs text-muted-foreground font-mono mt-1">
-                  VIN: {selectedVehicle.vin}
-                </p>
-                {warehouseName && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Kho: {warehouseName}
-                  </p>
-                )}
-                {selectedVehicle.holdUntil && (
-                  <p className="text-xs text-yellow-600 mt-1">
-                    Giữ đến: {new Date(selectedVehicle.holdUntil).toLocaleDateString('vi-VN')}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">{warehouseName || ''}-{selectedVehicle?.vin || ''}</p>
               </div>
 
               <div className="text-2xl font-bold text-primary mb-6">
                 {electricVehicle?.price ? formatVnd(electricVehicle.price) : 'Giá chưa có'}
-              </div>
-
-              {/* Vehicle Specs */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Thông tin xe</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Car className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs font-medium">Mã model</p>
-                      <p className="text-xs text-muted-foreground">{selectedVehicle.modelCode}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Shield className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs font-medium">Thương hiệu</p>
-                      <p className="text-xs text-muted-foreground">{electricVehicle?.brand || ''}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Battery className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs font-medium">Màu sắc</p>
-                      <p className="text-xs text-muted-foreground">{selectedVehicle.color}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs font-medium">Năm sản xuất</p>
-                      <p className="text-xs text-muted-foreground">{selectedVehicle.productionYear}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Zap className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs font-medium">VIN</p>
-                      <p className="text-xs text-muted-foreground font-mono">{selectedVehicle.vin}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Timer className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-xs font-medium">Trạng thái</p>
-                      <p className="text-xs text-muted-foreground">
-                        {selectedVehicle.status === 'AVAILABLE' ? 'Có sẵn' : 
-                         selectedVehicle.status === 'HOLD' ? 'Đang giữ' : 'Đã bán'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="my-6" />
-
-              {/* Features */}
-              <div className="space-y-3">
-                <h4 className="font-medium">Tính năng nổi bật</h4>
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">Xe điện thân thiện với môi trường</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">Tiết kiệm chi phí vận hành</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">Thương hiệu {electricVehicle?.brand || ''}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">Năm sản xuất {selectedVehicle.productionYear}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">VIN: {selectedVehicle.vin}</span>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -469,191 +371,33 @@ export default function OrderDetails() {
         <div className="space-y-6">
           <Card className="p-6 bg-gradient-card border-border/50">
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customerPhone">Số điện thoại *</Label>
-                  <div className="relative">
-                    <Input
-                      id="customerPhone"
-                      value={orderForm.customerPhone}
-                      onChange={(e) => handlePhoneNumberChange(e.target.value)}
-                      placeholder="Nhập số điện thoại"
-                      disabled={isLookingUpCustomer}
-                    />
-                    {isLookingUpCustomer && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                      </div>
-                    )}
-                  </div>
-                  {isLookingUpCustomer && (
-                    <p className="text-xs text-muted-foreground">Đang tìm kiếm thông tin khách hàng...</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="customerName">Tên khách hàng *</Label>
-                  <Input
-                    id="customerName"
-                    value={orderForm.customerName}
-                    onChange={(e) => setOrderForm({ ...orderForm, customerName: e.target.value })}
-                    placeholder="Nhập tên khách hàng"
-                  />
-                </div>
-              </div>
-
-
-
-              <div className="space-y-2">
-                <Label htmlFor="customerAddress">Địa chỉ giao xe</Label>
-                <Input
-                  id="customerAddress"
-                  value={orderForm.customerAddress}
-                  onChange={(e) => setOrderForm({ ...orderForm, customerAddress: e.target.value })}
-                  placeholder="Nhập địa chỉ giao xe"
-                />
-              </div>
-
-              {/* Color Selection */}
-              <div className="space-y-2">
-                <Label>Màu xe *</Label>
-                <div className="flex space-x-3 mb-3">
-                  <div 
-                    className={`text-center cursor-pointer p-2 rounded-lg border-2 transition-all hover:border-primary ${
-                      orderForm.selectedColor === selectedVehicle.color ? 'border-primary bg-primary/10' : 'border-border'
-                    }`}
-                    onClick={() => setOrderForm({...orderForm, selectedColor: selectedVehicle.color!})}
-                  >
-                    <div className={`w-8 h-8 rounded-full mx-auto mb-1 border ${
-                      selectedVehicle.color?.toLowerCase().includes('đen') || selectedVehicle.color?.toLowerCase().includes('black') ? 'bg-black' :
-                      selectedVehicle.color?.toLowerCase().includes('trắng') || selectedVehicle.color?.toLowerCase().includes('white') ? 'bg-white border-gray-300' :
-                      selectedVehicle.color?.toLowerCase().includes('xám') || selectedVehicle.color?.toLowerCase().includes('gray') ? 'bg-gray-500' :
-                      selectedVehicle.color?.toLowerCase().includes('xanh') || selectedVehicle.color?.toLowerCase().includes('blue') ? 'bg-blue-500' :
-                      selectedVehicle.color?.toLowerCase().includes('đỏ') || selectedVehicle.color?.toLowerCase().includes('red') ? 'bg-red-500' : 'bg-gray-300'
-                    }`} />
-                    <span className="text-xs">{selectedVehicle.color}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <span>VIN: {selectedVehicle.vin}</span>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Màu sắc được chọn dựa trên xe cụ thể (VIN: {selectedVehicle.vin.slice(-8)})
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="depositAmount">Số tiền đặt cọc *</Label>
-                <Input
-                  id="depositAmount"
-                  type="text"
-                  value={formatNumberInput(orderForm.depositAmount)}
-                  onChange={(e) => {
-                    const rawValue = parseFormattedNumber(e.target.value);
-                    setOrderForm({ ...orderForm, depositAmount: rawValue });
-                  }}
-                  placeholder={electricVehicle?.price ? `Đề xuất: ${Math.floor(electricVehicle.price * 0.1).toLocaleString('vi-VN')} ₫` : "Nhập số tiền đặt cọc"}
-                />
-                {electricVehicle?.price && (
-                  <p className="text-xs text-muted-foreground">
-                    Đề xuất 10%: {Math.floor(electricVehicle.price * 0.1).toLocaleString('vi-VN')} ₫
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Ghi chú</Label>
-                <Textarea
-                  id="notes"
-                  value={orderForm.notes}
-                  onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
-                  placeholder="Nhập ghi chú (tùy chọn)"
-                  rows={3}
-                />
-              </div>
-            </div>
+            <OrderDetailsForm
+              orderForm={orderForm}
+              setOrderForm={setOrderForm}
+              selectedVehicle={selectedVehicle}
+              electricVehicle={electricVehicle}
+              isLookingUpCustomer={isLookingUpCustomer}
+              handlePhoneNumberChange={handlePhoneNumberChange}
+              formatNumberInput={formatNumberInput}
+              parseFormattedNumber={parseFormattedNumber}
+            />
 
             <Separator className="my-6" />
 
             {/* Order Summary */}
-            <div className="space-y-3">
-              <h4 className="font-medium">Tóm tắt đơn hàng</h4>
-              <div className="bg-background rounded-lg p-4 space-y-2">
-                <div className="flex justify-between">
-                  <span>Xe:</span>
-                  <span className="font-medium">{selectedVehicle.modelCode}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>VIN:</span>
-                  <span className="font-medium font-mono text-xs">{selectedVehicle.vin}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Mã số xe:</span>
-                  <span className="font-medium text-xs">#{selectedVehicle.serial.vin}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Màu:</span>
-                  <span className="font-medium">{orderForm.selectedColor || selectedVehicle.color}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Trạng thái:</span>
-                  <span className="font-medium">
-                    {selectedVehicle.status === 'AVAILABLE' ? 'Có sẵn' : 
-                     selectedVehicle.status === 'HOLD' ? 'Đang giữ' : 'Đã bán'}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex justify-between">
-                  <span>Tổng giá xe:</span>
-                  <span className="font-medium">{electricVehicle?.price ? formatVnd(electricVehicle.price) : 'Giá chưa có'}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Đặt cọc:</span>
-                  <span className="text-primary">
-                    {orderForm.depositAmount && parseFloat(orderForm.depositAmount) > 0 
-                      ? formatVnd(parseFloat(orderForm.depositAmount)) 
-                      : 'Chưa nhập'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Còn lại:</span>
-                  <span>
-                    {electricVehicle?.price && orderForm.depositAmount && parseFloat(orderForm.depositAmount) > 0
-                      ? formatVnd(electricVehicle.price - parseFloat(orderForm.depositAmount))
-                      : 'Chưa có'}
-                  </span>
-                </div>
-              </div>
-            </div>
+            <OrderDetailsSummary
+              selectedVehicle={selectedVehicle}
+              orderForm={orderForm}
+              electricVehicle={electricVehicle}
+              formatVnd={formatVnd}
+            />
 
-            <div className="flex space-x-3 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => navigate(-1)}
-                className="flex-1"
-              >
-                Hủy
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={resetForm}
-                className="flex-1"
-              >
-                Làm mới
-              </Button>
-              <Button 
-                onClick={handleSubmitOrder}
-                disabled={isSubmitting}
-                className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90 disabled:opacity-50"
-              >
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                {isSubmitting 
-                  ? 'Đang xử lý...' 
-                  : 'Đặt cọc xe'
-                }
-              </Button>
-            </div>
+            <OrderDetailsButton
+              onCancel={() => navigate(-1)}
+              onReset={resetForm}
+              onSubmit={handleSubmitOrder}
+              isSubmitting={isSubmitting}
+            />
           </Card>
         </div>
       </div>

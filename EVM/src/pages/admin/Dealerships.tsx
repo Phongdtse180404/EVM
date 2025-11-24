@@ -243,6 +243,7 @@ export default function Dealerships() {
                   <TableHead>Điện thoại</TableHead>
                   <TableHead className="text-center">Kho</TableHead>
                   <TableHead className="text-center">Xe</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
@@ -290,6 +291,13 @@ export default function Dealerships() {
                       <TableCell className="text-center">
                         <Badge variant="outline">{getTotalVehicles(dealership)}</Badge>
                       </TableCell>
+                      <TableCell className="text-center">
+                        {dealership.status === 'ACTIVE' ? (
+                          <Badge className="bg-green-100 text-green-700 border-green-400">ACTIVE</Badge>
+                        ) : (
+                          <Badge className="bg-red-100 text-red-700 border-red-400">INACTIVE</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -297,7 +305,7 @@ export default function Dealerships() {
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="bg-white bg-opacity-100">
                             <DropdownMenuItem onClick={() => openViewDialog(dealership)}>
                               <Eye className="mr-2 h-4 w-4" />
                               Xem chi tiết
@@ -306,32 +314,6 @@ export default function Dealerships() {
                               <Edit className="mr-2 h-4 w-4" />
                               Chỉnh sửa
                             </DropdownMenuItem>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Xóa
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Bạn có chắc chắn muốn xóa đại lý "{dealership.name}"?
-                                    Hành động này không thể hoàn tác.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDeleteDealership(dealership.dealershipId)}
-                                    className="bg-destructive hover:bg-destructive/90"
-                                  >
-                                    Xóa
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
