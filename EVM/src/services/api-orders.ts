@@ -4,7 +4,9 @@ import { BaseApiService } from './api';
 export enum OrderStatus {
   PROCESSING = 'PROCESSING',
   COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED'
+  CANCELLED = 'CANCELLED',
+  ORDER_PAID = 'ORDER_PAID',
+  DELIVERING = 'DELIVERING'
 }
 
 export enum OrderPaymentStatus {
@@ -36,8 +38,10 @@ export interface OrderResponse {
   remainingAmount?: number;
   status: OrderStatus;
   paymentStatus: OrderPaymentStatus;
-  deliveryDate?: string; // ISO date string
-  orderDate: Date; // ISO datetime string
+  deliveryDate?: string;
+  orderDate?: Date;
+  depositPaidAt?: Date;
+  fullyPaidAt?: Date;
 }
 
 // New Order Deposit Request type (matching backend OrderDepositRequest)
@@ -102,6 +106,7 @@ class OrderService extends BaseApiService {
     const res = await this.axiosInstance.post<OrderDepositResponse>('/orders/deposit', data);
     return res.data;
   }
+
 }
 
 // Export singleton instance

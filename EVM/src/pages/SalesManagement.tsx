@@ -117,7 +117,7 @@ export default function SalesManagement() {
     switch (status) {
       case 'COMPLETED': return 'Đơn hàng hoàn tất';
       case 'CANCELLED': return 'Đã hủy';
-      case 'DELIVERING': return 'Đang giao hàng';
+      case 'DELIVERING': return 'Đang giao xe';
       case 'ORDER_PAID': return 'Đã thanh toán';
       default: return 'Đang xử lý';
     }
@@ -343,7 +343,7 @@ export default function SalesManagement() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
           <div className="text-3xl font-bold text-primary mb-2">
-            {orders.filter(o => o.status === 'ORDER_PAID').length}
+            {orders.filter(o => o.paymentStatus === 'DEPOSIT_PAID' || o.paymentStatus === 'PAID').length}
           </div>
           <p className="text-muted-foreground">Đơn đã chốt</p>
         </Card>
@@ -357,7 +357,7 @@ export default function SalesManagement() {
 
         <Card className="p-6 text-center cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-card border-border/50">
           <div className="text-3xl font-bold text-accent mb-2">
-            {(orders.filter(o => o.status === 'ORDER_PAID').reduce((sum, o) => sum + (o.totalAmount ?? 0), 0) / 1_000_000_000).toFixed(1)}B₫
+            {(orders.filter(o => o.paymentStatus === 'PAID').reduce((sum, o) => sum + (o.totalAmount ?? 0), 0) / 1_000_000_000).toFixed(1)}B₫
           </div>
           <p className="text-muted-foreground">Doanh thu</p>
         </Card>
@@ -498,6 +498,7 @@ export default function SalesManagement() {
                           </Button>
                         </>
                       )}
+
                       {order.deliveryDate !== null && (
                         <>
                           <Button

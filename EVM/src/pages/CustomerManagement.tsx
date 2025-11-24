@@ -435,11 +435,11 @@ const CustomerManagement = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="phone">Địa chỉ *</Label>
+                  <Label htmlFor="address">Địa chỉ *</Label>
                   <Input
-                    id="phone"
+                    id="address"
                     value={editingCustomer.address}
-                    onChange={(e) => setNewCustomer({ ...editingCustomer, address: e.target.value })}
+                    onChange={(e) => setEditingCustomer({ ...editingCustomer, address: e.target.value })}
                     placeholder="Ho Chi Minh City"
                   />
                 </div>
