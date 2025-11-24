@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useModels } from "@/hooks/use-models";
 import { useElectricVehicle } from "@/hooks/use-electric-vehicle";
 import type { ModelResponse } from "@/services/api-model";
+import type { ElectricVehicleResponse } from "@/services/api-electric-vehicle";
 import AddModelDialog from "@/components/AddModelDialog";
 import DeleteAlert from "@/components/DeleteAlert";
+import ViewModelDialog from "@/components/ViewModelDialog";
 import {
   Table,
   TableBody,
@@ -22,6 +24,9 @@ export default function Models() {
   const [editingModel, setEditingModel] = useState<ModelResponse | null>(null);
   const [deleteModelId, setDeleteModelId] = useState<number | null>(null);
   const [isEditModelDialogOpen, setIsEditModelDialogOpen] = useState(false);
+  const [viewingModel, setViewingModel] = useState<ModelResponse | null>(null);
+  const [viewingModelEV, setViewingModelEV] = useState<ElectricVehicleResponse | null>(null);
+  const [isViewModelDialogOpen, setIsViewModelDialogOpen] = useState(false);
 
   const { toast } = useToast();
   
@@ -36,7 +41,8 @@ export default function Models() {
   // Use electric vehicle hook for deleting electric vehicles
   const {
     deleteElectricVehicleByModelId,
-    fetchElectricVehicles
+    fetchElectricVehicles,
+    findElectricVehiclesByModelCode
   } = useElectricVehicle();
 
   // Initial data fetch
@@ -49,6 +55,22 @@ export default function Models() {
   const openEditModelDialog = (model?: ModelResponse) => {
     setEditingModel(model || null);
     setIsEditModelDialogOpen(true);
+  };
+
+  const openViewModelDialog = async (model: ModelResponse) => {
+    setViewingModel(model);
+    setViewingModelEV(null);
+    setIsViewModelDialogOpen(true);
+    
+    // Fetch electric vehicle data for this model
+    try {
+      const electricVehicles = await findElectricVehiclesByModelCode(model.modelCode);
+      if (electricVehicles && electricVehicles.length > 0) {
+        setViewingModelEV(electricVehicles[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching electric vehicle data for view:', error);
+    }
   };
   
 
@@ -150,7 +172,16 @@ export default function Models() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => openViewModelDialog(model)}
+                            title="Xem chi tiết"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => openEditModelDialog(model)}
+                            title="Chỉnh sửa"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -177,6 +208,14 @@ export default function Models() {
         onOpenChange={setIsEditModelDialogOpen}
         editingModel={editingModel}
         onModelCreated={fetchModels}
+      />
+
+      {/* View Model Details Dialog */}
+      <ViewModelDialog
+        open={isViewModelDialogOpen}
+        onOpenChange={setIsViewModelDialogOpen}
+        model={viewingModel}
+        electricVehicle={viewingModelEV}
       />
 
       {/* Delete Model Alert */}
