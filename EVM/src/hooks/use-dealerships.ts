@@ -1,7 +1,9 @@
+
 import { useState, useCallback } from "react";
 import { dealershipService } from "@/services/api-dealership";
 import { useToast } from "@/hooks/use-toast";
-import type { DealershipRequest, DealershipResponse } from "@/services/api-dealership";
+import type { DealershipRequest, DealershipResponse, TransferWarehouseRequest, DealershipStatus } from "@/services/api-dealership";
+import { request } from "http";
 
 /**
  * Hook for managing dealerships - create, update, fetch, delete operations
@@ -32,6 +34,36 @@ export const useDealerships = () => {
       setLoading(false);
     }
   }, [toast]);
+
+  // Update dealership status
+  const updateDealershipStatus = useCallback(async (
+    dealership: DealershipResponse,
+    callbacks?: { onSuccess?: () => void; onError?: (error: Error) => void }
+  ) => {
+    const { onSuccess, onError } = callbacks || {};
+    setLoading(true);
+    try {
+      const status = dealership.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      await dealershipService.updateDealershipStatus(dealership.dealershipId, status as DealershipStatus);
+      await fetchDealerships();
+      toast({
+        title: "Thành công",
+        description: `Đãdcập nhật trạng thái đại lý thành ${status === 'ACTIVE' ? 'hoạt động' : 'ngưng hoạt động'}`,
+      });
+      onSuccess?.();
+      return { success: true };
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật trạng thái đại lý",
+        variant: "destructive",
+      });
+      onError?.(error as Error);
+      return { success: false, error };
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, fetchDealerships]);
 
   // Fetch dealership by ID
   const fetchDealership = useCallback(async (dealershipId: number) => {
@@ -230,6 +262,39 @@ export const useDealerships = () => {
     }
   }, [toast, selectedDealership]);
 
+  // Transfer all warehouses from one dealership to another
+  const transferWarehouses = useCallback(async (
+    sourceId: number,
+    targetDealershipId: number,
+    callbacks?: { onSuccess?: () => void; onError?: (error: Error) => void }
+  ) => {
+    const { onSuccess, onError } = callbacks || {};
+    setLoading(true);
+    try {
+      const requestBody: TransferWarehouseRequest = { targetDealershipId };
+      console.log("Request Body:", requestBody);
+      await dealershipService.transferWarehouses(sourceId, requestBody);
+      await fetchDealerships();
+      toast({
+        title: "Thành công",
+        description: "Đã chuyển kho thành công",
+      });
+      onSuccess?.();
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      toast({
+        title: "Cảnh báo",
+        description: "Không thể chuyển kho",
+        variant: "destructive",
+      });
+      onError?.(new Error(errorMessage));
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, fetchDealerships]);
+
   return {
     // Operations
     fetchDealerships,
@@ -238,7 +303,8 @@ export const useDealerships = () => {
     updateDealership,
     deleteDealership,
     deleteWarehouseFromDealership,
-    
+    transferWarehouses,
+    updateDealershipStatus,
     // State
     loading,
     dealerships,

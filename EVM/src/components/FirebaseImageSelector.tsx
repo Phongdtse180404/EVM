@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,19 +31,9 @@ export default function FirebaseImageSelector({
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // Load images when dialog opens
-  useEffect(() => {
-    if (isDialogOpen) {
-      loadImages();
-    }
-  }, [isDialogOpen]);
 
-  // Update selected image when value changes
-  useEffect(() => {
-    setSelectedImage(value);
-  }, [value]);
-
-  const loadImages = async () => {
+  // Define loadImages before useEffect to avoid ReferenceError
+  const loadImages = useCallback(async () => {
     setLoading(true);
     try {
       const imageList = await listImages(storagePath);
@@ -57,7 +47,19 @@ export default function FirebaseImageSelector({
     } finally {
       setLoading(false);
     }
-  };
+  }, [storagePath, toast]);
+
+  // Load images when dialog opens
+  useEffect(() => {
+    if (isDialogOpen) {
+      loadImages();
+    }
+  }, [isDialogOpen, loadImages]);
+
+  // Update selected image when value changes
+  useEffect(() => {
+    setSelectedImage(value);
+  }, [value]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

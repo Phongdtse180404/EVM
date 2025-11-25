@@ -3,15 +3,7 @@ import { ShoppingCart, Warehouse } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-// Type for individual vehicle (matches parent component)
-type IndividualVehicle = {
-  modelCode: string;
-  color: string;
-  vin: string;
-  status: string;
-  warehouseId?: number;
-  warehouseName?: string;
-};
+import type { IndividualVehicle } from "@/pages/VehicleShowroom";
 
 interface ShowroomDetailButtonsProps {
   selectedVehicle: IndividualVehicle;
