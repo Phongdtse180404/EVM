@@ -35,6 +35,22 @@ export interface ElectricVehicleResponse {
 
 // Electric Vehicle Service
 class ElectricVehicleService extends BaseApiService {
+
+    // Import vehicle types from Excel file
+  async importVehicleTypeExcel(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await this.axiosInstance.post<string>(
+      '/electric-vehicles/import-vehicle-type-excel',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return res.data;
+  }
   async getAllElectricVehicles(): Promise<ElectricVehicleResponse[]> {
     const res = await this.axiosInstance.get<ElectricVehicleResponse[]>('/electric-vehicles/all');
     return res.data;
@@ -65,6 +81,8 @@ class ElectricVehicleService extends BaseApiService {
     );
     return res.data;
   }
+
+  
 }
 
 export const electricVehicleService = new ElectricVehicleService();

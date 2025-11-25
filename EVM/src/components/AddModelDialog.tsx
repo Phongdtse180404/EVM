@@ -24,12 +24,47 @@ interface AddModelDialogProps {
   editingModel?: ModelResponse | null;
 }
 
-export default function AddModelDialog({ 
-  open, 
-  onOpenChange, 
+export default function AddModelDialog({
+  open,
+  onOpenChange,
   onModelCreated,
-  editingModel = null 
+  editingModel = null
 }: AddModelDialogProps) {
+
+  const [importing, setImporting] = useState<boolean>(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  // Import Excel handler
+  const handleImportExcel = async () => {
+    if (!importFile) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng chọn file Excel để nhập.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setImporting(true);
+    try {
+      // Dynamically import the service to avoid circular deps
+      const { electricVehicleService } = await import("@/services/api-electric-vehicle");
+      const result = await electricVehicleService.importVehicleTypeExcel(importFile);
+      toast({
+        title: "Thành công",
+        description: result || "Nhập file thành công!",
+      });
+      setImportFile(null);
+      onOpenChange(false);
+    } catch (error: any) {
+
+      toast({
+        title: "Lỗi",
+        description: "Không thể nhập file Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
   const [modelFormData, setModelFormData] = useState<ModelRequest>({
     modelCode: editingModel?.modelCode || "",
     brand: editingModel?.brand || "",
@@ -171,128 +206,149 @@ export default function AddModelDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {editingModel ? "Chỉnh sửa Model" : "Thêm Model mới"}
+            {editingModel ? "Chỉnh sửa Model" : ""}
           </DialogTitle>
           <DialogDescription>
-            {editingModel ? "Cập nhật thông tin model" : "Nhập thông tin model mới"}
+            {editingModel ? "Cập nhật thông tin model" : ""}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 py-4">
-          {/* Model Information */}
-          <div>
-            <h3 className="text-lg font-medium mb-4">Thông tin Model</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="model-code">Mã Model *</Label>
-                <Input
-                  id="model-code"
-                  value={modelFormData.modelCode}
-                  onChange={(e) => setModelFormData(prev => ({ ...prev, modelCode: e.target.value }))}
-                  placeholder="Nhập mã model"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="brand">Thương hiệu *</Label>
-                <Input
-                  id="brand"
-                  value={modelFormData.brand}
-                  onChange={(e) => setModelFormData(prev => ({ ...prev, brand: e.target.value }))}
-                  placeholder="Nhập thương hiệu"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="color">Màu sắc</Label>
-                <Input
-                  id="color"
-                  value={modelFormData.color}
-                  onChange={(e) => setModelFormData(prev => ({ ...prev, color: e.target.value }))}
-                  placeholder="Nhập màu sắc"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="production-year">Năm sản xuất</Label>
-                <Input
-                  id="production-year"
-                  type="number"
-                  min="1900"
-                  max={new Date().getFullYear() + 1}
-                  value={modelFormData.productionYear}
-                  onChange={(e) => setModelFormData(prev => ({ ...prev, productionYear: Number(e.target.value) }))}
-                  placeholder="Nhập năm sản xuất"
-                />
+        {editingModel ? (
+          <div className="space-y-6 py-4">
+            {/* Model Information. Show only for update mode*/}
+            <div>
+              <h3 className="text-lg font-medium mb-4">Thông tin Model</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="model-code">Mã Model *</Label>
+                  <Input
+                    id="model-code"
+                    value={modelFormData.modelCode}
+                    onChange={(e) => setModelFormData(prev => ({ ...prev, modelCode: e.target.value }))}
+                    placeholder="Nhập mã model"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brand">Thương hiệu *</Label>
+                  <Input
+                    id="brand"
+                    value={modelFormData.brand}
+                    onChange={(e) => setModelFormData(prev => ({ ...prev, brand: e.target.value }))}
+                    placeholder="Nhập thương hiệu"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="color">Màu sắc</Label>
+                  <Input
+                    id="color"
+                    value={modelFormData.color}
+                    onChange={(e) => setModelFormData(prev => ({ ...prev, color: e.target.value }))}
+                    placeholder="Nhập màu sắc"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="production-year">Năm sản xuất</Label>
+                  <Input
+                    id="production-year"
+                    type="number"
+                    min="1900"
+                    max={new Date().getFullYear() + 1}
+                    value={modelFormData.productionYear}
+                    onChange={(e) => setModelFormData(prev => ({ ...prev, productionYear: Number(e.target.value) }))}
+                    placeholder="Nhập năm sản xuất"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Electric Vehicle Information - Show for both create and update */}
-          <div>
-            <h3 className="text-lg font-medium mb-4">
-              {editingModel && electricVehicleLoading && (
-                <span className="text-sm text-muted-foreground ml-2">(Đang tải...)</span>
+            <div>
+              <h3 className="text-lg font-medium mb-4">
+                {electricVehicleLoading && (
+                  <span className="text-sm text-muted-foreground ml-2">(Đang tải...)</span>
+                )}
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cost">Giá vốn (VND) *</Label>
+                  <Input
+                    id="cost"
+                    type="number"
+                    min="0"
+                    value={electricVehicleFormData.cost}
+                    onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, cost: Number(e.target.value) }))}
+                    placeholder="Nhập giá vốn"
+                    disabled={electricVehicleLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="price">Giá bán (VND) *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    min="0"
+                    value={electricVehicleFormData.price}
+                    onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, price: Number(e.target.value) }))}
+                    placeholder="Nhập giá bán"
+                    disabled={electricVehicleLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="battery-capacity">Dung lượng pin (kWh) *</Label>
+                  <Input
+                    id="battery-capacity"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={electricVehicleFormData.batteryCapacity}
+                    onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, batteryCapacity: Number(e.target.value) }))}
+                    placeholder="Nhập dung lượng pin"
+                    disabled={electricVehicleLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="image-url">Hình ảnh xe</Label>
+                  <FirebaseImageSelector
+                    value={electricVehicleFormData.imageUrl}
+                    onChange={(url) => setElectricVehicleFormData(prev => ({ ...prev, imageUrl: url }))}
+                    disabled={electricVehicleLoading}
+                    storagePath="images/vehicles"
+                  />
+                </div>
+              </div>
+              {!existingElectricVehicle && !electricVehicleLoading && (
+                <p className="text-sm text-yellow-600 mt-2">
+                  Không tìm thấy thông tin xe điện cho model này.
+                </p>
               )}
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cost">Giá vốn (VND) *</Label>
-                <Input
-                  id="cost"
-                  type="number"
-                  min="0"
-                  value={electricVehicleFormData.cost}
-                  onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, cost: Number(e.target.value) }))}
-                  placeholder="Nhập giá vốn"
-                  disabled={electricVehicleLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="price">Giá bán (VND) *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  min="0"
-                  value={electricVehicleFormData.price}
-                  onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, price: Number(e.target.value) }))}
-                  placeholder="Nhập giá bán"
-                  disabled={electricVehicleLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="battery-capacity">Dung lượng pin (kWh) *</Label>
-                <Input
-                  id="battery-capacity"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={electricVehicleFormData.batteryCapacity}
-                  onChange={(e) => setElectricVehicleFormData(prev => ({ ...prev, batteryCapacity: Number(e.target.value) }))}
-                  placeholder="Nhập dung lượng pin"
-                  disabled={electricVehicleLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="image-url">Hình ảnh xe</Label>
-                <FirebaseImageSelector
-                  value={electricVehicleFormData.imageUrl}
-                  onChange={(url) => setElectricVehicleFormData(prev => ({ ...prev, imageUrl: url }))}
-                  disabled={electricVehicleLoading}
-                  storagePath="images/vehicles"
-                />
-              </div>
             </div>
-            {editingModel && !existingElectricVehicle && !electricVehicleLoading && (
-              <p className="text-sm text-yellow-600 mt-2">
-                Không tìm thấy thông tin xe điện cho model này.
-              </p>
-            )}
           </div>
-        </div>
+        ) : (
+          <div className="space-y-6 py-4">
+            <h3 className="text-lg font-medium mb-4">Nhập Model từ file Excel</h3>
+            <div className="space-y-2">
+              <Label htmlFor="excel-import">Chọn file Excel (.xlsx)</Label>
+              <Input
+                id="excel-import"
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={e => setImportFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+                disabled={importing}
+              />
+            </div>
+          </div>
+        )}
+        
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Hủy
           </Button>
-          <Button onClick={handleSave}>
-            {editingModel ? "Cập nhật" : "Thêm"}
-          </Button>
+          {!editingModel ? (
+            <Button onClick={handleImportExcel} disabled={importing || !importFile}>
+              {importing ? "Đang nhập..." : "Thêm"}
+            </Button>
+          ) : (
+            <Button onClick={handleSave}>
+              Cập Nhật
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
