@@ -5,13 +5,13 @@ import MetricCard from "@/components/MetricCard";
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Bar,
+  BarChart as RBarChart,
 } from "recharts";
 import { orderService, OrderResponse } from "@/services/api-orders";
 import { customerService, CustomerResponse } from "@/services/api-customers";
@@ -59,8 +59,8 @@ export default function Sales() {
   // tính toán metric từ orders
   const totalRevenue = useMemo(() => {
     // chỉ tính order không bị cancel (tuỳ rule bên bạn)
-    const validOrders = orders.filter(o => o.status !== "CANCELLED");
-    return validOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const validOrders = orders.filter(orders => orders.status !== "CANCELLED");
+    return validOrders.reduce((sum, orders) => sum + (orders.totalAmount || 0), 0);
   }, [orders]);
 
   const totalOrders = useMemo(() => orders.length, [orders]);
@@ -85,7 +85,7 @@ export default function Sales() {
 
   const recentActivity = useMemo(() => {
     const sorted = [...orders]
-      .filter(o => o.orderDate) // chỉ lấy cái có ngày
+      .filter(orders => orders.orderDate) // chỉ lấy cái có ngày
       .sort(
         (a, b) =>
           new Date(b.orderDate as any).getTime() -
@@ -93,13 +93,13 @@ export default function Sales() {
       )
       .slice(0, 4);
 
-    return sorted.map(o => ({
-      id: o.orderId,
-      customer: o.customerName ?? `KH #${o.customerId}`,
-      action: `Mua ${o.vehicleModel ?? `Xe #${o.vehicleId}`}`,
-      amount: formatVND(o.totalAmount || 0),
-      orderDate: o.orderDate
-        ? formatDateTimeVN(new Date(o.orderDate as any))
+    return sorted.map(orders => ({
+      id: orders.orderId,
+      customer: orders.customerName ?? `KH #${orders.customerId}`,
+      action: `Mua ${orders.vehicleModel ?? `Xe #${orders.vehicleId}`}`,
+      amount: formatVND(orders.totalAmount || 0),
+      orderDate: orders.orderDate
+        ? formatDateTimeVN(new Date(orders.orderDate as any))
         : "N/A",
     }));
   }, [orders]);
@@ -109,21 +109,16 @@ export default function Sales() {
       title: "Tổng doanh thu",
       value: loading ? "Đang tải..." : formatVND(totalRevenue),
       change: "+12.5%",               // nếu muốn tính thật thì làm thêm API so sánh tháng trước
-      trend: "up" as const,
       icon: DollarSign,
     },
     {
       title: "Đơn hàng",
       value: loading ? "Đang tải..." : totalOrders.toLocaleString("vi-VN"),
-      change: "+8.2%",
-      trend: "up" as const,
       icon: ShoppingCart,
     },
     {
       title: "Khách hàng",
       value: loading ? "Đang tải..." : totalCustomers.toLocaleString("vi-VN"),
-      change: "+15.3%",
-      trend: "up" as const,
       icon: Users,
     },
   ];
@@ -131,20 +126,28 @@ export default function Sales() {
   const formatDayLabel = (d: Date) =>
     d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
 
+  // biểu đồ doanh thu theo ngày
   const salesData = useMemo(() => {
     // map doanh thu theo key yyyy-mm-dd
     const revenueByDate = new Map<string, number>();
 
-    orders.forEach(o => {
-      if (!o.orderDate || o.status === "CANCELLED") return;
+    orders.forEach(orders => {
+      if (!orders.orderDate || orders.status === "CANCELLED") return;
 
-      const dateObj = new Date(o.orderDate as any);
+      const dateObj = new Date(orders.orderDate as any);
       const key = dateObj.toISOString().slice(0, 10); // yyyy-mm-dd
 
-      revenueByDate.set(
-        key,
-        (revenueByDate.get(key) || 0) + (o.totalAmount || 0)
-      );
+      if (orders.paymentStatus === "DEPOSIT_PAID") {
+        revenueByDate.set(
+          key,
+          (revenueByDate.get(key) || 0) + (orders.planedDepositAmount || 0)
+        );
+      } else if (orders.paymentStatus === "PAID") {
+        revenueByDate.set(
+          key,
+          (revenueByDate.get(key) || 0) + (orders.totalAmount || 0)
+        );
+      }
     });
 
     // tạo list 7 ngày gần nhất (tính cả hôm nay)
@@ -164,6 +167,25 @@ export default function Sales() {
     return result;
   }, [orders]);
 
+  // top model bán chạy
+  const productData = useMemo(() => {
+    const countByModel = new Map<string, number>();
+
+    orders.forEach(o => {
+      if (o.status === "CANCELLED") return;
+
+      // chỉ tính đơn đã có tiền (cọc hoặc thanh toán full)
+      if (!["DEPOSIT_PAID", "PAID"].includes(o.paymentStatus)) return;
+
+      const model = o.vehicleModel || `Xe #${o.vehicleId}`;
+      countByModel.set(model, (countByModel.get(model) || 0) + 1);
+    });
+
+    return Array.from(countByModel.entries())
+      .map(([name, sales]) => ({ name, sales }))
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 5);
+  }, [orders]);
 
   return (
     <div className="space-y-8">
@@ -189,7 +211,7 @@ export default function Sales() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-1">
+      <div className="grid gap-6 lg:grid-cols-2">
         <Card className="shadow-soft">
           <CardHeader>
             <CardTitle>Doanh thu theo tháng</CardTitle>
@@ -218,6 +240,36 @@ export default function Sales() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
+        <Card className="shadow-soft">
+          <CardHeader>
+            <CardTitle>Top model bán chạy</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!productData.length ? (
+              <p className="text-sm text-muted-foreground">
+                Chưa có dữ liệu bán hàng.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <RBarChart data={productData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+                  <YAxis stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                </RBarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
       </div>
 
       {/* Recent Activity */}
@@ -261,7 +313,6 @@ export default function Sales() {
           </div>
         </CardContent>
       </Card>
-
     </div>
   );
 }

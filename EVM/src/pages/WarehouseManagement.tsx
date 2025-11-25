@@ -72,7 +72,6 @@ export default function WarehouseManagement() {
   const [filterZone, setFilterZone] = useState<string>("all");
   const [selectedItem, setSelectedItem] = useState<WarehouseItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Fetch warehouse and electric vehicle data on component mount
   useEffect(() => {
@@ -85,14 +84,9 @@ export default function WarehouseManagement() {
     setIsDetailModalOpen(true);
   };
 
-  const handleAddInventory = (newItem: WarehouseItem) => {
-    // Here you would typically update your inventory state
-    console.log("Adding new item:", newItem);
-  };
-
   // Convert API data to individual vehicles
   const warehouseItems = selectedWarehouse?.items || [];
-  const individualVehicles = warehouseItems.flatMap(item => 
+  const individualVehicles = warehouseItems.flatMap(item =>
     (item.serials || []).map(serial => ({
       ...item,
       serial: serial,
@@ -111,7 +105,7 @@ export default function WarehouseManagement() {
   const warehouseInventory: WarehouseItem[] = individualVehicles.map((vehicle, index) => {
     // Find matching electric vehicle data for image and price
     const electricVehicle = findElectricVehicleByModelCode(vehicle.modelCode);
-    
+
     return {
       id: vehicle.vin || `vehicle-${index}`,
       vehicleName: `${vehicle.brand} ${vehicle.modelCode}`,
@@ -120,8 +114,8 @@ export default function WarehouseManagement() {
       color: vehicle.color,
       location: `A-${Math.floor(Math.random() * 10) + 1}`, // Mock location
       zone: `${Math.floor(Math.random() * 5) + 1}`, // Mock zone
-      status: vehicle.status === 'AVAILABLE' ? 'available' : 
-             vehicle.status === 'HOLD' ? 'reserved' : 'maintenance',
+      status: vehicle.status === 'AVAILABLE' ? 'available' :
+        vehicle.status === 'HOLD' ? 'reserved' : 'maintenance',
       batteryLevel: Math.floor(Math.random() * 100), // Mock battery level
       lastChecked: new Date().toLocaleDateString('vi-VN'), // Mock last checked
       price: electricVehicle?.price || 800000000, // Use real price from electric-vehicle API
@@ -185,21 +179,10 @@ export default function WarehouseManagement() {
             </p>
           </div>
         </div>
-
-        <div className="flex space-x-2">
-          <Button variant="outline">
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Báo cáo kho
-          </Button>
-          <Button className="bg-gradient-primary" onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nhập kho
-          </Button>
-        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4 text-center">
           <div className="text-2xl font-bold text-primary">{stats.totalVehicles}</div>
           <p className="text-sm text-muted-foreground">Tổng xe</p>
@@ -230,7 +213,7 @@ export default function WarehouseManagement() {
           </div>
         </Card>
 
-        <Card className="p-3">
+        <Card className="p-3 col-span-2">
           <div className="flex items-center space-x-2">
             <Filter className="w-4 h-4 text-muted-foreground" />
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -240,9 +223,7 @@ export default function WarehouseManagement() {
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="available">Có sẵn</SelectItem>
-                
-                <SelectItem value="maintenance">Bảo trì</SelectItem>
-                
+                <SelectItem value="maintenance">Đang giữ</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -343,7 +324,7 @@ export default function WarehouseManagement() {
           const warehouseVehicle = individualVehicles.find(v => v.vin === selectedItem.id);
           // Find matching electric vehicle data
           const electricVehicle = warehouseVehicle ? findElectricVehicleByModelCode(warehouseVehicle.modelCode) : undefined;
-          
+
           return {
             vehicleId: parseInt(selectedItem.id),
             modelCode: selectedItem.vehicleName,
@@ -361,13 +342,6 @@ export default function WarehouseManagement() {
             selectableNow: true
           };
         })() : undefined}
-      />
-
-      {/* Add Inventory Modal */}
-      <AddInventoryModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddInventory}
       />
     </div>
   );
