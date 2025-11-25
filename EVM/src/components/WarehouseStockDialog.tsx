@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
+import * as XLSX from "xlsx";
 import {
   Dialog,
   DialogContent,
@@ -38,19 +40,53 @@ interface WarehouseStockDialogProps {
   onAddModel: () => void;
 }
 
-export default function WarehouseStockDialog({
-  open,
-  onOpenChange,
-  models,
-  modelsLoading,
-  selectedModelCode = "",
-  selectedQuantity = 0,
-  onSave,
-  onAddModel,
-}: WarehouseStockDialogProps) {
+
+
+export default function WarehouseStockDialog(props: WarehouseStockDialogProps) {
+  const {
+    open,
+    onOpenChange,
+    models,
+    modelsLoading,
+    selectedModelCode = "",
+    selectedQuantity = 0,
+    onSave,
+    onAddModel,
+  } = props;
   const [stockModelCode, setStockModelCode] = useState<string>("");
   const [stockQuantity, setStockQuantity] = useState<number>(0);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Import Excel handler
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
+    // Skip header row, start from 1
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || (!row[0] && !row[1])) break; // Stop at empty row
+      const modelCode = String(row[0] || "").trim();
+      const quantity = Number(row[1]);
+      if (modelCode && !isNaN(quantity)) {
+        setLoading(true);
+        try {
+          await onSave({ modelCode, quantity });
+        } catch (error) {
+          // Optionally handle error per row
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+    // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    onOpenChange(false);
+  };
+
 
   // Reset form when dialog opens/closes or when props change
   useEffect(() => {
@@ -153,6 +189,22 @@ export default function WarehouseStockDialog({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Hủy
+          </Button>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleImportExcel}
+            disabled={loading}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+          >
+            Nhập từ Excel
           </Button>
           <Button onClick={handleSave} disabled={!isValid || loading}>
             {loading ? "Đang lưu..." : selectedModelCode ? "Cập nhật" : "Thêm"}
