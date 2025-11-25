@@ -16,6 +16,7 @@ export enum DealershipStatus {
 export interface TransferWarehouseRequest {
   //target Dealership ID to transfer warehouses to
   targetDealershipId: number;
+  warehouseIds: number[];
 }
 
 export interface WarehouseSummaryDTO {
@@ -81,10 +82,10 @@ class DealershipService extends BaseApiService {
     await this.axiosInstance.delete(`/dealerships/${dealershipId}/warehouses/${warehouseId}`);
   }
 
-  // POST - Transfer all warehouses from one dealership to another
+  // PUT - Transfer selected warehouses from one dealership to another
   async transferWarehouses(sourceId: number, transferWarehouseRequest: TransferWarehouseRequest): Promise<string> {
-    const res = await this.axiosInstance.post(`/dealerships/${sourceId}/transfer-warehouses`, transferWarehouseRequest);
-    return res.data.message;
+    const res = await this.axiosInstance.put(`/dealerships/${sourceId}/transfer-warehouses`, transferWarehouseRequest);
+    return res.data;
   }
 }
 

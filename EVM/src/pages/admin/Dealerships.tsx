@@ -71,26 +71,26 @@ export default function Dealerships() {
   });
   // State for transfer target dealership (DealershipResponse object)
   const [targetDealership, setTargetDealership] = useState<DealershipResponse | null>(null);
+  // State for selected warehouses to transfer
+  const [warehouseIds, setWarehouseIds] = useState<number[]>([]);
 
-  // Handle transfer warehouses
+  // Handle transfer warehouses (multiple)
   const handleTransferWarehouses = async () => {
-    if (!selectedDealership || !targetDealership) return;
-    await transferWarehouses(
-      selectedDealership.dealershipId,
-      targetDealership.dealershipId,
-      {
-        onSuccess: () => {
-          setIsTransferDialogOpen(false);
-          setTargetDealership(null);
-          setSelectedDealership(null);
-        },
-        onError: () => {
-          setIsTransferDialogOpen(false);
-          setTargetDealership(null);
-          setSelectedDealership(null);
+    if (!selectedDealership || !targetDealership || warehouseIds.length === 0) return;
+    // Call your transfer API for each selected warehouse
+      await transferWarehouses(
+        selectedDealership.dealershipId,
+        targetDealership.dealershipId,
+        warehouseIds,
+        {
+          onSuccess: () => {},
+          onError: () => {},
         }
-      }
-    );
+      );
+    setIsTransferDialogOpen(false);
+    setTargetDealership(null);
+    setSelectedDealership(null);
+    setWarehouseIds([]);
   };
 
   // Load dealerships on mount
@@ -559,32 +559,65 @@ export default function Dealerships() {
           <DialogHeader>
             <DialogTitle>Chuyển kho cho đại lý</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="target-dealership">Chọn đại lý nhận kho</Label>
-            <select
-              id="target-dealership"
-              className="w-full mt-2 border rounded px-3 py-2"
-              value={targetDealership ? targetDealership.dealershipId : ""}
-              onChange={e => {
-                const selected = dealerships.find(d => d.dealershipId === Number(e.target.value));
-                console.log('Selected dealership object for transfer:', selected);
-                setTargetDealership(selected || null);
-              }}
-            >
-              <option value="" disabled>Chọn đại lý</option>
-              {dealerships
-                .filter(d => !selectedDealership || d.dealershipId !== selectedDealership.dealershipId)
-                .map(d => (
-                  <option key={d.dealershipId} value={d.dealershipId}>
-                    {d.name}
-                  </option>
-                ))}
-            </select>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="target-dealership">Chọn đại lý nhận kho</Label>
+              <select
+                id="target-dealership"
+                className="w-full mt-2 border rounded px-3 py-2"
+                value={targetDealership ? targetDealership.dealershipId : ""}
+                onChange={e => {
+                  const selected = dealerships.find(d => d.dealershipId === Number(e.target.value));
+                  setTargetDealership(selected || null);
+                }}
+              >
+                <option value="" disabled>Chọn đại lý</option>
+                {dealerships
+                  .filter(d => !selectedDealership || d.dealershipId !== selectedDealership.dealershipId)
+                  .map(d => (
+                    <option key={d.dealershipId} value={d.dealershipId}>
+                      {d.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            {selectedDealership && selectedDealership.warehouses && (
+              <div>
+                <Label>Chọn kho cần chuyển</Label>
+                <div className="mt-2 space-y-2 border rounded p-3">
+                  {selectedDealership.warehouses.map(warehouse => (
+                    <div key={warehouse.warehouseId} className="flex items-center justify-between p-2 border rounded">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`warehouse-${warehouse.warehouseId}`}
+                          checked={warehouseIds.includes(warehouse.warehouseId)}
+                          onChange={e => {
+                            setWarehouseIds(prev =>
+                              e.target.checked
+                                ? [...prev, warehouse.warehouseId]
+                                : prev.filter(id => id !== warehouse.warehouseId)
+                            );
+                          }}
+                          className="mr-2"
+                        />
+                        <label htmlFor={`warehouse-${warehouse.warehouseId}`} className="text-sm cursor-pointer font-medium">
+                          {warehouse.warehouseName}
+                        </label>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="secondary">{warehouse.vehicleQuantity} xe</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
               onClick={handleTransferWarehouses}
-              disabled={!targetDealership || loading}
+              disabled={!targetDealership || warehouseIds.length === 0 || loading}
               className="bg-gradient-primary"
             >
               {loading ? "Đang chuyển..." : "Chuyển kho"}

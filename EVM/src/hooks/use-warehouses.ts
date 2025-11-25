@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { warehouseService } from '@/services/api-warehouse';
@@ -41,6 +42,9 @@ export const useWarehouses = () => {
     }
   }, [toast]);
 
+  const transferStock = async (sourceWarehouseId: number, targetWarehouseId: number, data: import("@/services/api-warehouse").TransferStockRequest) => {
+    return warehouseService.transferStock(sourceWarehouseId, targetWarehouseId, data);
+  };
   const createWarehouse = useCallback(async (data: WarehouseRequest) => {
     try {
       await warehouseService.createWarehouse(data);
@@ -130,5 +134,6 @@ export const useWarehouses = () => {
     createWarehouse,
     updateWarehouse,
     deleteWarehouse,
+    transferStock,
   };
 };

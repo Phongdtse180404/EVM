@@ -1,4 +1,4 @@
-import { ChevronRight, Edit, Trash2 } from "lucide-react";
+import { ArrowRight, ChevronRight, Edit, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -17,6 +17,7 @@ interface WarehouseTableProps {
   onSelectWarehouse: (warehouseId: number) => void;
   onEditWarehouse: (warehouse: WarehouseResponse) => void;
   onDeleteWarehouse: (warehouseId: number) => void;
+  onTransferWarehouse: (warehouseId: number) => void;
 }
 
 export default function WarehouseTable({
@@ -25,6 +26,7 @@ export default function WarehouseTable({
   onSelectWarehouse,
   onEditWarehouse,
   onDeleteWarehouse,
+  onTransferWarehouse
 }: WarehouseTableProps) {
   if (loading) {
     return (
@@ -122,7 +124,16 @@ export default function WarehouseTable({
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTransferWarehouse(warehouse.warehouseId);
+                    }}
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
