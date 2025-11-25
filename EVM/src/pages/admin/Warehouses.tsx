@@ -13,25 +13,6 @@ import WarehouseStockTable from "@/components/WarehouseStockTable";
 import WarehouseTable from "@/components/WarehouseTable";
 import DeleteAlert from "@/components/DeleteAlert";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Tabs,
   TabsContent,
   TabsList,
@@ -39,9 +20,7 @@ import {
 } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Folder } from "@/components/ui/folder";
-import { WarehouseStatusBadge } from "@/components/ui/warehouse-status-badge";
+import TransferWarehouseDialog from "@/components/TransferWarehouseDialog";
 
 export default function Warehouses() {
   const [selectedWarehouse, setSelectedWarehouse] = useState<number | null>(null);
@@ -49,6 +28,8 @@ export default function Warehouses() {
   const [isStockDialogOpen, setIsStockDialogOpen] = useState(false);
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<WarehouseResponse | null>(null);
+  const [transferWarehouse, setTransferWarehouse] = useState<number | null>(null);
+  const [isTransferWarehouseDialogOpen, setIsTransferWarehouseDialogOpen] = useState(false);
   const [deleteWarehouseId, setDeleteWarehouseId] = useState<number | null>(null);
   const [deleteStockModelCode, setDeleteStockModelCode] = useState<string | null>(null);
   const [editingStockModelCode, setEditingStockModelCode] = useState<string>("");
@@ -101,6 +82,11 @@ export default function Warehouses() {
   const openWarehouseDialog = (warehouse?: WarehouseResponse) => {
     setEditingWarehouse(warehouse || null);
     setIsWarehouseDialogOpen(true);
+  };
+
+  const openTransferWarehouseDialog = (warehouseId: number) => {
+    setTransferWarehouse(warehouseId);
+    setIsTransferWarehouseDialogOpen(true);
   };
 
   const openStockDialog = (modelCode?: string, quantity?: number) => {
@@ -212,6 +198,7 @@ export default function Warehouses() {
 
 
 
+
   return (
     <div className="space-y-6">
       <div>
@@ -249,6 +236,7 @@ export default function Warehouses() {
               onSelectWarehouse={setSelectedWarehouse}
               onEditWarehouse={openWarehouseDialog}
               onDeleteWarehouse={setDeleteWarehouseId}
+              onTransferWarehouse={openTransferWarehouseDialog}
             />
           </CardContent>
         </Card>
@@ -301,6 +289,14 @@ export default function Warehouses() {
         selectedQuantity={editingStockQuantity}
         onSave={handleSaveStock}
         onAddModel={() => setIsModelDialogOpen(true)}
+      />
+
+      <TransferWarehouseDialog
+        open={isTransferWarehouseDialogOpen}
+        onOpenChange={setIsTransferWarehouseDialogOpen}
+        warehouseId={transferWarehouse}
+        onTransfer={fetchWarehouses}
+        warehouses={allWarehouses || []}
       />
 
       {/* Add Model Dialog */}
