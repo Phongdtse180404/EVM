@@ -1,5 +1,4 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Car } from "lucide-react";
 import type { IndividualVehicle } from "@/pages/VehicleShowroom";
 
@@ -19,7 +18,6 @@ export function ShowroomVehicleList({
   selectedVehicle,
   onVehicleSelect,
   getVehicleImage,
-  getStatusBadge,
   firebaseImageUrl
 }: ShowroomVehicleListProps) {
   // Group vehicles by model (modelCode + color combination)

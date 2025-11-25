@@ -8,9 +8,15 @@ import UserTableUpdateRoleCell from "@/components/UserTableUpdateRoleCell";
 import UserTableUpdatePasswordCell from "@/components/UserTableUpdatePasswordCell";
 import UserTableUpdateButtons from "@/components/UserTableUpdateButtons";
 
+interface DealershipOption {
+  id: number;
+  name: string;
+}
+
 interface UserTableProps {
   users: UserResponse[];
   roles: RoleResponse[];
+  dealerships: DealershipOption[];
   editingUserId: number | null;
   editedUser: Partial<UserRequest>;
   showPassword: { [key: number]: boolean };
@@ -28,6 +34,7 @@ interface UserTableProps {
 export default function UserTable({
   users,
   roles,
+  dealerships,
   editingUserId,
   editedUser,
   showPassword,
@@ -50,6 +57,7 @@ export default function UserTable({
           <TableHead className="text-left">Số điện thoại</TableHead>
           <TableHead className="text-left">Địa chỉ</TableHead>
           <TableHead className="text-left">Vai trò</TableHead>
+          <TableHead className="text-left">Đại lý</TableHead>
           <TableHead className="text-left">Mật khẩu</TableHead>
           <TableHead className="text-right">Thao tác</TableHead>
         </TableRow>
@@ -115,6 +123,22 @@ export default function UserTable({
                     getRoleBadgeVariant={getRoleBadgeVariant}
                     getRoleIcon={getRoleIcon}
                   />
+                </TableCell>
+                <TableCell>
+                  {isEditing ? (
+                    <select
+                      className="border rounded px-2 py-1 w-full"
+                      value={editedUser.dealershipId ?? user.dealershipId ?? ''}
+                      onChange={e => onEditedUserChange('dealershipId', Number(e.target.value))}
+                    >
+                      <option value="">Chọn đại lý</option>
+                      {dealerships.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    user.dealershipName || ''
+                  )}
                 </TableCell>
                 <TableCell>
                   <UserTableUpdatePasswordCell

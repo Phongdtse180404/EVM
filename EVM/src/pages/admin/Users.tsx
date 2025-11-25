@@ -6,12 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useUsers } from "@/hooks/use-users";
 import UserTable from "@/components/UserTable";
+import { useDealerships } from "@/hooks/use-dealerships";
 import DeleteAlert from "@/components/DeleteAlert";
 import UserCreationForm from "@/components/UserCreationForm";
 import UserPagination from "@/components/UserPagination";
 import UserRoleFilter from "@/components/UserRoleFilter";
 
 export default function Users() {
+    // Dealerships state
+    const { dealerships, fetchDealerships, loading: dealershipsLoading } = useDealerships();
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [editedUser, setEditedUser] = useState<Partial<UserRequest>>({});
   const [showPassword, setShowPassword] = useState<{ [key: number]: boolean }>({});
@@ -41,7 +44,8 @@ export default function Users() {
   useEffect(() => {
     fetchUsers();
     fetchRoles();
-  }, [fetchUsers, fetchRoles]);
+    fetchDealerships();
+  }, [fetchUsers, fetchRoles, fetchDealerships]);
 
 
 
@@ -71,7 +75,8 @@ export default function Users() {
       name: user.name,
       phoneNumber: user.phoneNumber || undefined,
       address: user.address || undefined,
-      roleId: userRole?.roleId || 1
+      roleId: userRole?.roleId || 1,
+      dealershipId: user.dealershipId ?? undefined
     });
   };
 
@@ -127,6 +132,7 @@ export default function Users() {
       address: editedUser.address || undefined,
       password: editedUser.password || "unchanged", // Use a special value to indicate no change
       roleId: editedUser.roleId || 1,
+      dealershipId: editedUser.dealershipId ?? undefined
     };
 
     // Delegate API call, toast and refresh to the hook
@@ -241,6 +247,7 @@ export default function Users() {
               <UserTable
                 users={paginatedUsers}
                 roles={roles}
+                dealerships={dealerships.map(d => ({ id: d.dealershipId, name: d.name }))}
                 editingUserId={editingUserId}
                 editedUser={editedUser}
                 showPassword={showPassword}
