@@ -19,7 +19,7 @@ import { toast } from "sonner";
 
 export function ShowroomTopbar() {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState<{ email?: string; role?: string; roleId?: number } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ email?: string; role?: string; roleId?: number} | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");

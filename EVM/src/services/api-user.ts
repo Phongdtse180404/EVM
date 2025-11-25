@@ -7,7 +7,10 @@ export interface UserResponse {
   phoneNumber: string;
   email: string;
   address: string;
-  roleName: string; // Role name from the backend
+  roleName: string;
+
+  dealershipId: number;
+  dealershipName: string;
 }
 
 export interface UserRequest {
@@ -17,6 +20,7 @@ export interface UserRequest {
   phoneNumber?: string;
   address?: string;
   roleId?: number;
+  dealershipId?: number;
 }
 
 // User Service
