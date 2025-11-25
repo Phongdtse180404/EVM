@@ -208,6 +208,7 @@ export default function Models() {
         onOpenChange={setIsEditModelDialogOpen}
         editingModel={editingModel}
         onModelCreated={fetchModels}
+        onModelUpdated={fetchModels}
       />
 
       {/* View Model Details Dialog */}

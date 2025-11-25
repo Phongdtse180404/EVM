@@ -21,6 +21,7 @@ interface AddModelDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onModelCreated?: (modelCode: string) => void;
+  onModelUpdated?: () => void;
   editingModel?: ModelResponse | null;
 }
 
@@ -28,6 +29,7 @@ export default function AddModelDialog({
   open,
   onOpenChange,
   onModelCreated,
+  onModelUpdated,
   editingModel = null
 }: AddModelDialogProps) {
 
@@ -53,9 +55,11 @@ export default function AddModelDialog({
         description: result || "Nhập file thành công!",
       });
       setImportFile(null);
+      
+        
+      
       onOpenChange(false);
     } catch (error: any) {
-
       toast({
         title: "Lỗi",
         description: "Không thể nhập file Excel.",
@@ -63,6 +67,7 @@ export default function AddModelDialog({
       });
     } finally {
       setImporting(false);
+      onModelUpdated();
     }
   };
   const [modelFormData, setModelFormData] = useState<ModelRequest>({
@@ -158,7 +163,6 @@ export default function AddModelDialog({
       const result = editingModel 
         ? await updateModel(editingModel.modelId, modelFormData)
         : await createModel(modelFormData);
-        
       if (result) {
         if (editingModel) {
           // Update existing electric vehicle
@@ -169,11 +173,11 @@ export default function AddModelDialog({
               ...electricVehicleFormData
             });
           }
-          
           toast({
             title: "Thành công",
             description: "Đã cập nhật model và xe điện thành công",
           });
+          onModelUpdated();
         } else {
           // Creating a new model, also create the electric vehicle
           if (typeof result === 'object' && result.modelId && result.modelCode) {
@@ -184,12 +188,10 @@ export default function AddModelDialog({
             });
           }
         }
-        
         // If creating a new model and callback provided, call it with the model code
         if (!editingModel && onModelCreated && typeof result === 'object' && result.modelCode) {
           onModelCreated(result.modelCode);
         }
-        
         onOpenChange(false);
       }
     } catch (error) {
