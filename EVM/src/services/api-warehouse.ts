@@ -1,7 +1,10 @@
 import { BaseApiService } from './api';
 
 
-
+export interface TransferStockRequest {
+  modelCode: string;
+  quantity: number;
+}
 
 export interface WarehouseResponse {
   warehouseId: number;
@@ -53,6 +56,14 @@ export interface WarehouseStockRequest {
 
 // Warehouse Service
 class WarehouseService extends BaseApiService {
+    // Transfer stock between warehouses
+  async transferStock(sourceWarehouseId: number, targetWarehouseId: number, data: TransferStockRequest): Promise<WarehouseResponse> {
+    const res = await this.axiosInstance.post<WarehouseResponse>(
+      `/warehouses/${sourceWarehouseId}/transfer/${targetWarehouseId}`,
+      data
+    );
+    return res.data;
+  }
   async getWarehouses(): Promise<WarehouseResponse[]> {
     const res = await this.axiosInstance.get<WarehouseResponse[]>('/warehouses');
     return res.data;
@@ -88,5 +99,7 @@ class WarehouseService extends BaseApiService {
     return res.data;
   }
 }
+
+
 
 export const warehouseService = new WarehouseService();

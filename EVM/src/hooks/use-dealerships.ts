@@ -266,12 +266,13 @@ export const useDealerships = () => {
   const transferWarehouses = useCallback(async (
     sourceId: number,
     targetDealershipId: number,
+    warehouseIds: number[],
     callbacks?: { onSuccess?: () => void; onError?: (error: Error) => void }
   ) => {
     const { onSuccess, onError } = callbacks || {};
     setLoading(true);
     try {
-      const requestBody: TransferWarehouseRequest = { targetDealershipId };
+      const requestBody: TransferWarehouseRequest = { targetDealershipId, warehouseIds };
       console.log("Request Body:", requestBody);
       await dealershipService.transferWarehouses(sourceId, requestBody);
       await fetchDealerships();
