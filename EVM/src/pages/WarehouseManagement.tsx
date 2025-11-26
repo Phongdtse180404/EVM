@@ -46,13 +46,14 @@ interface WarehouseItem {
   color: string;
   location: string;
   zone: string;
-  status: 'available' | 'reserved' | 'maintenance' | 'shipping';
+  status: VehicleStatus;
   batteryLevel: number;
   lastChecked: string;
   price: number;
   notes?: string;
   image: string;
 }
+
 
 interface InventoryStats {
   totalVehicles: number;
@@ -65,19 +66,34 @@ interface InventoryStats {
 
 export default function WarehouseManagement() {
   const navigate = useNavigate();
-  const { fetchWarehouse, loading, selectedWarehouse } = useWarehouses();
+  const { fetchWarehouse, loading, selectedWarehouse, allWarehouses, fetchWarehouses } = useWarehouses();
   const { fetchElectricVehicles, electricVehicles, loading: electricVehicleLoading } = useElectricVehicle();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterZone, setFilterZone] = useState<string>("all");
   const [selectedItem, setSelectedItem] = useState<WarehouseItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
 
-  // Fetch warehouse and electric vehicle data on component mount
+  // Fetch all warehouses and electric vehicle data on mount
   useEffect(() => {
-    fetchWarehouse(1);
+    fetchWarehouses();
     fetchElectricVehicles();
-  }, [fetchWarehouse, fetchElectricVehicles]);
+  }, [fetchWarehouses, fetchElectricVehicles]);
+
+  // Fetch selected warehouse when selectedWarehouseId changes
+  useEffect(() => {
+    if (selectedWarehouseId) {
+      fetchWarehouse(selectedWarehouseId);
+    }
+  }, [selectedWarehouseId, fetchWarehouse]);
+
+  // Set default warehouse after warehouses are loaded
+  useEffect(() => {
+    if (allWarehouses && allWarehouses.length > 0 && selectedWarehouseId == null) {
+      setSelectedWarehouseId(allWarehouses[0].warehouseId);
+    }
+  }, [allWarehouses, selectedWarehouseId]);
 
   const handleViewDetails = (item: WarehouseItem) => {
     setSelectedItem(item);
@@ -114,8 +130,7 @@ export default function WarehouseManagement() {
       color: vehicle.color,
       location: `A-${Math.floor(Math.random() * 10) + 1}`, // Mock location
       zone: `${Math.floor(Math.random() * 5) + 1}`, // Mock zone
-      status: vehicle.status === 'AVAILABLE' ? 'available' :
-        vehicle.status === 'HOLD' ? 'reserved' : 'maintenance',
+      status: vehicle.status,
       batteryLevel: Math.floor(Math.random() * 100), // Mock battery level
       lastChecked: new Date().toLocaleDateString('vi-VN'), // Mock last checked
       price: electricVehicle?.price || 800000000, // Use real price from electric-vehicle API
@@ -144,14 +159,8 @@ export default function WarehouseManagement() {
 
   const getStatusBadge = (status: WarehouseItem['status']) => {
     switch (status) {
-      case 'available':
-        return <Badge className="bg-success/20 text-success border-success">Có sẵn</Badge>;
-      case 'reserved':
-        return <Badge className="bg-warning/20 text-warning border-warning">Đã đặt</Badge>;
-      case 'maintenance':
-        return <Badge className="bg-destructive/20 text-destructive border-destructive">Bảo trì</Badge>;
-      case 'shipping':
-        return <Badge className="bg-accent/20 text-accent border-accent">Đang giao</Badge>;
+      default:
+        return <Badge className="bg-success/20 text-success border-success">{status}</Badge>;
     }
   };
 
@@ -163,10 +172,10 @@ export default function WarehouseManagement() {
 
   return (
     <div className="min-h-screen p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header with Warehouse Dropdown */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/showroom")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/showroom")}> 
             <ArrowLeft className="w-4 h-4 mr-2" />
             Quay lại
           </Button>
@@ -178,6 +187,25 @@ export default function WarehouseManagement() {
               Theo dõi tồn kho, vị trí và trạng thái xe trong kho
             </p>
           </div>
+        </div>
+        {/* Warehouse Dropdown */}
+        <div className="min-w-[220px]">
+          <Select
+            value={selectedWarehouseId ? String(selectedWarehouseId) : undefined}
+            onValueChange={val => setSelectedWarehouseId(Number(val))}
+            disabled={!allWarehouses || allWarehouses.length === 0}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Chọn kho" />
+            </SelectTrigger>
+            <SelectContent>
+              {allWarehouses && allWarehouses.map(wh => (
+                <SelectItem key={wh.warehouseId} value={String(wh.warehouseId)}>
+                  {wh.warehouseName || `Kho #${wh.warehouseId}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
