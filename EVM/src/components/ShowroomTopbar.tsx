@@ -12,7 +12,8 @@ import {
   Shield,
   LogOut,
   User,
-  Building2
+  Building2,
+  CreditCard
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -67,6 +68,11 @@ export function ShowroomTopbar() {
         icon: Calendar,
         label: "Báo cáo",
         path: "/reports"
+      },
+      {
+        icon: CreditCard,
+        label: "Lịch sử thanh toán",
+        path: "/paymentHistory"
       }
     ];
 

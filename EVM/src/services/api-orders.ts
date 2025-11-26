@@ -1,3 +1,4 @@
+
 import { BaseApiService } from './api';
 
 // Enums matching the backend
@@ -64,6 +65,10 @@ export interface OrderDepositResponse {
 }
 
 class OrderService extends BaseApiService {
+  async deliverNow(orderId: number): Promise<OrderResponse> {
+    const res = await this.axiosInstance.post<OrderResponse>(`/orders/${orderId}/deliver-now`);
+    return res.data;
+  }
   async createOrder(data: OrderRequest): Promise<OrderResponse> {
     const res = await this.axiosInstance.post<OrderResponse>('/orders', data);
     return res.data;
