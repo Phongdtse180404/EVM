@@ -39,6 +39,9 @@ export interface VehicleSerialResponse {
 export enum VehicleStatus {
   AVAILABLE = 'AVAILABLE',
   HOLD = 'HOLD',
+  UNDELIVERED = 'UNDELIVERED',
+  DELIVERED = 'DELIVERED',
+  DELIVERING = 'DELIVERING',
   SOLD_OUT = 'SOLD_OUT'
 }
 

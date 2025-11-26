@@ -4,6 +4,9 @@ import { BaseApiService } from './api';
 export type VehicleStatus =
   | 'AVAILABLE'
   | 'HOLD'
+  | 'UNDELIVERED'
+  | 'DELIVERED'
+  | 'DELIVERING'
   | 'SOLD_OUT';
 
 export interface ElectricVehicleRequest {
