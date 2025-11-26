@@ -14,10 +14,7 @@ export interface WarehouseResponse {
   maxCapacity: number;
   dealershipId: number;
   items: WarehouseStockResponse[];
-  dealership?: {
-    dealershipId: number;
-    name: string;
-  };
+  dealershipName: string;
 }
 
 export interface WarehouseStockResponse {

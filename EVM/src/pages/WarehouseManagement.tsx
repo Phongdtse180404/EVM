@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -27,6 +27,7 @@ import {
   Calendar,
   Eye
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 
 // Type for individual vehicle with serial info (similar to VehicleShowroom)
@@ -58,9 +59,6 @@ interface WarehouseItem {
 interface InventoryStats {
   totalVehicles: number;
   availableVehicles: number;
-  reservedVehicles: number;
-  maintenanceVehicles: number;
-  shippingVehicles: number;
   totalValue: number;
 }
 
@@ -150,25 +148,13 @@ export default function WarehouseManagement() {
 
   const stats: InventoryStats = {
     totalVehicles: warehouseInventory.length,
-    availableVehicles: warehouseInventory.filter(item => item.status === "available").length,
-    reservedVehicles: warehouseInventory.filter(item => item.status === "reserved").length,
-    maintenanceVehicles: warehouseInventory.filter(item => item.status === "maintenance").length,
-    shippingVehicles: warehouseInventory.filter(item => item.status === "shipping").length,
+    availableVehicles: warehouseInventory.filter(item => item.status === "AVAILABLE").length,
     totalValue: warehouseInventory.reduce((sum, item) => sum + item.price, 0)
   };
 
-  const getStatusBadge = (status: WarehouseItem['status']) => {
-    switch (status) {
-      default:
-        return <Badge className="bg-success/20 text-success border-success">{status}</Badge>;
-    }
-  };
 
-  const getBatteryStatus = (level: number) => {
-    if (level >= 80) return { color: "text-success", icon: CheckCircle };
-    if (level >= 50) return { color: "text-warning", icon: Clock };
-    return { color: "text-destructive", icon: AlertCircle };
-  };
+
+
 
   return (
     <div className="min-h-screen p-6 space-y-6">
@@ -241,7 +227,7 @@ export default function WarehouseManagement() {
           </div>
         </Card>
 
-        <Card className="p-3 col-span-2">
+        {/* <Card className="p-3 col-span-2">
           <div className="flex items-center space-x-2">
             <Filter className="w-4 h-4 text-muted-foreground" />
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -255,7 +241,7 @@ export default function WarehouseManagement() {
               </SelectContent>
             </Select>
           </div>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Inventory Table */}
@@ -316,7 +302,7 @@ export default function WarehouseManagement() {
                       <TableCell>
                         <Badge variant="outline" className="text-xs">{item.color}</Badge>
                       </TableCell>
-                      <TableCell>{getStatusBadge(item.status)}</TableCell>
+                      <TableCell><StatusBadge status={item.status} /></TableCell>
                       <TableCell className="font-semibold">
                         {(item.price / 1000000).toFixed(0)}M₫
                       </TableCell>

@@ -327,10 +327,6 @@ export default function OrderDetails() {
             </p>
           </div>
         </div>
-
-        <Badge className="bg-success/20 text-success border-success px-3 py-1">
-          Đang hoạt động
-        </Badge>
       </div>
 
 
@@ -338,20 +334,18 @@ export default function OrderDetails() {
         {/* Vehicle Details */}
         <div className="space-y-6">
           <Card className="overflow-hidden">
-            <div className="relative">
+            <div className="relative bg-white flex items-center justify-center" style={{height: '18rem'}}>
               <img 
                 src={getVehicleImage()} 
                 alt={`${selectedVehicle.modelCode || 'Electric Vehicle'} - ${selectedVehicle.color}`}
-                className="w-full h-64 object-cover"
+                className="max-h-full max-w-full object-contain p-2"
+                style={{background: 'transparent'}}
                 onError={(e) => {
                   // Fallback to firebase image if the API image fails to load
                   const target = e.target as HTMLImageElement;
                   target.src = firebaseImageUrl;
                 }}
               />
-              <div className="absolute top-4 right-4">
-                {getStatusBadge(selectedVehicle.status || '')}
-              </div>
             </div>
             <CardContent className="p-6">
               <div className="mb-4">
