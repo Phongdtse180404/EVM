@@ -24,15 +24,31 @@ import {
   Clock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toast as sonnerToast } from "sonner";
+import { toast as sonnerToast, toast } from "sonner";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { ScheduleCalendar, type ScheduleItem } from "@/components/ScheduleCalendar";
 import { getScheduleStatusBadge } from "@/lib/scheduleUtils";
-import { serviceRecordService } from "@/services/api-service-record";
-import { appointmentService } from "@/services/api-appointments";
 import { serviceEntityService, type ServiceResponse } from "@/services/api-service-entity";
-import { CustomerResponse, customerService } from "@/services/api-customers";
+import { appointmentService, type AppointmentRequest, type AppointmentDetail } from "@/services/api-appointments";
+import { customerService, type CustomerResponse, customerStatus, type CustomerRequest } from "@/services/api-customers";
+import { ScheduleCalendar, type ScheduleItem } from "@/components/ScheduleCalendar";
+
+type LocalScheduleStatus = 'scheduled' | 'completed' | 'cancelled' | 'in_progress' | 'no_show';
+
+const mapAppointmentStatus = (status: string): LocalScheduleStatus => {
+  switch (status) {
+    case "SCHEDULED":
+      return "scheduled";
+    case "IN_SERVICE":
+      return "in_progress";
+    case "COMPLETED":
+      return "completed";
+    case "CANCELED":
+      return "cancelled";
+    default:
+      return "scheduled";
+  }
+};
 
 
 const ServiceManagement = () => {
@@ -44,17 +60,18 @@ const ServiceManagement = () => {
   const [scheduleType, setScheduleType] = useState<"service" | "test-drive">("service");
   const [serviceEntities, setServiceEntities] = useState<ServiceResponse[]>([]);
   const [selectedService, setSelectedService] = useState<ServiceResponse | null>(null);
-
+  const [creatingSchedule, setCreatingSchedule] = useState(false);
+  const [foundCustomer, setFoundCustomer] = useState<CustomerResponse | null>(null);
+  const [isFindingCustomer, setIsFindingCustomer] = useState(false);
 
   // Unified schedule form state
   const [newSchedule, setNewSchedule] = useState({
     customerPhone: "",
     customerName: "",
+    notes: "",
     scheduledDate: "",
     scheduledTime: "",
-    notes: "",
   });
-
 
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>();
   const [isDateDrawerOpen, setIsDateDrawerOpen] = useState(false);
@@ -70,78 +87,43 @@ const ServiceManagement = () => {
   // Fetch schedules list
   const fetchSchedules = async () => {
     try {
-      // 1) Lấy danh sách service_record
-      const recordsPage = await serviceRecordService.list(0, 50);
-      const records = recordsPage.content;
+      const appts: AppointmentDetail[] = await appointmentService.listAll();
 
-      // 2) Lấy danh sách customerId duy nhất
-      const uniqueCustomerIds = Array.from(
-        new Set(records.map((r) => r.customerId))
-      );
+      const mapped: ScheduleItem[] = appts.map((a) => {
+        const start = new Date(a.startAt);
+        const end = new Date(a.endAt);
 
-      // 3) Gọi getCustomerById cho từng customer
-      const customerResults = await Promise.all(
-        uniqueCustomerIds.map(async (id) => {
-          try {
-            const c = await customerService.getCustomerById(id);
-            return c;
-          } catch (err) {
-            console.error("Lỗi load customerId =", id, err);
-            return null;
-          }
-        })
-      );
+        const scheduledDate = a.startAt?.slice(0, 10); // "yyyy-MM-dd"
+        const startLabel = start.toTimeString().slice(0, 5); // HH:mm
+        const endLabel = end.toTimeString().slice(0, 5);
 
-      const customerMap = new Map<number, CustomerResponse>();
-      customerResults.forEach((c) => {
-        if (c) customerMap.set(c.customerId, c);
-      });
+        const serviceName = a.service?.name ?? "";
+        const lowerName = serviceName.toLowerCase();
 
-      // 4) Lấy danh sách ServiceEntity để biết tên dịch vụ
-      const servicesPage = await serviceEntityService.listServices(0, 50);
-      const serviceMap = new Map<number, ServiceResponse>();
-      servicesPage.content.forEach((svc) => serviceMap.set(svc.id, svc));
+        const type: "service" | "test-drive" =
+          lowerName.includes("lái thử") || lowerName.includes("test")
+            ? "test-drive"
+            : "service";
 
-      // 5) Map về ScheduleItem cho UI
-      const mapped: ScheduleItem[] = records.map((r) => {
-        const svc = serviceMap.get(r.serviceId);
-        const serviceName = svc?.name ?? "Dịch vụ";
-
-        const isTestDrive =
-          serviceName.toLowerCase().includes("lai thu") ||
-          svc?.description?.toLowerCase().includes("lai thu");
-
-        const customer = customerMap.get(r.customerId);
-
-        // tạm dùng createdAt làm ngày hẹn (sau này có startAt thì đổi lại ở đây)
-        const dateStr = r.createdAt.slice(0, 10);
-
-        const item: ScheduleItem = {
-          id: r.id,
-          type: isTestDrive ? "test-drive" : "service",
-          status: "scheduled",
-          scheduledDate: dateStr,
-          scheduledTime: undefined,
+        return {
+          id: a.appointmentId,
+          type,
+          status: mapAppointmentStatus(a.status),
+          scheduledDate,
+          scheduledTime: `${startLabel}-${endLabel}`,
           serviceType: serviceName,
-          vehicleName: undefined,
-          customerName: customer?.name,
-          customerPhone: customer?.phoneNumber,
-          vehicleModel: undefined,
-          notes: r.note,
-          feedback: undefined,
-          rating: undefined,
+          customerName: a.customer?.name ?? "Khách hàng",
+          customerPhone: a.customer?.phoneNumber ?? "",
+          notes: a.note,
         };
-
-        return item;
       });
 
       setSchedules(mapped);
     } catch (err) {
-      console.error("Lỗi fetchSchedules:", err);
+      console.error(err);
       sonnerToast.error("Không tải được danh sách lịch");
     }
   };
-
 
   const fetchServiceEntities = async () => {
     try {
@@ -202,101 +184,110 @@ const ServiceManagement = () => {
 
   const handleCreateSchedule = async () => {
     try {
-      if (!selectedService) {
-        sonnerToast.error("Vui lòng chọn loại dịch vụ ở bước trước");
+      const { customerPhone, customerName, scheduledDate, scheduledTime, notes } = newSchedule;
+
+      if (!customerPhone || !scheduledDate || !scheduledTime || !selectedService) {
+        sonnerToast.error("Vui lòng nhập đủ SĐT, ngày, khung giờ và chọn dịch vụ");
         return;
       }
 
-      if (!newSchedule.customerPhone.trim()) {
-        sonnerToast.error("Vui lòng nhập số điện thoại khách hàng");
-        return;
-      }
+      // 1. Tìm customer theo SĐT
+      const customer = await customerService.getCustomerByPhone(customerPhone);
 
-      if (!newSchedule.scheduledDate || !newSchedule.scheduledTime) {
-        sonnerToast.error("Vui lòng chọn ngày và khung giờ!");
-        return;
-      }
+      // Nếu người dùng chưa nhập tên thì lấy tên từ hệ thống
+      const finalCustomerName = customerName || customer.name;
 
-      // 1) Lấy customer theo SĐT
-      let customer;
-      try {
-        customer = await customerService.getCustomerByPhone(
-          newSchedule.customerPhone.trim()
-        );
-      } catch (err) {
-        sonnerToast.error("Không tìm thấy khách hàng với số điện thoại này");
-        console.error(err);
-        return;
-      }
+      // 2. Từ customer lấy assignedSalesId / assignedSalesName
+      const assignedSalesId = (customer as any).assignedSalesId;      // nếu BE có field này
+      const assignedSalesName = customer.assignedSalesName ?? "Chưa gán";
 
-      // 2) Từ "08:00-09:00" -> start/end
-      const [startTime, endTime] = newSchedule.scheduledTime.split("-");
-      const startAt = `${newSchedule.scheduledDate}T${startTime}:00`;
-      const endAt = `${newSchedule.scheduledDate}T${endTime}:00`;
+      console.log("Nhân viên phụ trách KH này:", assignedSalesId, assignedSalesName);
 
-      // 3) Gọi API tạo appointment
-      const appointment = await appointmentService.create({
+      // 3. Build startAt / endAt từ date + time slot
+      const [startStr, endStr] = scheduledTime.split("-"); // "08:00-09:00" -> ["08:00","09:00"]
+      const startAt = `${scheduledDate}T${startStr}:00`;
+      const endAt = `${scheduledDate}T${endStr}:00`;
+
+      // 4. Gửi request tạo appointment
+      const req: AppointmentRequest = {
         customerId: customer.customerId,
         serviceId: selectedService.id,
         startAt,
         endAt,
-      });
-
-      // 4) Push vào state "schedules" để tab "Tất cả lịch" hiển thị
-      const isTestDrive =
-        selectedService.name.toLowerCase().includes("lai thu") ||
-        selectedService.description?.toLowerCase().includes("lai thu");
-
-      const newItem: ScheduleItem = {
-        id: appointment.appointmentId,
-        type: isTestDrive ? "test-drive" : "service",
-        serviceType: selectedService.name,
-        vehicleName: undefined,
-        vehicleModel: undefined,
-        customerName: newSchedule.customerName || customer.name,
-        customerPhone: customer.phoneNumber,
-        scheduledDate: newSchedule.scheduledDate,
-        scheduledTime: newSchedule.scheduledTime,
-        status: "scheduled",
-        notes: newSchedule.notes,
-        feedback: undefined,
-        rating: undefined,
+        // Nếu sau này BE thêm field staffId / assignedStaffId thì gắn ở đây:
+        // staffId: assignedSalesId,
       };
 
-      setSchedules((prev) => [...prev, newItem]);
+      await appointmentService.create(req);
 
-      sonnerToast.success("Đã tạo lịch thành công!");
-
+      sonnerToast.success("Tạo lịch thành công cho " + finalCustomerName);
       setIsScheduleDialogOpen(false);
-      setNewSchedule({
-        customerPhone: "",
-        customerName: "",
-        scheduledDate: "",
-        scheduledTime: "",
-        notes: "",
-      });
-    } catch (error) {
-      console.error(error);
-      sonnerToast.error("Có lỗi xảy ra khi tạo lịch!");
+      // reset form nếu muốn
+    } catch (err: any) {
+      console.error(err);
+      sonnerToast.error(err?.response?.data?.message || "Tạo lịch thất bại");
     }
   };
 
+
+
   const handleDateSelect = (date: Date | undefined) => {
-    if (!date) return;
-
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const daySchedules = schedules.filter(s => s.scheduledDate === dateStr);
-
     setSelectedCalendarDate(date);
-    setSelectedDateSchedules(daySchedules);
+
+    if (!date) {
+      setIsDateDrawerOpen(false);
+      setSelectedDateSchedules([]);
+      return;
+    }
+
+    const dateStr = format(date, "yyyy-MM-dd");
+    const items = schedules.filter((s) => s.scheduledDate === dateStr);
+    setSelectedDateSchedules(items);
     setIsDateDrawerOpen(true);
   };
 
+
   // Get booked time slots for a specific date
   const getBookedTimeSlotsForDate = (dateStr: string) => {
-    return schedules
-      .filter(s => s.scheduledDate === dateStr && s.status !== 'cancelled' && s.status !== 'no_show' && s.scheduledTime)
-      .map(s => s.scheduledTime!);
+    if (!dateStr) return [];
+
+    const booked = schedules
+      .filter(
+        (s) =>
+          s.scheduledDate === dateStr &&
+          s.status !== "cancelled" &&
+          s.status !== "no_show"
+      )
+      .map((s) => s.scheduledTime)
+      .filter(Boolean) as string[];
+
+    // unique
+    return Array.from(new Set(booked));
+  };
+
+  const handleFindCustomerByPhone = async () => {
+    const phone = newSchedule.customerPhone.trim();
+    if (!phone) return;
+
+    try {
+      setIsFindingCustomer(true);
+      const customer = await customerService.getCustomerByPhone(phone);
+
+      setFoundCustomer(customer);
+      // nếu ô tên đang trống thì auto fill
+      setNewSchedule(prev => ({
+        ...prev,
+        customerName: prev.customerName || customer.name,
+      }));
+
+      toast.success("Đã tìm thấy khách: " + customer.name);
+    } catch (err: any) {
+      console.error(err);
+      setFoundCustomer(null);
+      toast.error("Không tìm thấy khách với SĐT này");
+    } finally {
+      setIsFindingCustomer(false);
+    }
   };
 
   return (
@@ -321,44 +312,8 @@ const ServiceManagement = () => {
             </p>
           </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="auto-monitoring" className="text-sm">Giám sát tự động</Label>
-            <Switch
-              id="auto-monitoring"
-              checked={isAutoMonitoring}
-              onCheckedChange={setIsAutoMonitoring}
-            />
-          </div>
-          <Button variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Đồng bộ
-          </Button>
-          <Button variant="outline" size="sm">
-            <Settings className="w-4 h-4 mr-2" />
-            Cài đặt
-          </Button>
-        </div>
       </div>
 
-      {/* KPI Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {kpiStats.map((stat, index) => (
-          <Card key={index} className="p-6 bg-gradient-card border-border/50">
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">{stat.title}</p>
-                <p className="text-2xl font-bold">{stat.value}</p>
-                <p className="text-xs text-muted-foreground">Mục tiêu: {stat.target}</p>
-              </div>
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Wrench className="w-6 h-6 text-primary" />
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
 
       {/* Calendar View & Create Schedule */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -491,11 +446,19 @@ const ServiceManagement = () => {
                         onChange={(e) =>
                           setNewSchedule((prev) => ({ ...prev, customerPhone: e.target.value }))
                         }
+                        onBlur={handleFindCustomerByPhone}
                       />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {isFindingCustomer
+                          ? "Đang tìm khách theo SĐT..."
+                          : foundCustomer
+                            ? `Khách: ${foundCustomer.name} (Sales: ${foundCustomer.assignedSalesName || "Chưa gán"})`
+                            : "Nhập SĐT rồi rời ô để tự động tìm khách"}
+                      </p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Tên khách hàng (tuỳ chọn)</Label>
+                      <Label>Tên khách hàng </Label>
                       <Input
                         placeholder="Nếu để trống sẽ lấy tên từ hệ thống"
                         value={newSchedule.customerName}
@@ -567,8 +530,8 @@ const ServiceManagement = () => {
                   <Button variant="outline" onClick={() => setIsScheduleDialogOpen(false)}>
                     Hủy
                   </Button>
-                  <Button onClick={handleCreateSchedule} className="bg-gradient-primary">
-                    Tạo lịch
+                  <Button onClick={handleCreateSchedule} className="bg-gradient-primary" disabled={creatingSchedule}>
+                    {creatingSchedule ? "Đang tạo..." : "Tạo lịch"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -595,63 +558,81 @@ const ServiceManagement = () => {
                   <TableHead>Loại</TableHead>
                   <TableHead>Khách hàng</TableHead> {/* đổi tên cột */}
                   <TableHead>Ngày</TableHead>
-                  <TableHead>Khung giờ</TableHead>
+                  <TableHead>Giờ bắt đầu</TableHead>
+                  <TableHead>Giờ kết thúc</TableHead>
                   <TableHead>Trạng thái</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {schedules.map((schedule) => (
-                  <TableRow key={schedule.id}>
-                    {/* Loại lịch */}
-                    <TableCell>
-                      {schedule.type === "service" ? (
-                        <div className="flex items-center gap-2">
-                          <Wrench className="w-4 h-4 text-primary" />
-                          <span>Bảo trì</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Car className="w-4 h-4 text-primary" />
-                          <span>Lái thử</span>
-                        </div>
-                      )}
-                    </TableCell>
+                {schedules.map((schedule) => {
+                  const [startTime, endTime] =
+                    schedule.scheduledTime?.split("-") ?? ["", ""];
 
-                    {/* Thông tin khách: TÊN + SĐT */}
-                    <TableCell>
-                      <div className="font-medium">
-                        {schedule.customerName || "Khách chưa rõ tên"}
-                      </div>
-                      {schedule.customerPhone && (
-                        <div className="text-sm text-muted-foreground">
-                          {schedule.customerPhone}
+                  return (
+                    <TableRow key={schedule.id}>
+                      {/* Loại lịch */}
+                      <TableCell>
+                        {schedule.type === "service" ? (
+                          <div className="flex items-center gap-2">
+                            <Wrench className="w-4 h-4 text-primary" />
+                            <span>Bảo trì</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Car className="w-4 h-4 text-primary" />
+                            <span>Lái thử</span>
+                          </div>
+                        )}
+                      </TableCell>
+
+                      {/* Khách hàng */}
+                      <TableCell>
+                        <div className="font-medium">
+                          {schedule.customerName || "Khách chưa rõ tên"}
                         </div>
-                      )}
-                    </TableCell>
+                        {schedule.customerPhone && (
+                          <div className="text-sm text-muted-foreground">
+                            {schedule.customerPhone}
+                          </div>
+                        )}
+                      </TableCell>
 
-                    {/* Ngày HẸN (không phải ngày tạo) */}
-                    <TableCell>
-                      {schedule.scheduledDate
-                        ? format(new Date(schedule.scheduledDate), "dd/MM/yyyy")
-                        : "-"}
-                    </TableCell>
+                      {/* Ngày */}
+                      <TableCell>
+                        {schedule.scheduledDate
+                          ? format(new Date(schedule.scheduledDate), "dd/MM/yyyy")
+                          : "-"}
+                      </TableCell>
 
-                    {/* Khung giờ đã hẹn / slot */}
-                    <TableCell>
-                      {schedule.scheduledTime ? (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Clock className="w-3 h-3" />
-                          {schedule.scheduledTime}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
+                      {/* Giờ bắt đầu */}
+                      <TableCell>
+                        {startTime ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Clock className="w-3 h-3" />
+                            {startTime}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
 
-                    {/* Trạng thái */}
-                    <TableCell>{getScheduleStatusBadge(schedule.status)}</TableCell>
-                  </TableRow>
-                ))}
+                      {/* Giờ kết thúc */}
+                      <TableCell>
+                        {endTime ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Clock className="w-3 h-3" />
+                            {endTime}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+
+                      {/* Trạng thái */}
+                      <TableCell>{getScheduleStatusBadge(schedule.status)}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Card>
