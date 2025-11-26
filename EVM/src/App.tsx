@@ -18,6 +18,7 @@ import AdminSales from "./pages/admin/Sales";
 import Users from "./pages/admin/Users";
 import AdminWarehouses from "./pages/admin/Warehouses";
 import Dealerships from "./pages/admin/Dealerships";
+import PaymentHistory from "./pages/PaymentHistory";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/reports" element={<ReportsManagement />} />
           <Route path="/service" element={<ServiceManagement />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/paymentHistory" element={<PaymentHistory />} />
           {/* Admin pages */}
           <Route
             path="/admin/orders"
