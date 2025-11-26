@@ -6,8 +6,12 @@ interface ScheduleItem {
     id: number;
     type: 'service' | 'test-drive';
     status: 'scheduled' | 'completed' | 'cancelled' | 'in_progress' | 'no_show';
-    scheduledDate: string;
-    scheduledTime?: string;
+
+    scheduledDate: string;      // yyyy-MM-dd
+    scheduledTime?: string;     // "08:00-09:00"
+    startTime?: string;         // "08:00"
+    endTime?: string;           // "09:00"
+
     // Service fields
     vehicleId?: string;
     vehicleName?: string;
@@ -21,6 +25,7 @@ interface ScheduleItem {
     feedback?: string;
     rating?: number;
 }
+
 
 interface ScheduleCalendarProps {
     schedules: ScheduleItem[];

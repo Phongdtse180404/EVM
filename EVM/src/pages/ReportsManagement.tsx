@@ -223,6 +223,10 @@ const ReportsManagement = () => {
       .slice(0, 5);
   }, [validOrders]);
 
+
+
+
+
   return (
     <div className="min-h-screen p-6 space-y-6">
       {/* Header */}
@@ -319,7 +323,7 @@ const ReportsManagement = () => {
               <tr className="border-b border-border">
                 <th className="text-left py-2">Khách hàng</th>
                 <th className="text-left py-2">Model</th>
-                <th className="text-right py-2">Giá trị</th>
+                <th className="text-right py-2">Doanh thu</th>
                 <th className="text-right py-2">Ngày đặt</th>
               </tr>
             </thead>

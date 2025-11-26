@@ -1,18 +1,57 @@
 import { BaseApiService } from "./api";
 
 // ====== TYPES =======
+export type AppointmentStatus =
+    | "SCHEDULED"
+    | "IN_SERVICE"
+    | "COMPLETED"
+    | "CANCELED";
+
 export interface AppointmentResponse {
     appointmentId: number;
-    status: string;
+    status: AppointmentStatus;
 }
 
 export interface AppointmentRequest {
     customerId: number;
     serviceId: number;
-    startAt: string; // ISO: "2025-11-17T10:00:00"
-    endAt: string;
+    assignedUserId: number;
+    slotId: number;
+    note?: string;
+
+    // nếu muốn giữ startAt/endAt cho đẹp thì để optional, BE sẽ ignore
+    startAt?: string;
+    endAt?: string;
 }
 
+// Dữ liệu full trả về từ GET /api/appointments
+export interface AppointmentDetail {
+    appointmentId: number;
+    status: AppointmentStatus;
+    startAt: string;
+    endAt: string;
+    note?: string;
+
+    customer?: {
+        customerId: number;
+        name: string;
+        phoneNumber: string;
+    };
+
+    service?: {
+        id: number;
+        name: string;
+        serviceType: "TEST_DRIVE" | "MAINTENANCE";
+    };
+
+    slot?: {
+        slotId: number;
+        startTime: string;
+        endTime: string;
+    };
+}
+
+// Update status
 export interface UpdateAppointmentStatusRequest {
     status: "SCHEDULED" | "IN_SERVICE" | "COMPLETED" | "CANCELED";
 }
@@ -44,8 +83,14 @@ class AppointmentService extends BaseApiService {
     }
 
     // Lấy 1 cuộc hẹn theo ID
-    async getById(id: number) {
+    async getById(id: number): Promise<AppointmentDetail> {
         const res = await this.axiosInstance.get(`/appointments/${id}`);
+        return res.data;
+    }
+
+    // Lấy tất cả cuộc hẹn
+    async getAll(): Promise<AppointmentDetail[]> {
+        const res = await this.axiosInstance.get("/appointments");
         return res.data;
     }
 

@@ -28,27 +28,13 @@ import { toast as sonnerToast, toast } from "sonner";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { getScheduleStatusBadge } from "@/lib/scheduleUtils";
-import { serviceEntityService, type ServiceResponse } from "@/services/api-service-entity";
-import { appointmentService, type AppointmentRequest, type AppointmentDetail } from "@/services/api-appointments";
-import { customerService, type CustomerResponse, customerStatus, type CustomerRequest } from "@/services/api-customers";
 import { ScheduleCalendar, type ScheduleItem } from "@/components/ScheduleCalendar";
+import { slotService } from "@/services/api-slot";
+import { appointmentService } from "@/services/api-appointments";
+import { serviceEntityService, type ServiceResponse } from "@/services/api-service-entity";
+import { customerService, customerStatus, type CustomerResponse } from "@/services/api-customers";
 
-type LocalScheduleStatus = 'scheduled' | 'completed' | 'cancelled' | 'in_progress' | 'no_show';
 
-const mapAppointmentStatus = (status: string): LocalScheduleStatus => {
-  switch (status) {
-    case "SCHEDULED":
-      return "scheduled";
-    case "IN_SERVICE":
-      return "in_progress";
-    case "COMPLETED":
-      return "completed";
-    case "CANCELED":
-      return "cancelled";
-    default:
-      return "scheduled";
-  }
-};
 
 
 const ServiceManagement = () => {
@@ -65,18 +51,24 @@ const ServiceManagement = () => {
   const [isFindingCustomer, setIsFindingCustomer] = useState(false);
 
   // Unified schedule form state
-  const [newSchedule, setNewSchedule] = useState({
+  type NewScheduleForm = {
+    customerPhone: string;
+    customerName: string;
+    notes: string;
+    scheduledDate: string;  // yyyy-MM-dd
+    scheduledTime: string;  // "08:00-09:00"
+  };
+
+  const [newSchedule, setNewSchedule] = useState<NewScheduleForm>({
     customerPhone: "",
     customerName: "",
     notes: "",
     scheduledDate: "",
     scheduledTime: "",
   });
-
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>();
   const [isDateDrawerOpen, setIsDateDrawerOpen] = useState(false);
   const [selectedDateSchedules, setSelectedDateSchedules] = useState<ScheduleItem[]>([]);
-
   //-------------------------
   //SERVICE SCHEDULE FETCH
   //-------------------------
@@ -87,41 +79,57 @@ const ServiceManagement = () => {
   // Fetch schedules list
   const fetchSchedules = async () => {
     try {
-      const appts: AppointmentDetail[] = await appointmentService.listAll();
+      const appointments = await appointmentService.getAll();
 
-      const mapped: ScheduleItem[] = appts.map((a) => {
-        const start = new Date(a.startAt);
-        const end = new Date(a.endAt);
+      const mapped: ScheduleItem[] = appointments.map((ap) => {
+        const start = new Date(ap.startAt);
+        const end = new Date(ap.endAt);
 
-        const scheduledDate = a.startAt?.slice(0, 10); // "yyyy-MM-dd"
-        const startLabel = start.toTimeString().slice(0, 5); // HH:mm
-        const endLabel = end.toTimeString().slice(0, 5);
+        const dateStr = format(start, "yyyy-MM-dd");
+        const startTimeStr = format(start, "HH:mm");
+        const endTimeStr = format(end, "HH:mm");
+        const scheduledTime = `${startTimeStr}-${endTimeStr}`;
 
-        const serviceName = a.service?.name ?? "";
-        const lowerName = serviceName.toLowerCase();
+        // Map ServiceType → type
+        const type: 'service' | 'test-drive' =
+          ap.service?.serviceType === "TEST_DRIVE" ? "test-drive" : "service";
 
-        const type: "service" | "test-drive" =
-          lowerName.includes("lái thử") || lowerName.includes("test")
-            ? "test-drive"
-            : "service";
+        // Map AppointmentStatus → ScheduleStatus
+        let status: ScheduleItem["status"] = "scheduled";
+        switch (ap.status) {
+          case "COMPLETED":
+            status = "completed";
+            break;
+          case "IN_SERVICE":
+            status = "in_progress";
+            break;
+          case "CANCELED":
+            status = "cancelled";
+            break;
+          case "SCHEDULED":
+          default:
+            status = "scheduled";
+        }
 
         return {
-          id: a.appointmentId,
+          id: ap.appointmentId,
           type,
-          status: mapAppointmentStatus(a.status),
-          scheduledDate,
-          scheduledTime: `${startLabel}-${endLabel}`,
-          serviceType: serviceName,
-          customerName: a.customer?.name ?? "Khách hàng",
-          customerPhone: a.customer?.phoneNumber ?? "",
-          notes: a.note,
+          status,
+          scheduledDate: dateStr,
+          scheduledTime,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          customerName: ap.customer?.name || "Khách chưa rõ tên",
+          customerPhone: ap.customer?.phoneNumber || "",
+          serviceType: ap.service?.name,
+          notes: ap.note,
         };
       });
 
       setSchedules(mapped);
     } catch (err) {
       console.error(err);
-      sonnerToast.error("Không tải được danh sách lịch");
+      sonnerToast.error("Không tải được danh sách lịch hẹn");
     }
   };
 
@@ -184,86 +192,105 @@ const ServiceManagement = () => {
 
   const handleCreateSchedule = async () => {
     try {
-      const { customerPhone, customerName, scheduledDate, scheduledTime, notes } = newSchedule;
-
-      if (!customerPhone || !scheduledDate || !scheduledTime || !selectedService) {
-        sonnerToast.error("Vui lòng nhập đủ SĐT, ngày, khung giờ và chọn dịch vụ");
+      if (!selectedService) {
+        sonnerToast.error("Vui lòng chọn loại dịch vụ");
         return;
       }
 
-      // 1. Tìm customer theo SĐT
-      const customer = await customerService.getCustomerByPhone(customerPhone);
+      if (!newSchedule.customerPhone) {
+        sonnerToast.error("Vui lòng nhập số điện thoại khách hàng");
+        return;
+      }
 
-      // Nếu người dùng chưa nhập tên thì lấy tên từ hệ thống
-      const finalCustomerName = customerName || customer.name;
+      if (!newSchedule.scheduledDate || !newSchedule.scheduledTime) {
+        sonnerToast.error("Vui lòng chọn ngày và khung giờ");
+        return;
+      }
 
-      // 2. Từ customer lấy assignedSalesId / assignedSalesName
-      const assignedSalesId = (customer as any).assignedSalesId;      // nếu BE có field này
-      const assignedSalesName = customer.assignedSalesName ?? "Chưa gán";
+      // Lấy customer từ phone
+      let customer: CustomerResponse;
+      try {
+        customer = await customerService.getCustomerByPhone(
+          newSchedule.customerPhone
+        );
+      } catch (err) {
+        sonnerToast.error(
+          "Khách chưa có trong hệ thống, vui lòng tạo khách hàng trước"
+        );
+        return;
+      }
 
-      console.log("Nhân viên phụ trách KH này:", assignedSalesId, assignedSalesName);
+      // Tách khung giờ: "08:00-09:00"
+      const [startHour, endHour] = newSchedule.scheduledTime.split("-");
+      const startAt = `${newSchedule.scheduledDate}T${startHour}:00`;
+      const endAt = `${newSchedule.scheduledDate}T${endHour}:00`;
 
-      // 3. Build startAt / endAt từ date + time slot
-      const [startStr, endStr] = scheduledTime.split("-"); // "08:00-09:00" -> ["08:00","09:00"]
-      const startAt = `${scheduledDate}T${startStr}:00`;
-      const endAt = `${scheduledDate}T${endStr}:00`;
+      // Tạo Slot mới
+      const slot = await slotService.create({
+        startTime: startAt,
+        endTime: endAt,
+        maxTestDrive: 5,
+        maxService: 10,
+      });
 
-      // 4. Gửi request tạo appointment
-      const req: AppointmentRequest = {
+      // TODO: assignedUserId có thể lấy từ user đang login, tạm thời hard-code
+      const assignedUserId = 3;
+
+      // Tạo Appointment
+      await appointmentService.create({
         customerId: customer.customerId,
         serviceId: selectedService.id,
+        assignedUserId,
+        slotId: slot.slotId,
+        note: newSchedule.notes,
         startAt,
         endAt,
-        // Nếu sau này BE thêm field staffId / assignedStaffId thì gắn ở đây:
-        // staffId: assignedSalesId,
-      };
+      });
 
-      await appointmentService.create(req);
+      sonnerToast.success("Tạo lịch hẹn thành công");
 
-      sonnerToast.success("Tạo lịch thành công cho " + finalCustomerName);
+      // Reset form & đóng dialog
+      setNewSchedule({
+        customerPhone: "",
+        customerName: "",
+        notes: "",
+        scheduledDate: "",
+        scheduledTime: "",
+      });
       setIsScheduleDialogOpen(false);
-      // reset form nếu muốn
-    } catch (err: any) {
+
+      // Refresh danh sách lịch
+      fetchSchedules();
+    } catch (err) {
       console.error(err);
-      sonnerToast.error(err?.response?.data?.message || "Tạo lịch thất bại");
+      sonnerToast.error("Không thể tạo lịch hẹn, vui lòng thử lại");
     }
   };
-
-
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedCalendarDate(date);
 
     if (!date) {
-      setIsDateDrawerOpen(false);
       setSelectedDateSchedules([]);
+      setIsDateDrawerOpen(false);
       return;
     }
 
     const dateStr = format(date, "yyyy-MM-dd");
     const items = schedules.filter((s) => s.scheduledDate === dateStr);
+
     setSelectedDateSchedules(items);
     setIsDateDrawerOpen(true);
   };
 
-
   // Get booked time slots for a specific date
   const getBookedTimeSlotsForDate = (dateStr: string) => {
-    if (!dateStr) return [];
-
-    const booked = schedules
-      .filter(
-        (s) =>
-          s.scheduledDate === dateStr &&
-          s.status !== "cancelled" &&
-          s.status !== "no_show"
-      )
+    return schedules
+      .filter((s) => s.scheduledDate === dateStr)
       .map((s) => s.scheduledTime)
-      .filter(Boolean) as string[];
-
-    // unique
-    return Array.from(new Set(booked));
+      .filter((s): s is string => Boolean(s));
   };
+
 
   const handleFindCustomerByPhone = async () => {
     const phone = newSchedule.customerPhone.trim();
@@ -597,7 +624,7 @@ const ServiceManagement = () => {
                         )}
                       </TableCell>
 
-                      {/* Ngày */}
+                      {/* Ngày HẸN (không phải ngày tạo) */}
                       <TableCell>
                         {schedule.scheduledDate
                           ? format(new Date(schedule.scheduledDate), "dd/MM/yyyy")
@@ -606,10 +633,10 @@ const ServiceManagement = () => {
 
                       {/* Giờ bắt đầu */}
                       <TableCell>
-                        {startTime ? (
+                        {schedule.startTime ? (
                           <div className="flex items-center gap-1 text-sm">
                             <Clock className="w-3 h-3" />
-                            {startTime}
+                            {schedule.startTime}
                           </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">-</span>
@@ -618,10 +645,10 @@ const ServiceManagement = () => {
 
                       {/* Giờ kết thúc */}
                       <TableCell>
-                        {endTime ? (
+                        {schedule.endTime ? (
                           <div className="flex items-center gap-1 text-sm">
                             <Clock className="w-3 h-3" />
-                            {endTime}
+                            {schedule.endTime}
                           </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">-</span>
