@@ -19,7 +19,7 @@ import Users from "./pages/admin/Users";
 import AdminWarehouses from "./pages/admin/Warehouses";
 import Dealerships from "./pages/admin/Dealerships";
 import PaymentHistory from "./pages/PaymentHistory";
-import ResetPasswork from "./pages/ResetPasswork";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +40,7 @@ const App = () => (
           <Route path="/service" element={<ServiceManagement />} />
           <Route path="/login" element={<Login />} />
           <Route path="/paymentHistory" element={<PaymentHistory />} />
-          <Route path="/resetpasswork" element={<ResetPasswork />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           {/* Admin pages */}
           <Route
             path="/admin/orders"

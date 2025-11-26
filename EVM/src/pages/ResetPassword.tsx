@@ -1,20 +1,45 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Eye, EyeOff, Lock, Shield } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { passwordService } from "@/services/api-forgetpassword";
 
 const ResetPassword = () => {
     const navigate = useNavigate();
+
+    // lấy token từ URL
+    const [searchParams] = useSearchParams();
+    const params = useParams();
+
+    const tokenFromQuery = searchParams.get("token");
+    const tokenFromParams = params.token;
+    const token = tokenFromQuery || tokenFromParams || "";
+
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [form, setForm] = useState({ password: "", confirmPassword: "" });
+    const [submitting, setSubmitting] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!token) {
+            toast.error("Token không hợp lệ!", {
+                description: "Link đặt lại mật khẩu không chứa mã token",
+                duration: 3000,
+            });
+            return;
+        }
 
         if (form.password !== form.confirmPassword) {
             toast.error("Mật khẩu không khớp!", {
@@ -32,12 +57,29 @@ const ResetPassword = () => {
             return;
         }
 
-        // Demo - không có logic thực tế
-        toast.success("Đặt lại mật khẩu thành công!", {
-            description: "Bạn có thể đăng nhập với mật khẩu mới",
-            duration: 3000,
-        });
-        navigate('/login');
+        try {
+            setSubmitting(true);
+
+            //  GỌI ĐÚNG CHỮ KÝ HÀM (token, newPassword)
+            await passwordService.resetPassword(token, form.password);
+
+            toast.success("Đặt lại mật khẩu thành công!", {
+                description: "Bạn có thể đăng nhập với mật khẩu mới",
+                duration: 3000,
+            });
+            navigate("/login");
+        } catch (err: any) {
+            const msg =
+                err?.response?.data?.message ||
+                err?.message ||
+                "Đặt lại mật khẩu thất bại";
+            toast.error("Không thể đặt lại mật khẩu", {
+                description: msg,
+                duration: 3000,
+            });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -50,7 +92,7 @@ const ResetPassword = () => {
             <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/login')}
+                onClick={() => navigate("/login")}
                 className="absolute top-6 left-6 gap-2 hover:bg-background/80 backdrop-blur-sm"
             >
                 <ArrowLeft className="w-4 h-4" />
@@ -74,9 +116,19 @@ const ResetPassword = () => {
                     </CardHeader>
 
                     <CardContent>
+                        {!token && (
+                            <p className="mb-4 text-sm text-red-500">
+                                Link không hợp lệ hoặc thiếu token. Vui lòng yêu cầu gửi lại email
+                                quên mật khẩu.
+                            </p>
+                        )}
+
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div className="space-y-2">
-                                <Label htmlFor="password" className="text-sm font-medium flex items-center gap-2">
+                                <Label
+                                    htmlFor="password"
+                                    className="text-sm font-medium flex items-center gap-2"
+                                >
                                     <Lock className="w-4 h-4" />
                                     Mật khẩu mới
                                 </Label>
@@ -86,7 +138,9 @@ const ResetPassword = () => {
                                         type={showPassword ? "text" : "password"}
                                         placeholder="••••••••"
                                         value={form.password}
-                                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                                        onChange={(e) =>
+                                            setForm({ ...form, password: e.target.value })
+                                        }
                                         required
                                         className="h-12 pr-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50"
                                     />
@@ -95,13 +149,20 @@ const ResetPassword = () => {
                                         onClick={() => setShowPassword(!showPassword)}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                     >
-                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                        {showPassword ? (
+                                            <EyeOff className="w-5 h-5" />
+                                        ) : (
+                                            <Eye className="w-5 h-5" />
+                                        )}
                                     </button>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="confirmPassword" className="text-sm font-medium flex items-center gap-2">
+                                <Label
+                                    htmlFor="confirmPassword"
+                                    className="text-sm font-medium flex items-center gap-2"
+                                >
                                     <Lock className="w-4 h-4" />
                                     Xác nhận mật khẩu
                                 </Label>
@@ -111,25 +172,34 @@ const ResetPassword = () => {
                                         type={showConfirmPassword ? "text" : "password"}
                                         placeholder="••••••••"
                                         value={form.confirmPassword}
-                                        onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                                        onChange={(e) =>
+                                            setForm({ ...form, confirmPassword: e.target.value })
+                                        }
                                         required
                                         className="h-12 pr-12 bg-background/50 backdrop-blur-sm border-border/50 focus:border-primary/50"
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        onClick={() =>
+                                            setShowConfirmPassword(!showConfirmPassword)
+                                        }
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                                     >
-                                        {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                        {showConfirmPassword ? (
+                                            <EyeOff className="w-5 h-5" />
+                                        ) : (
+                                            <Eye className="w-5 h-5" />
+                                        )}
                                     </button>
                                 </div>
                             </div>
 
                             <Button
                                 type="submit"
-                                className="w-full h-12 bg-gradient-primary hover:bg-gradient-primary/90 text-white font-semibold shadow-glow hover:shadow-hover transition-all duration-300"
+                                disabled={submitting || !token}
+                                className="w-full h-12 bg-gradient-primary hover:bg-gradient-primary/90 text-white font-semibold shadow-glow hover:shadow-hover transition-all duration-300 disabled:opacity-60"
                             >
-                                Đặt lại mật khẩu
+                                {submitting ? "Đang xử lý..." : "Đặt lại mật khẩu"}
                             </Button>
                         </form>
                     </CardContent>

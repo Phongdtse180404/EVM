@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { authService } from "@/services/api-auth";
 import { getUserRoleFromToken } from "@/lib/jwt-utils";
+import { passwordService } from "@/services/api-forgetpassword";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const Login = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,15 +64,21 @@ const Login = () => {
     }
   };
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Chỉ UI demo - không có logic thực tế
-    toast.success("Email đã được gửi!", {
-      description: "Vui lòng kiểm tra email để đặt lại mật khẩu",
-      duration: 3000,
-    });
-    setShowForgotPassword(false);
-    setForgotPasswordEmail("");
+    try {
+      await passwordService.forgotPassword(forgotPasswordEmail);
+      toast.success("Email đã được gửi!", {
+        description: "Vui lòng kiểm tra email để đặt lại mật khẩu",
+        duration: 3000,
+      });
+      setShowForgotPassword(false);
+      setForgotPasswordEmail("");
+    } catch (err: any) {
+      toast.error("Gửi email thất bại", {
+        description: err?.response?.data || err?.message || "Lỗi không xác định",
+      });
+    }
   };
 
   return (
@@ -211,16 +219,19 @@ const Login = () => {
                   variant="outline"
                   onClick={() => setShowForgotPassword(false)}
                   className="flex-1"
+                  disabled={forgotLoading}
                 >
                   Hủy
                 </Button>
                 <Button
                   type="submit"
                   className="flex-1 bg-gradient-primary hover:bg-gradient-primary/90 text-white"
+                  disabled={forgotLoading}
                 >
-                  Gửi email
+                  {forgotLoading ? "Đang gửi..." : "Gửi email"}
                 </Button>
               </div>
+
             </form>
           </DialogContent>
         </Dialog>
