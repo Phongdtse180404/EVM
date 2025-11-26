@@ -43,6 +43,7 @@ export interface OrderResponse {
   orderDate?: Date;
   depositPaidAt?: Date;
   fullyPaidAt?: Date;
+  dealershipId: number;
 }
 
 // New Order Deposit Request type (matching backend OrderDepositRequest)

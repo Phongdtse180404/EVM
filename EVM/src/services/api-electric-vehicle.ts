@@ -39,7 +39,7 @@ export interface ElectricVehicleResponse {
 // Electric Vehicle Service
 class ElectricVehicleService extends BaseApiService {
 
-    // Import vehicle types from Excel file
+  // Import vehicle types from Excel file
   async importVehicleTypeExcel(file: File): Promise<string> {
     const formData = new FormData();
     formData.append('file', file);
@@ -85,7 +85,7 @@ class ElectricVehicleService extends BaseApiService {
     return res.data;
   }
 
-  
+
 }
 
 export const electricVehicleService = new ElectricVehicleService();

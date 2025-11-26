@@ -20,7 +20,7 @@ import { toast } from "sonner";
 
 export function ShowroomTopbar() {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState<{ email?: string; role?: string; roleId?: number} | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ email?: string; role?: string; roleId?: number } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -51,7 +51,7 @@ export function ShowroomTopbar() {
   // Define menu items based on user role
   const getMenuItems = () => {
     const role = currentUser?.role;
-    
+
     // Common menu items for ROLE_EVMSTAFF
     const evmStaffItems = [
       {
@@ -61,13 +61,8 @@ export function ShowroomTopbar() {
       },
       {
         icon: Users,
-        label: "Quản lý khách hàng", 
+        label: "Quản lý khách hàng",
         path: "/customers"
-      },
-      {
-        icon: Calendar,
-        label: "Báo cáo",
-        path: "/reports"
       },
       {
         icon: CreditCard,
@@ -101,13 +96,18 @@ export function ShowroomTopbar() {
       }
     ];
 
-        // Admin gets all menu items
+    // Admin gets all menu items
     const evmManagerItems = [
       ...evmStaffItems,
       {
         icon: Car,
         label: "Quản lý tồn kho",
         path: "/inventory"
+      },
+      {
+        icon: Calendar,
+        label: "Báo cáo",
+        path: "/reports"
       },
       {
         icon: Shield,
@@ -143,7 +143,7 @@ export function ShowroomTopbar() {
           </div>
 
           <div className="flex space-x-2">
-            
+
 
             {/* User Dropdown */}
             {currentUser ? (

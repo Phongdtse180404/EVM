@@ -4,12 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 interface MetricCardProps {
   title: string;
   value: string;
-  change: string;
-  trend: "up" | "down";
   icon: LucideIcon;
 }
 
-export default function MetricCard({ title, value, change, trend, icon: Icon }: MetricCardProps) {
+export default function MetricCard({ title, value, icon: Icon }: MetricCardProps) {
   return (
     <Card className="shadow-soft hover:shadow-medium transition-shadow">
       <CardContent className="p-6">

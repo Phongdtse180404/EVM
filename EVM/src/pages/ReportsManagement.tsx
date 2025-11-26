@@ -17,6 +17,11 @@ import {
   Bar,
   BarChart as RBarChart,
 } from "recharts";
+import {
+  electricVehicleService,
+  ElectricVehicleResponse,
+} from "@/services/api-electric-vehicle";
+
 
 // format tiền VND
 const formatVND = (n: number) =>
@@ -42,6 +47,11 @@ const ReportsManagement = () => {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [vehicles, setVehicles] = useState<ElectricVehicleResponse[]>([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+
+
+
 
   // ===== Fetch data =====
   useEffect(() => {
@@ -71,11 +81,25 @@ const ReportsManagement = () => {
       }
     };
 
+    const fetchVehicles = async () => {
+      try {
+        setLoadingVehicles(true);
+        const data = await electricVehicleService.getAllElectricVehicles();
+        setVehicles(data);
+      } catch (e: any) {
+        console.log("EV error:", e?.response?.status, e?.response?.data);
+        setError(e?.response?.data?.message ?? e?.message ?? "Fetch vehicles failed");
+      } finally {
+        setLoadingVehicles(false);
+      }
+    };
+
     fetchOrders();
     fetchCustomers();
+    fetchVehicles();
   }, []);
 
-  const loading = loadingOrders || loadingCustomers;
+  const loading = loadingOrders || loadingCustomers || loadingVehicles;
 
   // ===== Metrics =====
   const validOrders = useMemo(
@@ -83,9 +107,27 @@ const ReportsManagement = () => {
     [orders]
   );
 
+  const vehicleMap = useMemo(() => {
+    const m = new Map<number, ElectricVehicleResponse>();
+    vehicles.forEach(v => m.set(v.vehicleId, v));
+    return m;
+  }, [vehicles]);
+
+  const calcProfit = (o: OrderResponse): number => {
+    if (!o.vehicleId) return 0;
+    const v = vehicleMap.get(o.vehicleId);
+    if (!v) return 0;
+
+    // totalAmount ≈ price, nếu BE đã lưu giá bán vào totalAmount
+    const price = o.totalAmount ?? v.price;
+    const cost = v.cost ?? 0;
+
+    return price - cost;
+  };
+
   const totalRevenue = useMemo(
-    () => validOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0),
-    [validOrders]
+    () => validOrders.reduce((sum, o) => sum + calcProfit(o), 0),
+    [validOrders, vehicleMap]
   );
 
   const totalOrders = useMemo(() => validOrders.length, [validOrders]);
@@ -99,6 +141,8 @@ const ReportsManagement = () => {
     if (!totalOrders) return 0;
     return totalRevenue / totalOrders;
   }, [totalRevenue, totalOrders]);
+
+
 
   const quickStats = [
     {
@@ -130,7 +174,7 @@ const ReportsManagement = () => {
 
       revenueByDate.set(
         key,
-        (revenueByDate.get(key) || 0) + (o.totalAmount || 0)
+        (revenueByDate.get(key) || 0) + calcProfit(o)
       );
     });
 
@@ -284,7 +328,9 @@ const ReportsManagement = () => {
                 <tr key={o.orderId} className="border-b border-border/50">
                   <td className="py-2">{o.customerName}</td>
                   <td className="py-2">{o.vehicleModel}</td>
-                  <td className="py-2 text-right">{formatVND(o.totalAmount || 0)}</td>
+                  <td className="py-2 text-right">
+                    {formatVND(calcProfit(o))}
+                  </td>
                   <td className="py-2 text-right">
                     {o.orderDate ? formatDateTimeVN(new Date(o.orderDate as any)) : "N/A"}
                   </td>

@@ -15,6 +15,11 @@ import {
 } from "recharts";
 import { orderService, OrderResponse } from "@/services/api-orders";
 import { customerService, CustomerResponse } from "@/services/api-customers";
+import {
+  electricVehicleService,
+  ElectricVehicleResponse,
+} from "@/services/api-electric-vehicle";
+
 
 // format tiền VND gọn gàng
 const formatVND = (n: number) =>
@@ -26,6 +31,9 @@ export default function Sales() {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [vehicles, setVehicles] = useState<ElectricVehicleResponse[]>([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -47,21 +55,50 @@ export default function Sales() {
         setCustomers(data);
       } catch (e: any) {
         setError(e?.message ?? "Fetch customers failed");
+
       } finally {
         setLoadingCustomers(false);
       }
     };
 
+    const fetchVehicles = async () => {
+      try {
+        setLoadingVehicles(true);
+        const data = await electricVehicleService.getAllElectricVehicles();
+        setVehicles(data);
+      } catch (e: any) {
+        setError(e?.message ?? "Fetch vehicles failed");
+      } finally {
+        setLoadingVehicles(false);
+      }
+    };
+
     fetchOrders();
     fetchCustomers();
+    fetchVehicles();
   }, []);
+
+  const vehicleMap = useMemo(() => {
+    const m = new Map<number, ElectricVehicleResponse>();
+    vehicles.forEach(v => m.set(v.vehicleId, v));
+    return m;
+  }, [vehicles]);
+
+  const calcProfit = (o: OrderResponse): number => {
+    if (!o.vehicleId) return 0;
+    const v = vehicleMap.get(o.vehicleId);
+    if (!v) return 0;
+    const price = o.totalAmount ?? v.price;
+    const cost = v.cost ?? 0;
+    return price - cost;
+  };
 
   // tính toán metric từ orders
   const totalRevenue = useMemo(() => {
-    // chỉ tính order không bị cancel (tuỳ rule bên bạn)
-    const validOrders = orders.filter(orders => orders.status !== "CANCELLED");
-    return validOrders.reduce((sum, orders) => sum + (orders.totalAmount || 0), 0);
-  }, [orders]);
+    const validOrders = orders.filter(o => o.status !== "CANCELLED");
+    return validOrders.reduce((sum, o) => sum + calcProfit(o), 0);
+  }, [orders, vehicleMap]);
+
 
   const totalOrders = useMemo(() => orders.length, [orders]);
 
@@ -71,7 +108,7 @@ export default function Sales() {
     return customers.filter(c => c.status === "CUSTOMER").length;
   }, [customers]);
 
-  const loading = loadingOrders || loadingCustomers;
+  const loading = loadingOrders || loadingCustomers || loadingVehicles;
 
   // format ngày giờ theo VN
   const formatDateTimeVN = (d: Date) =>
@@ -85,7 +122,7 @@ export default function Sales() {
 
   const recentActivity = useMemo(() => {
     const sorted = [...orders]
-      .filter(orders => orders.orderDate) // chỉ lấy cái có ngày
+      .filter(o => o.orderDate)
       .sort(
         (a, b) =>
           new Date(b.orderDate as any).getTime() -
@@ -93,16 +130,17 @@ export default function Sales() {
       )
       .slice(0, 4);
 
-    return sorted.map(orders => ({
-      id: orders.orderId,
-      customer: orders.customerName ?? `KH #${orders.customerId}`,
-      action: `Mua ${orders.vehicleModel ?? `Xe #${orders.vehicleId}`}`,
-      amount: formatVND(orders.totalAmount || 0),
-      orderDate: orders.orderDate
-        ? formatDateTimeVN(new Date(orders.orderDate as any))
+    return sorted.map(o => ({
+      id: o.orderId,
+      customer: o.customerName ?? `KH #${o.customerId}`,
+      action: `Mua ${o.vehicleModel ?? `Xe #${o.vehicleId}`}`,
+      amount: formatVND(calcProfit(o)),    // <-- lợi nhuận
+      orderDate: o.orderDate
+        ? formatDateTimeVN(new Date(o.orderDate as any))
         : "N/A",
     }));
-  }, [orders]);
+  }, [orders, vehicleMap]);
+
 
   const metrics = [
     {
@@ -128,44 +166,38 @@ export default function Sales() {
 
   // biểu đồ doanh thu theo ngày
   const salesData = useMemo(() => {
-    // map doanh thu theo key yyyy-mm-dd
     const revenueByDate = new Map<string, number>();
 
-    orders.forEach(orders => {
-      if (!orders.orderDate || orders.status === "CANCELLED") return;
+    orders.forEach(o => {
+      if (!o.orderDate) return;
+      if (o.status === "CANCELLED") return;
+      if (o.paymentStatus !== "PAID") return; // chỉ tính đơn đã thanh toán
 
-      const dateObj = new Date(orders.orderDate as any);
-      const key = dateObj.toISOString().slice(0, 10); // yyyy-mm-dd
+      const dateObj = new Date(o.orderDate as any);
+      const key = dateObj.toISOString().slice(0, 10);
 
-      if (orders.paymentStatus === "DEPOSIT_PAID") {
-        revenueByDate.set(
-          key,
-          (revenueByDate.get(key) || 0) + (orders.planedDepositAmount || 0)
-        );
-      } else if (orders.paymentStatus === "PAID") {
-        revenueByDate.set(
-          key,
-          (revenueByDate.get(key) || 0) + (orders.totalAmount || 0)
-        );
-      }
+      revenueByDate.set(
+        key,
+        (revenueByDate.get(key) || 0) + calcProfit(o)
+      );
     });
 
-    // tạo list 7 ngày gần nhất (tính cả hôm nay)
     const result: { date: string; revenue: number }[] = [];
     const today = new Date();
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-
       const key = d.toISOString().slice(0, 10);
+
       result.push({
-        date: formatDayLabel(d),                 // label hiển thị: dd/MM
-        revenue: revenueByDate.get(key) || 0,    // nếu không có đơn => 0
+        date: formatDayLabel(d),
+        revenue: revenueByDate.get(key) || 0,
       });
     }
 
     return result;
-  }, [orders]);
+  }, [orders, vehicleMap]);
+
 
   // top model bán chạy
   const productData = useMemo(() => {
