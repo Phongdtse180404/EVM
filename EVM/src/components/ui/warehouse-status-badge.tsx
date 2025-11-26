@@ -1,3 +1,4 @@
+import { VehicleStatus } from "@/services/api-electric-vehicle";
 import { ReactNode } from "react";
 
 export type BadgeVariant = 'success' | 'warning' | 'danger' | 'secondary' | 'default';
@@ -6,7 +7,7 @@ export type VehicleStatusType = 'AVAILABLE' | 'HOLD' | 'SOLD_OUT';
 interface WarehouseStatusBadgeProps {
   children?: ReactNode;
   variant?: BadgeVariant;
-  vehicleStatus?: VehicleStatusType;
+  vehicleStatus?: VehicleStatus;
   count?: number;
   className?: string;
 }
@@ -29,7 +30,7 @@ const getVariantClasses = (variant: BadgeVariant): string => {
   }
 };
 
-const getVehicleStatusVariant = (status: VehicleStatusType): BadgeVariant => {
+const getVehicleStatusVariant = (status: VehicleStatus): BadgeVariant => {
   switch (status) {
     case 'AVAILABLE':
       return 'success';
@@ -42,7 +43,7 @@ const getVehicleStatusVariant = (status: VehicleStatusType): BadgeVariant => {
   }
 };
 
-const getVehicleStatusText = (status: VehicleStatusType): string => {
+const getVehicleStatusText = (status: VehicleStatus): string => {
   switch (status) {
     case 'AVAILABLE':
       return 'Có sẵn';

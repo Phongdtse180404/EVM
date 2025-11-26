@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Plus, Search, Edit, Trash2, Car, Battery, Zap, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { VehicleStatus } from '@/services/api-electric-vehicle';
 
 interface ElectricVehicle {
   id: string;
@@ -22,7 +23,7 @@ interface ElectricVehicle {
   range: number;
   price: number;
   stock: number;
-  status: 'available' | 'reserved' | 'sold' | 'maintenance';
+  status: VehicleStatus;
   vin: string;
   description?: string;
 }
@@ -35,64 +36,7 @@ const InventoryManagement = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const [vehicles, setVehicles] = useState<ElectricVehicle[]>([
-    {
-      id: '1',
-      brand: 'Tesla',
-      model: 'Model 3',
-      year: 2024,
-      color: 'Trắng Ngọc Trai',
-      batteryCapacity: 75,
-      range: 520,
-      price: 1200000000,
-      stock: 5,
-      status: 'available',
-      vin: 'TESLA2024001',
-      description: 'Xe điện sedan cao cấp với công nghệ Autopilot'
-    },
-    {
-      id: '2',
-      brand: 'VinFast',
-      model: 'VF8',
-      year: 2024,
-      color: 'Xanh Đại Dương',
-      batteryCapacity: 87.7,
-      range: 471,
-      price: 1291000000,
-      stock: 8,
-      status: 'available',
-      vin: 'VINFAST2024002',
-      description: 'SUV điện Việt Nam với công nghệ tiên tiến'
-    },
-    {
-      id: '3',
-      brand: 'BYD',
-      model: 'Atto 3',
-      year: 2024,
-      color: 'Đỏ Rượu Vang',
-      batteryCapacity: 60.48,
-      range: 420,
-      price: 768000000,
-      stock: 3,
-      status: 'reserved',
-      vin: 'BYD2024003',
-      description: 'Crossover điện thông minh từ Trung Quốc'
-    },
-    {
-      id: '4',
-      brand: 'Hyundai',
-      model: 'IONIQ 5',
-      year: 2024,
-      color: 'Bạc Titanium',
-      batteryCapacity: 77.4,
-      range: 481,
-      price: 1475000000,
-      stock: 2,
-      status: 'available',
-      vin: 'HYUNDAI2024004',
-      description: 'SUV điện với thiết kế tương lai và sạc siêu nhanh'
-    }
-  ]);
+  const [vehicles, setVehicles] = useState<ElectricVehicle[]>();
 
   const [newVehicle, setNewVehicle] = useState<Partial<ElectricVehicle>>({
     brand: '',
@@ -103,7 +47,7 @@ const InventoryManagement = () => {
     range: 0,
     price: 0,
     stock: 0,
-    status: 'available',
+    status: 'AVAILABLE',
     vin: '',
     description: ''
   });
@@ -118,14 +62,6 @@ const InventoryManagement = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'available':
-        return <Badge className="bg-success/20 text-success border-success">Có sẵn</Badge>;
-      case 'reserved':
-        return <Badge className="bg-warning/20 text-warning border-warning">Đã đặt</Badge>;
-      case 'sold':
-        return <Badge className="bg-muted text-muted-foreground">Đã bán</Badge>;
-      case 'maintenance':
-        return <Badge className="bg-destructive/20 text-destructive border-destructive">Bảo trì</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -147,7 +83,7 @@ const InventoryManagement = () => {
       range: newVehicle.range || 0,
       price: newVehicle.price || 0,
       stock: newVehicle.stock || 0,
-      status: newVehicle.status as ElectricVehicle['status'] || 'available',
+      status: newVehicle.status as VehicleStatus,
       vin: newVehicle.vin!,
       description: newVehicle.description || ''
     };
@@ -162,7 +98,7 @@ const InventoryManagement = () => {
       range: 0,
       price: 0,
       stock: 0,
-      status: 'available',
+      status: 'AVAILABLE',
       vin: '',
       description: ''
     });
@@ -192,7 +128,7 @@ const InventoryManagement = () => {
   };
 
   const totalStock = vehicles.reduce((sum, vehicle) => sum + vehicle.stock, 0);
-  const availableStock = vehicles.filter(v => v.status === 'available').reduce((sum, vehicle) => sum + vehicle.stock, 0);
+  const availableStock = vehicles.filter(v => v.status === "AVAILABLE").reduce((sum, vehicle) => sum + vehicle.stock, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 p-6">

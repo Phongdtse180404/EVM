@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { orderService, OrderResponse, OrderStatus, OrderPaymentStatus } from "@/services/api-orders";
+import { useOrders } from "@/hooks/use-orders";
 import { customerService, CustomerResponse } from "@/services/api-customers";
 import { paymentService, PaymentPurpose } from "@/services/api-payment";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import { fi } from "date-fns/locale";
 import { Search } from "lucide-react";
 
 export default function SalesManagement() {
+  const { deliverNow, loading: deliverLoading } = useOrders();
   const navigate = useNavigate();
 
   // Check URL params for pre-filling form
@@ -500,29 +502,38 @@ export default function SalesManagement() {
                       )}
 
                       {order.deliveryDate !== null && (
-                        <>
+                        <div className="flex flex-col gap-2 w-full min-w-[140px]">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            loading={deliverLoading}
+                            onClick={async () => {
+                              const res = await deliverNow(order.orderId);
+                              if (res) {
+                                toast.success("Đã giao xe thành công!");
+                                setOrders(prev => prev.map(o => o.orderId === order.orderId ? res : o));
+                              } else {
+                                toast.error("Giao xe thất bại!");
+                              }
+                            }}
+                            className="bg-primary text-xs w-full h-10"
+                          >
+                            Giao xe ngay
+                          </Button>
                           <Button
                             size="sm"
                             onClick={() => handleViewDeliverySlip(order.orderId)}
-                            className="bg-secondary text-xs"
+                            className="bg-secondary text-xs w-full h-10"
                           >
                             <FileText className="w-3 h-3 mr-1" />
                             Xuất phiếu giao xe
                           </Button>
-                        </>
+                        </div>
                       )}
                     </>
                   )}
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDeleteOrder(order.orderId)}
-                    className="text-xs border-destructive text-destructive"
-                  >
-                    <Trash2 className="w-3 h-3 mr-1" />
-                    Xóa
-                  </Button>
+
                 </div>
               </div>
             </Card>
