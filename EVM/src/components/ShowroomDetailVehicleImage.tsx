@@ -10,14 +10,12 @@ type IndividualVehicle = {
 interface ShowroomDetailVehicleImageProps {
   selectedVehicle: IndividualVehicle;
   getVehicleImage: (vehicle: IndividualVehicle) => string;
-  getStatusBadge: (vehicle: IndividualVehicle) => JSX.Element;
   firebaseImageUrl: string;
 }
 
 export function ShowroomDetailVehicleImage({ 
   selectedVehicle, 
   getVehicleImage, 
-  getStatusBadge, 
   firebaseImageUrl 
 }: ShowroomDetailVehicleImageProps) {
   return (
@@ -32,9 +30,6 @@ export function ShowroomDetailVehicleImage({
           target.src = firebaseImageUrl;
         }}
       />
-      <div className="absolute top-4 right-4">
-        {getStatusBadge(selectedVehicle)}
-      </div>
     </div>
   );
 }

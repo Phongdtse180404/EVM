@@ -8,7 +8,6 @@ interface ShowroomVehicleListProps {
   selectedVehicle: IndividualVehicle | null;
   onVehicleSelect: (vehicle: IndividualVehicle) => void;
   getVehicleImage: (vehicle: IndividualVehicle) => string;
-  getStatusBadge: (vehicle: IndividualVehicle) => JSX.Element;
   firebaseImageUrl: string;
 } 
 

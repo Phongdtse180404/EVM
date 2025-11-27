@@ -173,21 +173,10 @@ export default function VehicleShowroom() {
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusBadge = (vehicle: IndividualVehicle) => {
-    if (vehicle.status === 'AVAILABLE') {
-      return <Badge className="bg-success/20 text-success border-success">Có sẵn</Badge>;
-    } else if (vehicle.status === 'HOLD') {
-      return <Badge className="bg-warning/20 text-warning border-warning">Đang giữ</Badge>;
-    } else if (vehicle.status === 'SOLD_OUT') {
-      return <Badge className="bg-destructive/20 text-destructive border-destructive">Đã bán</Badge>;
-    }
-    return <Badge className="bg-gray-200 text-gray-600">Không rõ</Badge>;
-  };
 
   const totalVehicles = individualVehicles.length;
   const availableVehicles = individualVehicles.filter(vehicle => vehicle.status === 'AVAILABLE').length;
   const totalModels = new Set(warehouseItems.map(item => `${item.modelCode}-${item.color}`)).size;
-
   return (
     <div className="min-h-screen">
       {/* Top Navigation Bar */}
@@ -202,7 +191,7 @@ export default function VehicleShowroom() {
           totalModels={totalModels}
           totalVehicles={totalVehicles}
           availableVehicles={availableVehicles}
-          warehouseName="Tất cả kho hàng"
+          dealershipId={detailedWarehouses[0]?.dealershipId}
         />
 
         {/* Search & Filter */}
@@ -222,7 +211,6 @@ export default function VehicleShowroom() {
             selectedVehicle={selectedVehicle}
             onVehicleSelect={setSelectedVehicle}
             getVehicleImage={getVehicleImage}
-            getStatusBadge={getStatusBadge}
             loading={loading || electricVehicleLoading}
             firebaseImageUrl={firebaseImageUrl}
           />
@@ -237,7 +225,6 @@ export default function VehicleShowroom() {
                   <ShowroomDetailVehicleImage
                     selectedVehicle={selectedVehicle}
                     getVehicleImage={getVehicleImage}
-                    getStatusBadge={getStatusBadge}
                     firebaseImageUrl={firebaseImageUrl}
                   />
                   <CardContent className="p-6">

@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Folder } from "@/components/ui/folder";
-import { WarehouseStatusBadge } from "@/components/ui/warehouse-status-badge";
+import StatusBadge from "@/components/StatusBadge";
 import type { WarehouseResponse } from "@/services/api-warehouse";
+import { Badge } from "./ui/badge";
 
 interface WarehouseStockTableProps {
   warehouseDetail: WarehouseResponse | null;
@@ -78,7 +79,7 @@ export default function WarehouseStockTable({
                                   {serial.vin}
                                 </TableCell>
                                 <TableCell>
-                                  <WarehouseStatusBadge vehicleStatus={serial.status} />
+                                  <StatusBadge status={serial.status} />
                                 </TableCell>
                                 <TableCell className="text-sm text-muted-foreground">
                                   {serial.holdUntil ? new Date(serial.holdUntil).toLocaleString('vi-VN') : '-'}
@@ -101,16 +102,14 @@ export default function WarehouseStockTable({
                 </TableCell>
                 <TableCell className="font-medium">{item.brand}</TableCell>
                 <TableCell>
-                  <WarehouseStatusBadge variant="secondary">
-                    {item.color}
-                  </WarehouseStatusBadge>
+                  <Badge variant="outline" className="text-xs">{item.color}</Badge>
                 </TableCell>
                 <TableCell>{item.productionYear}</TableCell>
                 <TableCell className="text-right font-medium">
                   {item.quantity}
                 </TableCell>
                 <TableCell className="text-right">
-                  <WarehouseStatusBadge count={availableCount} />
+                  {availableCount}
                 </TableCell>
                 
               </Folder>

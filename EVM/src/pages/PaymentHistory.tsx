@@ -148,7 +148,7 @@ export default function PaymentHistory() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="min-w-full bg-white border border-gray-200 rounded shadow">
+              <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow overflow-hidden">
                 <thead>
                   <tr className="bg-gray-100">
                     <th className="px-3 py-2 border">ID thanh toán</th>
@@ -159,17 +159,21 @@ export default function PaymentHistory() {
                     <th className="px-3 py-2 border">Phương thức</th>
                     <th className="px-3 py-2 border">Ngày thanh toán</th>
                     <th className="px-3 py-2 border">Trạng thái</th>
-                    <th className="px-3 py-2 border">Ghi chú</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={10} className="text-center py-6">Đang tải...</td></tr>
+                    <tr><td colSpan={9} className="text-center py-6">Đang tải...</td></tr>
                   ) : error ? (
                     <tr><td colSpan={10} className="text-center text-red-500 py-6">{error}</td></tr>
                   ) : history && history.content.length > 0 ? (
-                    history.content.map((row: PaymentHistoryResponse) => (
-                      <tr key={row.paymentId} className="border-b hover:bg-gray-50">
+                    history.content.map((row: PaymentHistoryResponse, idx, arr) => (
+                      <tr
+                        key={row.paymentId}
+                        className={
+                          `border-b hover:bg-gray-50 ${idx === 0 ? 'first:rounded-t-lg' : ''} ${idx === arr.length - 1 ? 'last:rounded-b-lg' : ''}`
+                        }
+                      >
                         <td className="px-3 py-2 border text-center">{row.paymentId}</td>
                         <td className="px-3 py-2 border text-center">{row.customerId}</td>
                         <td className="px-3 py-2 border">{row.customerName}</td>
@@ -178,7 +182,6 @@ export default function PaymentHistory() {
                         <td className="px-3 py-2 border text-center">{row.method}</td>
                         <td className="px-3 py-2 border text-center">{row.paymentDate?.slice(0, 10)}</td>
                         <td className="px-3 py-2 border text-center">{row.status}</td>
-                        <td className="px-3 py-2 border">{row.message}</td>
                       </tr>
                     ))
                   ) : (
