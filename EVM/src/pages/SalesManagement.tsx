@@ -420,6 +420,9 @@ export default function SalesManagement() {
                       <span className="font-medium">{order.vehicleModel}</span>
                     </div>
                     <div className="flex items-center space-x-2">
+                      <span className="text-xs text-muted-foreground">{order.vehicleId}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
                       <Calendar className="w-3 h-3 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">
                         {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ""}

@@ -126,7 +126,14 @@ export default function FirebaseImageSelector({
   };
 
   const handleConfirm = () => {
+    // Always update the preview by clearing the error style if present
     onChange(selectedImage);
+    setTimeout(() => {
+      const previewImg = document.querySelector(`img[data-firebase-preview="${storagePath}"]`);
+      if (previewImg) {
+        (previewImg as HTMLImageElement).style.display = '';
+      }
+    }, 50);
     setIsDialogOpen(false);
   };
 
@@ -261,6 +268,7 @@ export default function FirebaseImageSelector({
             src={value} 
             alt="Preview" 
             className="max-h-20 object-contain border rounded"
+            data-firebase-preview={storagePath}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
             }}
