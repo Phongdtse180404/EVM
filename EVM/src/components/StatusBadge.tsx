@@ -16,7 +16,7 @@ const statusMap: Record<VehicleStatus, { label: string; className: string }> = {
   },
   UNDELIVERED: {
     label: "Chưa giao",
-    className: "bg-muted/20 text-muted border-muted",
+    className: "bg-purple-100 text-purple-700 border-purple-300",
   },
   DELIVERED: {
     label: "Đã giao",
